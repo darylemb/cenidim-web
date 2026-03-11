@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<script>
+function filterTable() {
+  String.prototype.localeContains = function(sub) {
+    if(sub==="") return true;
+    if(!sub || !this.length) return false;
+    sub = ""+sub;
+    if(sub.length>this.length) return false;
+    let ascii = s => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return ascii(this).includes(ascii(sub));
+  }
+  
+  var input, feild, filter, table, tr, td, i, j, txtValue, minLen;
+  input = document.getElementById("myInput");
+  field = document.getElementById("myField");
+  
+  minLen = 3;
+  
+  if (input.value.length >= minLen){
+    filter = input.value.toUpperCase();
+    table = document.getElementById("myTable");
+    tr = table.getElementsByTagName("tr");
+    
+    for (i = 0; i < tr.length; i++) {
+      td = tr[i].getElementsByTagName("td");
+      
+      if (td.length > 0){
+        if (field.value == "author"){
+          j = 2;
+        }else if(field.value == "year"){
+          j = 1;
+        }else if (field.value == "title"){
+          j = 3;
+        }else if(field.value == "track"){
+          j = 4;
+        }else{
+          j = -1;
+        }
+        
+        if (j == -1){
+          for (j = 1; j < td.length-2; j++) {
+            txtValue = td[j].textContent || td[j].innerText;
+            //if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            if (txtValue.localeContains(filter)) {
+              tr[i].style.display = "";
+              break;
+            } else {
+              tr[i].style.display = "none";
+            }
+          }
+        }else{
+          txtValue = td[j].textContent || td[j].innerText;
+          //if (txtValue.toUpperCase().indexOf(filter) > -1) {
+          if (txtValue.localeContains(filter)) {
+            tr[i].style.display = "";
+          } else {
+            tr[i].style.display = "none";
+          }
+        }
+      }
+    }
+  }else{
+    if (field.value == "author"){
+      hideTable();
+    }else if(field.value == "year"){
+      hideTable();
+    }else if(field.value == "title"){
+      hideTable();
+    }else if(field.value == "track"){
+      hideTable();
+    }else{
+      showTable();
+    }
+  }
+}
+
+function resetSearch(){
+  var input, field;
+  field = document.getElementById("myField");
+  input = document.getElementById("myInput");
+  
+  input.value = ""
+  if (field.value == "author"){
+    input.placeholder="Buscar por intérprete..."
+  }else if(field.value == "year"){
+    input.placeholder="Buscar por año..."
+  }else if(field.value == "title"){
+    input.placeholder="Buscar por título..."
+  }else if(field.value == "track"){
+    input.placeholder="Buscar por pista..."
+  }else{
+    input.placeholder="Buscar..."
+  }
+  
+  showTable();
+}
+
+function showTrack(path){
+  var fetchedtext;
+  
+  Promise.all([
+  fetch(path).then(x => x.text())
+  ]).then(([fetchedtext]) => {
+    trackdiv = document.getElementById("letra");
+    trackdiv.style.display = "block";
+    //console.log(fetchedtext);
+    fetchedtext = fetchedtext.replace(/(?:\r\n|\r|\n)/g, '<br>');
+    trackdiv.innerHTML = fetchedtext;
+  });
+  trackbutton = document.getElementById("letrabutton");
+  trackbutton.style.display = "block";
+}
+
+function hideTrack(){
+  trackdiv = document.getElementById("letra");
+  trackdiv.style.display = "none";
+  //console.log(fetchedtext);
+  trackdiv.innerHTML = "";
+  trackbutton = document.getElementById("letrabutton");
+  trackbutton.style.display = "none";
+}
+
+function includeHTML() {
+  var z, i, elmnt, file, xhttp;
+  /* Loop through a collection of all HTML elements: */
+  z = document.getElementsByTagName("*");
+  for (i = 0; i < z.length; i++) {
+    elmnt = z[i];
+    /*search for elements with a certain atrribute:*/
+    file = elmnt.getAttribute("w3-include-html");
+    if (file) {
+      /* Make an HTTP request using the attribute value as the file name: */
+      xhttp = new XMLHttpRequest();
+      xhttp.onreadystatechange = function() {
+        if (this.readyState == 4) {
+          if (this.status == 200) {elmnt.innerHTML = this.responseText;}
+          if (this.status == 404) {elmnt.innerHTML = "Page not found.";}
+          /* Remove the attribute, and call this function once more: */
+          elmnt.removeAttribute("w3-include-html");
+          includeHTML();
+        }
+      }
+      xhttp.open("GET", file, true);
+      xhttp.send();
+      /* Exit the function: */
+      return;
+    }
+  }
+}
+
+function hideTable() {
+  var table, tr, tbody, i;
+  table = document.getElementById("myTable");
+  tbody = table.getElementsByTagName("tbody");
+  tr = tbody[0].getElementsByTagName("tr");
+  
+  for (i = 0; i < tr.length; i++) {
+    tr[i].style.display = "none";
+  }
+}
+
+function showTable() {
+  var table, tr, i;
+  table = document.getElementById("myTable");
+  tr = table.getElementsByTagName("tr");
+  
+  for (i = 0; i < tr.length; i++) {
+    tr[i].style.display = "";
+  }
+}
+
+document.onkeydown = function(evt) {
+    evt = evt || window.event;
+    var isEscape = false;
+    if ("key" in evt) {
+        isEscape = (evt.key === "Escape" || evt.key === "Esc");
+    } else {
+        isEscape = (evt.keyCode === 27);
+    }
+    if (isEscape) {
+        resetSearch();
+    }
+};
+
+</script>
+
+<head>
+  <!-- https://hakk.dev/blog/posts/html-table-filter/ -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Línea de Tiempo</title>
+<style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #dddddd;
+      padding: 8px;
+      text-align: left;
+    }
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    input[type=text] {
+      width: 20%;
+      padding: 8px;
+      margin-top: 6px;
+      margin-bottom: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    #letra {
+      position: fixed; /* Positions relative to the browser window */
+      bottom: 10px;    /* 10px from the bottom of the viewport */
+      right: 10px;     /* 10px from the right of the viewport */
+      background-color: white;
+      height:400px;
+      max-width:300px;
+      white-space:nowrap;
+      color: black;
+      padding: 10px;
+      display: none;
+      overflow:auto;
+    }
+    #letrabutton {
+      position: fixed; /* Positions relative to the browser window */
+      bottom: 388px;    /* 10px from the bottom of the viewport */
+      right: 25px;     /* 10px from the right of the viewport */
+      background-color: white;
+      color: black;
+      padding: 10px;
+      display: none;
+    }
+</style>
+</head>
+<body>
+
+<h2>Línea de Tiempo</h2>
+
+<button type="button" onclick="resetSearch()">Reset</button>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<select name="field" id="myField" onchange="resetSearch();" selected="author">
+  <option value="author">Interprete</option>
+  <option value="year">Año</option>
+  <option value="title">Título</option>
+  <option value="track">Pista</option>
+</select>
+<input type="text" id="myInput" onkeyup="filterTable()" placeholder="Buscar por intérprete...">
+
+<!-- to get this file do python get_alldata2html.py > datos.html -->
+<!-- this only works on an Apache server -->
+<div w3-include-html="datos.html"></div>
+
+<script>
+includeHTML();
+</script>
+
+<div id="letra">
+  
+</div>
+
+<div id="letrabutton">
+  <button onclick="hideTrack()">X</button>
+</div>
+
+</body>
+</html>
+
