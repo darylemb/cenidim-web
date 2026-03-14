@@ -22,13 +22,19 @@ const LyricModal = ({ songId, onClose }) => {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lyric-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
-            <h3>{song ? song.title : 'Cargando...'}</h3>
+            <h3 id="lyric-modal-title">{song ? song.title : 'Cargando...'}</h3>
             <span className="album-info">{song ? song.album : ''}</span>
           </div>
-          <button className="close-btn" onClick={onClose}>
+          <button className="close-btn" onClick={onClose} aria-label="Cerrar">
             &times;
           </button>
         </div>
@@ -46,7 +52,7 @@ const LyricModal = ({ songId, onClose }) => {
   );
 };
 
-export const Canciones = ({ results, loading, handleReset }) => {
+export const Canciones = ({ results = [], loading = false, handleReset }) => {
   const [selectedSongId, setSelectedSongId] = useState(null);
 
   return (

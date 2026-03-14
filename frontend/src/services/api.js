@@ -1,6 +1,6 @@
 /**
  * api.js
- * Service for FastAPI API calls.
+ * Service for Go/Gin API calls.
  *
  * Uses native fetch promises.
  * Routes use /api to align with the configured proxy.
