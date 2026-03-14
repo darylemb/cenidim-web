@@ -12,31 +12,41 @@ function App() {
   const [query, setQuery] = useState('');
   const [field, setField] = useState('all');
   const [results, setResults] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [loading, setLoading] = useState(false);
 
   // Perform search (params-driven to be stable)
-  const performSearch = useCallback((searchTerm, searchField) => {
+  const performSearch = useCallback((searchTerm, searchField, targetPage = 1, targetLimit = 20) => {
     setLoading(true);
+    // Update local state to reflect the search parameters being used
+    setPage(targetPage);
+    setLimit(targetLimit);
+    
     apiService
-      .searchSongs(searchTerm, searchField)
+      .searchSongs(searchTerm, searchField, targetPage, targetLimit)
       .then((data) => {
-        setResults(data);
+        setResults(data.results || []);
+        setTotal(data.total || 0);
         setLoading(false);
       })
       .catch(() => {
+        setResults([]);
+        setTotal(0);
         setLoading(false);
       });
   }, []);
 
   // Run initial default search on mount
   useEffect(() => {
-    performSearch('', 'all');
+    performSearch('', 'all', 1, 20);
   }, [performSearch]);
 
   const handleReset = () => {
     setQuery('');
     setField('all');
-    performSearch('', 'all');
+    performSearch('', 'all', 1, 20);
   };
 
   return (
@@ -50,14 +60,22 @@ function App() {
         setField={setField}
         performSearch={performSearch}
         handleReset={handleReset}
+        page={page}
+        limit={limit}
       />
 
       <main>
         {activeTab === "Canciones" ? (
           <Canciones
             results={results}
+            total={total}
+            page={page}
+            limit={limit}
             loading={loading}
             handleReset={handleReset}
+            performSearch={performSearch}
+            query={query}
+            field={field}
           />
         ) : activeTab === "Dashboards" ? (
           <DashboardView />

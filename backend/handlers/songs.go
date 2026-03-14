@@ -14,35 +14,61 @@ import (
 func SearchSongs(c *gin.Context) {
 	query := c.DefaultQuery("query", "")
 	field := c.DefaultQuery("field", "all")
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "20")
 
-	baseQuery := `
+	page, _ := strconv.Atoi(pageStr)
+	limit, _ := strconv.Atoi(limitStr)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	searchTerm := fmt.Sprintf("%%%s%%", query)
+
+	countQuery := "SELECT COUNT(*) FROM songs s JOIN albums a ON s.album_id = a.id"
+	searchQuery := `
 		SELECT s.id, s.title, a.name as album, s.filename
 		FROM songs s
 		JOIN albums a ON s.album_id = a.id
 	`
 
-	var rows *sql.Rows
-	var err error
-	searchTerm := fmt.Sprintf("%%%s%%", query)
+	var whereClause string
+	var args []interface{}
 
 	if query != "" {
 		switch field {
 		case "title":
-			rows, err = database.DB.Query(baseQuery+" WHERE s.title LIKE ?", searchTerm)
+			whereClause = " WHERE s.title LIKE ?"
+			args = append(args, searchTerm)
 		case "album":
-			rows, err = database.DB.Query(baseQuery+" WHERE a.name LIKE ?", searchTerm)
+			whereClause = " WHERE a.name LIKE ?"
+			args = append(args, searchTerm)
 		case "lyrics":
-			rows, err = database.DB.Query(baseQuery+" WHERE s.lyrics LIKE ?", searchTerm)
+			whereClause = " WHERE s.lyrics LIKE ?"
+			args = append(args, searchTerm)
 		default: // "all"
-			rows, err = database.DB.Query(
-				baseQuery+" WHERE s.title LIKE ? OR a.name LIKE ? OR s.lyrics LIKE ?",
-				searchTerm, searchTerm, searchTerm,
-			)
+			whereClause = " WHERE s.title LIKE ? OR a.name LIKE ? OR s.lyrics LIKE ?"
+			args = append(args, searchTerm, searchTerm, searchTerm)
 		}
-	} else {
-		rows, err = database.DB.Query(baseQuery + " LIMIT 100")
 	}
 
+	// Get total count
+	var total int
+	err := database.DB.QueryRow(countQuery+whereClause, args...).Scan(&total)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error counting results"})
+		return
+	}
+
+	// Get paginated results
+	finalQuery := searchQuery + whereClause + " LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	rows, err := database.DB.Query(finalQuery, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -58,12 +84,11 @@ func SearchSongs(c *gin.Context) {
 		}
 		songs = append(songs, s)
 	}
-	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
 
-	c.JSON(http.StatusOK, songs)
+	c.JSON(http.StatusOK, gin.H{
+		"results": songs,
+		"total":   total,
+	})
 }
 
 func GetSong(c *gin.Context) {

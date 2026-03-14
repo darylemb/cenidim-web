@@ -9,6 +9,7 @@ export const NavBar = ({
   setField,
   performSearch,
   handleReset,
+  limit,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const links = ['Canciones', 'Dashboards'];
@@ -23,7 +24,7 @@ export const NavBar = ({
   };
 
   const handleSearch = () => {
-    performSearch(query, field);
+    performSearch(query, field, 1, limit);
     setIsMenuOpen(false);
   };
 

@@ -10,15 +10,17 @@ const BASE_URL = '/api';
 
 export const apiService = {
   /**
-   * Search songs in the backend.
+   * Search songs in the backend with pagination.
    * @param {string} query Text to search
    * @param {string} field Field to search (default "all")
-   * @returns {Promise<Array>} List of songs that match
+   * @param {number} page Current page number (default 1)
+   * @param {number} limit Number of items per page (default 20)
+   * @returns {Promise<Object>} Object with "results" array and "total" count
    */
-  searchSongs: async (query = '', field = 'all') => {
+  searchSongs: async (query = '', field = 'all', page = 1, limit = 20) => {
     try {
       const response = await fetch(
-        `${BASE_URL}/search?query=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}`
+        `${BASE_URL}/search?query=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&page=${page}&limit=${limit}`
       );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
