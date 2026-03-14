@@ -60,7 +60,6 @@ function App() {
         setField={setField}
         performSearch={performSearch}
         handleReset={handleReset}
-        page={page}
         limit={limit}
       />
 

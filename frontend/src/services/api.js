@@ -20,7 +20,7 @@ export const apiService = {
   searchSongs: async (query = '', field = 'all', page = 1, limit = 20) => {
     try {
       const response = await fetch(
-        `${BASE_URL}/search?query=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&page=${page}&limit=${limit}`
+        `${BASE_URL}/search?query=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&page=${Number(page)}&limit=${Number(limit)}`
       );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
