@@ -6,57 +6,59 @@ import React from 'react';
 // Mock the api service completely
 jest.mock('../services/api');
 
+const mockSongs = [
+  { id: 1, album: 'Vol. 2', title: 'La Cucaracha', filename: 'cuca.txt' },
+  { id: 2, album: 'Vol. 1', title: 'Cielito Lindo', filename: 'cielito.txt' },
+];
+
 describe('Canciones Component', () => {
   beforeEach(() => {
-    // Clear all instances and calls to constructor and all methods
     jest.clearAllMocks();
   });
 
-  test('renders initial layout properly', async () => {
-    // Mock default search response empty
-    apiService.searchSongs.mockResolvedValueOnce([]);
-
-    render(<Canciones />);
+  test('renders with no results and shows empty state', () => {
+    render(<Canciones results={[]} loading={false} handleReset={() => {}} />);
 
     expect(screen.getByText('Canciones')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Buscar...')).toBeInTheDocument();
-
-    // Check for our custom loading state immediately
-    expect(screen.getByText('Buscando en la base de datos...')).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('No se encontraron resultados para su búsqueda.')
-      ).toBeInTheDocument();
-    });
+    expect(screen.getByText('No se encontraron resultados para su búsqueda.')).toBeInTheDocument();
   });
 
-  test('performs search API call and renders songs correctly', async () => {
-    const mockSongs = [{ id: 1, album: 'Vol. 2', title: 'La Cucaracha', filename: 'cuca.txt' }];
+  test('renders song list when results are provided', () => {
+    render(<Canciones results={mockSongs} loading={false} handleReset={() => {}} />);
 
-    // First call (on mount)
-    apiService.searchSongs.mockResolvedValueOnce([]);
-    // Second call (on explicit search)
-    apiService.searchSongs.mockResolvedValueOnce(mockSongs);
+    expect(screen.getByText('La Cucaracha')).toBeInTheDocument();
+    expect(screen.getByText('Vol. 2')).toBeInTheDocument();
+    expect(screen.getByText('cuca.txt')).toBeInTheDocument();
+    expect(screen.getByText('Cielito Lindo')).toBeInTheDocument();
+  });
 
+  test('shows loading overlay when loading prop is true', () => {
+    render(<Canciones results={[]} loading={true} handleReset={() => {}} />);
+
+    expect(screen.getByText('Buscando en el archivo del CENIDIM...')).toBeInTheDocument();
+  });
+
+  test('renders safely with default props (no crash without props)', () => {
     render(<Canciones />);
+    expect(screen.getByText('Canciones')).toBeInTheDocument();
+  });
 
-    // Wait for initial render to finish
-    await waitFor(() => screen.getByText('No se encontraron resultados para su búsqueda.'));
+  test('opens lyrics modal when "Ver Letra" is clicked', async () => {
+    apiService.getSongDetail.mockResolvedValueOnce({
+      id: 1,
+      title: 'La Cucaracha',
+      album: 'Vol. 2',
+      lyrics: 'La cucaracha, la cucaracha...',
+    });
 
-    // Trigger search
-    const searchInput = screen.getByPlaceholderText('Buscar...');
-    const searchBtn = screen.getByText('Buscar');
+    render(<Canciones results={mockSongs} loading={false} handleReset={() => {}} />);
 
-    fireEvent.change(searchInput, { target: { value: 'Cucaracha' } });
-    fireEvent.click(searchBtn);
-
-    expect(screen.getByText('Buscando en la base de datos...')).toBeInTheDocument();
+    const buttons = screen.getAllByText('Ver Letra');
+    fireEvent.click(buttons[0]);
 
     await waitFor(() => {
-      expect(screen.getByText('La Cucaracha')).toBeInTheDocument();
-      expect(screen.getByText('Vol. 2')).toBeInTheDocument();
-      expect(screen.getByText('cuca.txt')).toBeInTheDocument();
+      expect(screen.getByText('La cucaracha, la cucaracha...')).toBeInTheDocument();
     });
+    expect(apiService.getSongDetail).toHaveBeenCalledWith(1);
   });
 });

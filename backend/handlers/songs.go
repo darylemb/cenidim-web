@@ -53,9 +53,14 @@ func SearchSongs(c *gin.Context) {
 	for rows.Next() {
 		var s models.Song
 		if err := rows.Scan(&s.ID, &s.Title, &s.Album, &s.Filename); err != nil {
-			continue
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading results"})
+			return
 		}
 		songs = append(songs, s)
+	}
+	if err := rows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
 	c.JSON(http.StatusOK, songs)

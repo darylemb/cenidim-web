@@ -34,7 +34,7 @@ export const NavBar = ({
           className="menu-toggle"
           onClick={toggleMenu}
           aria-expanded={isMenuOpen}
-          aria-label="Abrir menú de navegación"
+          aria-label={isMenuOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
         >
           <span className="hamburger-icon"></span>
         </button>
@@ -54,7 +54,11 @@ export const NavBar = ({
       </div>
 
       <div className={`nav-search ${isMenuOpen ? 'open' : ''}`}>
-        <select value={field} onChange={(e) => setField(e.target.value)}>
+        <select
+          value={field}
+          onChange={(e) => setField(e.target.value)}
+          aria-label="Filtrar búsqueda por campo"
+        >
           <option value="all">Filtro General</option>
           <option value="album">Álbum</option>
           <option value="title">Título</option>

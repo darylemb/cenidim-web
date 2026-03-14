@@ -112,6 +112,9 @@ func main() {
 			}
 
 			scanner := bufio.NewScanner(file)
+			// Use a larger buffer to handle long lyric lines
+			buf := make([]byte, 0, 64*1024)
+			scanner.Buffer(buf, 1024*1024)
 			var title string
 			var lyricsBuilder strings.Builder
 
@@ -125,6 +128,11 @@ func main() {
 					lyricsBuilder.WriteString(line)
 					lyricsBuilder.WriteString("\n")
 				}
+			}
+			if err := scanner.Err(); err != nil {
+				log.Printf("⚠️ Error reading song file %s: %v", songFilename, err)
+				_ = file.Close()
+				continue
 			}
 			_ = file.Close()
 
