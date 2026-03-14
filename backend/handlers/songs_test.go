@@ -57,6 +57,11 @@ func TestSearchSongsIntegration(t *testing.T) {
 	r := gin.New()
 	r.GET("/search", SearchSongs)
 
+	type searchResponse struct {
+		Results []models.Song `json:"results"`
+		Total   int           `json:"total"`
+	}
+
 	// Test Case 1: Search by title
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/search?query=test&field=title", nil)
@@ -64,21 +69,23 @@ func TestSearchSongsIntegration(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var results []models.Song
-	err := json.Unmarshal(w.Body.Bytes(), &results)
+	var resp searchResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	require.NoError(t, err)
-	assert.Len(t, results, 1)
-	assert.Equal(t, "Test Song", results[0].Title)
+	assert.Equal(t, 1, resp.Total)
+	assert.Len(t, resp.Results, 1)
+	assert.Equal(t, "Test Song", resp.Results[0].Title)
 
 	// Test Case 2: No results
 	w2 := httptest.NewRecorder()
 	req2, _ := http.NewRequest("GET", "/search?query=nonexistent", nil)
 	r.ServeHTTP(w2, req2)
 
-	var emptyResults []models.Song
-	err = json.Unmarshal(w2.Body.Bytes(), &emptyResults)
+	var emptyResp searchResponse
+	err = json.Unmarshal(w2.Body.Bytes(), &emptyResp)
 	require.NoError(t, err)
-	assert.Empty(t, emptyResults)
+	assert.Equal(t, 0, emptyResp.Total)
+	assert.Empty(t, emptyResp.Results)
 }
 
 func TestGetSongIntegration(t *testing.T) {
