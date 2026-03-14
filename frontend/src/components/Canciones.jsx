@@ -52,12 +52,51 @@ const LyricModal = ({ songId, onClose }) => {
   );
 };
 
-export const Canciones = ({ results = [], loading = false, handleReset }) => {
+export const Canciones = ({
+  results = [],
+  total,
+  page = 1,
+  limit = 20,
+  loading = false,
+  handleReset,
+  performSearch,
+  query,
+  field,
+}) => {
   const [selectedSongId, setSelectedSongId] = useState(null);
+
+  const displayTotal = total ?? results.length;
+  const totalPages = Math.ceil(displayTotal / limit);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      performSearch(query, field, newPage, limit);
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (prefersReducedMotion) {
+        window.scrollTo(0, 0);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  };
+
+  const handleLimitChange = (e) => {
+    const newLimit = parseInt(e.target.value, 10);
+    performSearch(query, field, 1, newLimit);
+  };
 
   return (
     <div className="content-area">
-      <h2 className="page-title">Canciones</h2>
+      <div className="page-header-flex">
+        <h2 className="page-title">Canciones</h2>
+        <div className="total-indicator">
+          <strong>{displayTotal}</strong> canciones encontradas
+        </div>
+      </div>
 
       <div className="results-table-container">
         {loading && (
@@ -118,7 +157,66 @@ export const Canciones = ({ results = [], loading = false, handleReset }) => {
         </table>
       </div>
 
-      {/* Render modal if a song is selected */}
+      {!loading && displayTotal > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            Mostrando <strong>{results.length}</strong> de <strong>{displayTotal}</strong>{' '}
+            resultados
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              disabled={page === 1}
+              onClick={() => handlePageChange(page - 1)}
+            >
+              &laquo; Anterior
+            </button>
+
+            <div className="pagination-pages">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (page <= 3) {
+                  pageNum = i + 1;
+                } else if (page >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = page - 2 + i;
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    className={`page-num ${page === pageNum ? 'active' : ''}`}
+                    onClick={() => handlePageChange(pageNum)}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              className="pagination-btn"
+              disabled={page === totalPages}
+              onClick={() => handlePageChange(page + 1)}
+            >
+              Siguiente &raquo;
+            </button>
+          </div>
+
+          <div className="pagination-limit">
+            <select value={limit} onChange={handleLimitChange} aria-label="Resultados por página">
+              <option value="20">20 por página</option>
+              <option value="50">50 por página</option>
+              <option value="100">100 por página</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {selectedSongId && (
         <LyricModal songId={selectedSongId} onClose={() => setSelectedSongId(null)} />
       )}
