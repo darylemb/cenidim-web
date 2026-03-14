@@ -10,7 +10,7 @@ function App() {
   const [activeTab, setActiveTab] = useState("Buscador");
 
   return (
-    <div className="App">
+    <div className="app-container">
       <Header />
       <HeroBanner />
       <NavBar activeTab={activeTab} setActiveTab={setActiveTab} />

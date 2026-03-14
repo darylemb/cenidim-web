@@ -12,15 +12,7 @@ import {
 import { Bar, Pie } from 'react-chartjs-2';
 
 // Registrar los módulos de chart.js que vamos a usar
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 export const DashboardView = () => {
   // Datos Dummies para la demostración
@@ -51,7 +43,7 @@ export const DashboardView = () => {
       title: {
         display: true,
         text: 'Distribución de Canciones por Álbum',
-        font: { size: 16 }
+        font: { size: 16 },
       },
     },
   };
@@ -65,9 +57,9 @@ export const DashboardView = () => {
         data: [35, 10, 40, 10, 5],
         backgroundColor: [
           'rgba(197, 164, 108, 0.8)', // Dorado
-          'rgba(54, 162, 235, 0.8)',  // Azul
-          'rgba(117, 20, 40, 0.8)',   // Guinda
-          'rgba(75, 192, 192, 0.8)',  // Verde
+          'rgba(54, 162, 235, 0.8)', // Azul
+          'rgba(117, 20, 40, 0.8)', // Guinda
+          'rgba(75, 192, 192, 0.8)', // Verde
           'rgba(153, 102, 255, 0.8)', // Morado
         ],
         borderColor: [
@@ -92,7 +84,7 @@ export const DashboardView = () => {
       title: {
         display: true,
         text: 'Clasificación Temática / Sentimientos (Dummy Data)',
-        font: { size: 16 }
+        font: { size: 16 },
       },
     },
   };
@@ -100,7 +92,7 @@ export const DashboardView = () => {
   return (
     <div className="content-area">
       <h2 className="page-title">Dashboards Analíticos</h2>
-      
+
       {/* Tarjetas de Métricas Rápidas (KPIs) */}
       <div className="dashboard-kpis">
         <div className="kpi-card">
@@ -108,13 +100,13 @@ export const DashboardView = () => {
           <div className="kpi-value">{totalAlbums}</div>
           <p className="kpi-desc">Colecciones indexadas en la base de datos.</p>
         </div>
-        
+
         <div className="kpi-card">
           <h3>Total de Canciones</h3>
           <div className="kpi-value">{totalCanciones}</div>
           <p className="kpi-desc">Letras disponibles para análisis NLP.</p>
         </div>
-        
+
         <div className="kpi-card">
           <h3>Modelo NLP Activo</h3>
           <div className="kpi-value status-ok">Esperando...</div>
@@ -127,7 +119,7 @@ export const DashboardView = () => {
         <div className="chart-container">
           <Bar data={barChartData} options={barChartOptions} />
         </div>
-        
+
         <div className="chart-container">
           <Pie data={pieChartData} options={pieChartOptions} />
         </div>

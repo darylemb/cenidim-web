@@ -2,56 +2,50 @@
 
 This repository contains the full stack web application for **Cenidim** (Centro Nacional de Investigación, Documentación e Información Musical "Carlos Chávez").
 
-The application serves a database of musical lyrics, allowing users to search by title, album, or lyric content. It also includes statistical dashboards built as a foundation for future Natural Language Processing (NLP) sentiment analysis integrations.
+The application serves a digital archive of musical lyrics, allowing users to search by title, album, or lyric content. It includes statistical dashboards and follows professional software development standards (Linting, CI/CD, and Unit Testing).
 
 ## Architecture
 
-This project is decoupled into a backend API and a frontend client:
+The project follows a modern decoupled architecture:
 
-1. **Backend (Python / FastAPI)**: A lightweight, high-performance API that connects to a local SQLite database (`letras.db`). It serves the search results and provides raw text data ready to be consumed by AI models.
-2. **Frontend (React)**: A responsive, modern user interface that authentically replicates the institutional design system.
+1.  **Backend (Go - Gin)**: A high-performance, low-latency API written in Go. It runs on a **Distroless** image for maximum security, handling search logic with millisecond response times.
+2.  **Frontend (React)**: A "Premium White" minimalist user interface, served via an **unprivileged Nginx** container for a reduced attack surface.
+3.  **Data Management**: A custom Go-based builder script that parses raw text data into a structured SQLite database during the Docker build phase.
 
 ## Setup Instructions
 
-### 1. Running Locally (Development)
-
-**Backend Setup:**
-Open a terminal in the root directory and run:
+### 1. Database Initialization
+Before running the application, you must build the database from the raw metadata:
 ```bash
-# Create and activate a virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install the Python dependencies
-pip install -r requirements.txt
-
-# Run the FastAPI server
-uvicorn main:app --reload --port 8000
+./scripts/build_db.sh
 ```
-The interactive API documentation will be automatically available at `http://localhost:8000/docs`.
+*This requires Go to be installed on your machine.*
 
-**Frontend Setup:**
-Open a new terminal window and run:
+### 2. Running with Docker (Recommended)
+You can spin up the entire stack using Docker Compose:
+```bash
+docker compose up --build -d
+```
+- **Frontend**: Available at `http://localhost` (served via Nginx).
+- **Backend API**: Internal port 8080, mapped to `http://localhost:8000`.
+- **Health Check**: `http://localhost:8000/health`.
+
+### 3. Local Development
+
+**Backend (Go):**
+```bash
+cd backend
+go run main.go
+```
+
+**Frontend (React):**
 ```bash
 cd frontend
 npm install
 npm start
 ```
-The React application will open in your browser at `http://localhost:3000`.
 
-### 2. Running with Docker (Production)
-
-You can easily spin up the entire application stack using Docker Compose. Make sure Docker is running on your machine, then run:
-
-```bash
-docker compose up --build -d
-```
-
-- The React frontend will be built and served via a lightning-fast Nginx container on port `80` (`http://localhost`).
-- The FastAPI backend will run on port `8000`.
-- The local SQLite database (`letras.db`) is mounted as a volume to ensure data persistence.
-
-To stop the containers, use:
-```bash
-docker compose down
-```
+## Testing and Quality
+- **Backend**: `go test ./...` (includes Unit and Integration tests).
+- **Frontend**: `npm test` (React Testing Library).
+- **CI/CD**: Fully automated pipeline via GitHub Actions.
