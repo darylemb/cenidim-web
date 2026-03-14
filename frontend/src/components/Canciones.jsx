@@ -206,7 +206,11 @@ export const Canciones = ({
           </div>
 
           <div className="pagination-limit">
-            <select value={limit} onChange={handleLimitChange}>
+            <select
+              value={limit}
+              onChange={handleLimitChange}
+              aria-label="Resultados por página"
+            >
               <option value="20">20 por página</option>
               <option value="50">50 por página</option>
               <option value="100">100 por página</option>
