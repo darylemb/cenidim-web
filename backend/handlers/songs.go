@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -81,7 +82,8 @@ func SearchSongs(c *gin.Context) {
 
 	rows, err := database.DB.Query(finalQuery, args...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("error querying songs: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error searching results"})
 		return
 	}
 	defer func() { _ = rows.Close() }()
