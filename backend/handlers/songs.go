@@ -20,12 +20,12 @@ func SearchSongs(c *gin.Context) {
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid 'page' parameter; must be a positive integer"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid 'page' parameter; must be an integer"})
 		return
 	}
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid 'limit' parameter; must be a positive integer"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid 'limit' parameter; must be an integer"})
 		return
 	}
 	if page < 1 {

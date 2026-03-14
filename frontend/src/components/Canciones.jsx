@@ -54,7 +54,7 @@ const LyricModal = ({ songId, onClose }) => {
 
 export const Canciones = ({
   results = [],
-  total = 0,
+  total,
   page = 1,
   limit = 20,
   loading = false,
@@ -65,7 +65,8 @@ export const Canciones = ({
 }) => {
   const [selectedSongId, setSelectedSongId] = useState(null);
 
-  const totalPages = Math.ceil(total / limit);
+  const displayTotal = total ?? results.length;
+  const totalPages = Math.ceil(displayTotal / limit);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -93,7 +94,7 @@ export const Canciones = ({
       <div className="page-header-flex">
         <h2 className="page-title">Canciones</h2>
         <div className="total-indicator">
-          <strong>{total}</strong> canciones encontradas
+          <strong>{displayTotal}</strong> canciones encontradas
         </div>
       </div>
 
@@ -156,10 +157,10 @@ export const Canciones = ({
         </table>
       </div>
 
-      {!loading && total > 0 && (
+      {!loading && displayTotal > 0 && (
         <div className="pagination-container">
           <div className="pagination-info">
-            Mostrando <strong>{results.length}</strong> de <strong>{total}</strong> resultados
+            Mostrando <strong>{results.length}</strong> de <strong>{displayTotal}</strong> resultados
           </div>
 
           <div className="pagination-controls">
