@@ -70,7 +70,16 @@ export const Canciones = ({
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
       performSearch(query, field, newPage, limit);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (prefersReducedMotion) {
+        window.scrollTo(0, 0);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 
