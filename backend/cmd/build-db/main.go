@@ -129,8 +129,8 @@ func main() {
 					lyricsBuilder.WriteString("\n")
 				}
 			}
-			if err := scanner.Err(); err != nil {
-				log.Printf("⚠️ Error reading song file %s: %v", songFilename, err)
+			if scanErr := scanner.Err(); scanErr != nil {
+				log.Printf("⚠️ Error reading song file %s: %v", songFilename, scanErr)
 				_ = file.Close()
 				continue
 			}
