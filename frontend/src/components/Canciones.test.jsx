@@ -1,12 +1,12 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { Buscador } from './Buscador';
+import { Canciones } from './Canciones';
 import { apiService } from '../services/api';
 import React from 'react';
 
 // Mock the api service completely
 jest.mock('../services/api');
 
-describe('Buscador Component', () => {
+describe('Canciones Component', () => {
   beforeEach(() => {
     // Clear all instances and calls to constructor and all methods
     jest.clearAllMocks();
@@ -16,9 +16,9 @@ describe('Buscador Component', () => {
     // Mock default search response empty
     apiService.searchSongs.mockResolvedValueOnce([]);
 
-    render(<Buscador />);
+    render(<Canciones />);
 
-    expect(screen.getByText('Buscador')).toBeInTheDocument();
+    expect(screen.getByText('Canciones')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Buscar...')).toBeInTheDocument();
 
     // Check for our custom loading state immediately
@@ -39,7 +39,7 @@ describe('Buscador Component', () => {
     // Second call (on explicit search)
     apiService.searchSongs.mockResolvedValueOnce(mockSongs);
 
-    render(<Buscador />);
+    render(<Canciones />);
 
     // Wait for initial render to finish
     await waitFor(() => screen.getByText('No se encontraron resultados para su búsqueda.'));

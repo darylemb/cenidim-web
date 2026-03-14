@@ -33,43 +33,50 @@ export const DashboardView = () => {
     ],
   };
 
+  const isMobile = window.innerWidth < 768;
+
   const barChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'top',
+        display: !isMobile,
       },
       title: {
         display: true,
         text: 'Distribución de Canciones por Álbum',
-        font: { size: 16 },
+        font: { size: isMobile ? 14 : 16, weight: 'bold' },
+        padding: { bottom: 20 },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: '#f1f5f9' },
+      },
+      x: {
+        grid: { display: false },
       },
     },
   };
 
   // Datos para gráfico de pastel (Sentimientos Proyectados - Dummy)
   const pieChartData = {
-    labels: ['Alegría', 'Melancolía', 'Infantil/Didáctico', 'Naturaleza', 'Otros'],
+    labels: ['Alegría', 'Melancolía', 'Infantil', 'Naturaleza', 'Otros'],
     datasets: [
       {
         label: 'Proyección de Sentimientos',
         data: [35, 10, 40, 10, 5],
         backgroundColor: [
-          'rgba(197, 164, 108, 0.8)', // Dorado
-          'rgba(54, 162, 235, 0.8)', // Azul
-          'rgba(117, 20, 40, 0.8)', // Guinda
-          'rgba(75, 192, 192, 0.8)', // Verde
-          'rgba(153, 102, 255, 0.8)', // Morado
+          '#c5a46c', // Dorado
+          '#60a5fa', // Azul
+          '#751428', // Guinda
+          '#34d399', // Verde
+          '#a78bfa', // Morado
         ],
-        borderColor: [
-          'rgba(197, 164, 108, 1)',
-          'rgba(54, 162, 235, 1)',
-          'rgba(117, 20, 40, 1)',
-          'rgba(75, 192, 192, 1)',
-          'rgba(153, 102, 255, 1)',
-        ],
-        borderWidth: 1,
+        hoverOffset: 20,
+        borderWidth: 0,
       },
     ],
   };
@@ -79,12 +86,18 @@ export const DashboardView = () => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'right',
+        position: isMobile ? 'bottom' : 'right',
+        labels: {
+          usePointStyle: true,
+          padding: 20,
+          font: { size: 12 },
+        },
       },
       title: {
         display: true,
-        text: 'Clasificación Temática / Sentimientos (Dummy Data)',
-        font: { size: 16 },
+        text: 'Clasificación Temática',
+        font: { size: isMobile ? 14 : 16, weight: 'bold' },
+        padding: { bottom: 20 },
       },
     },
   };

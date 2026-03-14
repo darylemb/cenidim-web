@@ -5,7 +5,7 @@ This directory contains the user interface for the Cenidim Web Application, buil
 ## Features
 
 - **Institutional Design System**: Faithfully replicates the required visual identity with precise typography and colors (Guinda `#751428` and Gold `#C5A46C`).
-- **Search Engine (Buscador)**: Dynamically fetches data from the Python backend to filter through albums, track names, and lyrics without reloading the page. Features an elegant modal to display full song lyrics.
+- **Search Engine (Canciones)**: Dynamically fetches data from the Python backend to filter through albums, track names, and lyrics without reloading the page. Features an elegant modal to display full song lyrics.
 - **Analytics Dashboards**: Integrates `Chart.js` to visualize overall database metrics. This module acts as the foundation to display AI/NLP sentiment analysis data in the future.
 
 ## Available Scripts
