@@ -70,7 +70,7 @@ func SearchSongs(c *gin.Context) {
 
 	// Get total count
 	var total int
-	err := database.DB.QueryRow(countQuery+whereClause, args...).Scan(&total)
+	err = database.DB.QueryRow(countQuery+whereClause, args...).Scan(&total)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error counting results"})
 		return
