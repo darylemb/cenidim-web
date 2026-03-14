@@ -45,6 +45,12 @@ func setupTestDB(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO songs (id, title, album_id, filename, lyrics) VALUES (1, 'Test Song', 1, 'test.txt', 'This is a test lyric about love')`)
 	require.NoError(t, err)
+	// Additional songs for pagination tests. Titles avoid the word "test" so existing
+	// title-based search assertions remain valid.
+	_, err = db.Exec(`INSERT INTO songs (id, title, album_id, filename, lyrics) VALUES (2, 'Another Song', 1, 'another.txt', 'Another lyric about joy')`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO songs (id, title, album_id, filename, lyrics) VALUES (3, 'Final Song', 1, 'final.txt', 'Final lyric about closure')`)
+	require.NoError(t, err)
 
 	database.DB = db
 }
@@ -107,4 +113,61 @@ func TestGetSongIntegration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Test Song", s.Title)
 	assert.Contains(t, s.Lyrics, "test lyric")
+}
+
+func TestSearchSongsPagination(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupTestDB(t)
+	defer func() { _ = database.DB.Close() }()
+
+	r := gin.New()
+	r.GET("/search", SearchSongs)
+
+	type searchResponse struct {
+		Results []models.Song `json:"results"`
+		Total   int           `json:"total"`
+	}
+
+	// With three songs whose titles contain "Song", verify that limit/page slice correctly.
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/search?query=Song&field=title&limit=1&page=2", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var page2Resp searchResponse
+	err := json.Unmarshal(w.Body.Bytes(), &page2Resp)
+	require.NoError(t, err)
+	assert.Equal(t, 3, page2Resp.Total)
+	assert.Len(t, page2Resp.Results, 1)
+	// Assuming deterministic ordering by ID or insertion, the second page should
+	// return the song with ID 2 ("Another Song").
+	assert.Equal(t, "Another Song", page2Resp.Results[0].Title)
+
+	// Verify that invalid page values are clamped (e.g., page=0 behaves like page=1).
+	wPage1 := httptest.NewRecorder()
+	reqPage1, _ := http.NewRequest("GET", "/search?query=Song&field=title&limit=1&page=1", nil)
+	r.ServeHTTP(wPage1, reqPage1)
+
+	wPage0 := httptest.NewRecorder()
+	reqPage0, _ := http.NewRequest("GET", "/search?query=Song&field=title&limit=1&page=0", nil)
+	r.ServeHTTP(wPage0, reqPage0)
+
+	require.Equal(t, http.StatusOK, wPage1.Code)
+	require.Equal(t, http.StatusOK, wPage0.Code)
+	assert.Equal(t, wPage1.Body.Bytes(), wPage0.Body.Bytes())
+
+	// Verify that invalid limit values (e.g., limit=0) are handled as intended by
+	// comparing with the default behavior when limit is omitted.
+	wDefaultLimit := httptest.NewRecorder()
+	reqDefaultLimit, _ := http.NewRequest("GET", "/search?query=Song&field=title", nil)
+	r.ServeHTTP(wDefaultLimit, reqDefaultLimit)
+
+	wLimitZero := httptest.NewRecorder()
+	reqLimitZero, _ := http.NewRequest("GET", "/search?query=Song&field=title&limit=0", nil)
+	r.ServeHTTP(wLimitZero, reqLimitZero)
+
+	require.Equal(t, http.StatusOK, wDefaultLimit.Code)
+	require.Equal(t, http.StatusOK, wLimitZero.Code)
+	assert.Equal(t, wDefaultLimit.Body.Bytes(), wLimitZero.Body.Bytes())
 }
