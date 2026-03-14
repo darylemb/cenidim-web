@@ -1,9 +1,9 @@
-# Entornos virtuales
+# Virtual environments
 venv/
 env/
 .env/
 
-# Archivos compilados de Python
+# Python compiled files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -11,5 +11,23 @@ __pycache__/
 # macOS
 .DS_Store
 
-# Archivos de logs
+# Logs
 *.log
+
+# Node & React Frontend
+frontend/node_modules/
+frontend/build/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+#Caches
+.ruff_cache
+.pytest_cache
+.mypy_cache
+
+bin/
