@@ -160,7 +160,8 @@ export const Canciones = ({
       {!loading && displayTotal > 0 && (
         <div className="pagination-container">
           <div className="pagination-info">
-            Mostrando <strong>{results.length}</strong> de <strong>{displayTotal}</strong> resultados
+            Mostrando <strong>{results.length}</strong> de <strong>{displayTotal}</strong>{' '}
+            resultados
           </div>
 
           <div className="pagination-controls">
