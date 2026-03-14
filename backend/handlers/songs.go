@@ -25,6 +25,9 @@ func SearchSongs(c *gin.Context) {
 	if limit < 1 {
 		limit = 20
 	}
+	if limit > 100 {
+		limit = 100
+	}
 	offset := (page - 1) * limit
 
 	searchTerm := fmt.Sprintf("%%%s%%", query)
@@ -65,7 +68,7 @@ func SearchSongs(c *gin.Context) {
 	}
 
 	// Get paginated results
-	finalQuery := searchQuery + whereClause + " LIMIT ? OFFSET ?"
+	finalQuery := searchQuery + whereClause + " ORDER BY s.id LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 
 	rows, err := database.DB.Query(finalQuery, args...)
@@ -83,6 +86,10 @@ func SearchSongs(c *gin.Context) {
 			return
 		}
 		songs = append(songs, s)
+	}
+	if err := rows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error iterating results"})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
