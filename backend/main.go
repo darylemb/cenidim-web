@@ -10,7 +10,6 @@
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host localhost:8080
 // @BasePath /api
 package main
 
@@ -62,15 +61,15 @@ func main() {
 	{
 		api.GET("/search", handlers.SearchSongs)
 		api.GET("/song/:song_id", handlers.GetSong)
+
+		// Swagger documentation inside /api
+		api.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 	})
-
-	// Swagger documentation
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Run
 	port := os.Getenv("PORT")
