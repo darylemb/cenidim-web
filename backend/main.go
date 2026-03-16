@@ -1,3 +1,17 @@
+// @title Cenidim Songs API
+// @version 1.0
+// @description This is a sample server for Cenidim songs.
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /api
 package main
 
 import (
@@ -7,10 +21,13 @@ import (
 	"time"
 
 	"github.com/daryl/cenidim-go-api/database"
+	_ "github.com/daryl/cenidim-go-api/docs"
 	"github.com/daryl/cenidim-go-api/handlers"
 	"github.com/daryl/cenidim-go-api/middleware"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func main() {
@@ -51,6 +68,9 @@ func main() {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 	})
+
+	// Swagger documentation
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Run
 	port := os.Getenv("PORT")
