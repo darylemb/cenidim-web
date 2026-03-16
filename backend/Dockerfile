@@ -23,6 +23,8 @@ RUN ./db-builder -dir LetrasTXT -db letras.db
 
 # 3. Build the main API binary
 WORKDIR /app/backend
+RUN go install github.com/swaggo/swag/cmd/swag@v1.16.6
+RUN export PATH=$PATH:$(go env GOPATH)/bin && swag init -g main.go
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/main ./main.go
 
 # 4. Build a tiny healthcheck binary (since distroless has no curl)

@@ -1,0 +1,114 @@
+basePath: /api
+definitions:
+  models.SongDetail:
+    properties:
+      album:
+        type: string
+      filename:
+        type: string
+      id:
+        type: integer
+      lyrics:
+        type: string
+      title:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is a sample server for Cenidim songs.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Cenidim Songs API
+  version: "1.0"
+paths:
+  /search:
+    get:
+      consumes:
+      - application/json
+      description: Search songs by title, album, or lyrics with pagination
+      parameters:
+      - description: Search query
+        in: query
+        name: query
+        type: string
+      - description: Field to search in (title, album, lyrics, all)
+        in: query
+        name: field
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Search songs
+      tags:
+      - songs
+  /song/{song_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a song by ID
+      parameters:
+      - description: Song ID
+        in: path
+        name: song_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SongDetail'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get song detail
+      tags:
+      - songs
+swagger: "2.0"

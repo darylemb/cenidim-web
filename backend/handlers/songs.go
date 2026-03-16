@@ -12,6 +12,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// SearchSongs godoc
+// @Summary Search songs
+// @Description Search songs by title, album, or lyrics with pagination
+// @Tags songs
+// @Accept  json
+// @Produce  json
+// @Param query query string false "Search query"
+// @Param field query string false "Field to search in (title, album, lyrics, all)"
+// @Param page query int false "Page number"
+// @Param limit query int false "Items per page"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /search [get]
 func SearchSongs(c *gin.Context) {
 	query := c.DefaultQuery("query", "")
 	field := c.DefaultQuery("field", "all")
@@ -108,6 +122,18 @@ func SearchSongs(c *gin.Context) {
 	})
 }
 
+// GetSong godoc
+// @Summary Get song detail
+// @Description Get detailed information about a song by ID
+// @Tags songs
+// @Accept  json
+// @Produce  json
+// @Param song_id path int true "Song ID"
+// @Success 200 {object} models.SongDetail
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /song/{song_id} [get]
 func GetSong(c *gin.Context) {
 	idStr := c.Param("song_id")
 	id, err := strconv.Atoi(idStr)
