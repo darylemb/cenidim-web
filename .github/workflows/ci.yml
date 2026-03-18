@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend-go-checks:
-    runs-on: [self-hosted, rocky]
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./backend
@@ -36,7 +36,7 @@ jobs:
         run: go test -v ./...
 
   frontend-build:
-    runs-on: [self-hosted, rocky]
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./frontend
