@@ -49,4 +49,20 @@ export const apiService = {
       throw error;
     }
   },
+  /**
+   * Get songs grouped by year for the timeline view.
+   * @returns {Promise<Object>} Object with "years" array and "timeline" map
+   */
+  getTimeline: async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/timeline`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting timeline:', error);
+      throw error;
+    }
+  },
 };

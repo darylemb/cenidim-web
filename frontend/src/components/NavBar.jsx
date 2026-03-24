@@ -12,7 +12,7 @@ export const NavBar = ({
   limit,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const links = ['Canciones', 'Dashboards'];
+  const links = ['Línea de tiempo', 'Canciones', 'Dashboards'];
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);

@@ -3,10 +3,11 @@ import './index.css';
 import { CombinedHeader } from './components/CombinedHeader';
 import { Canciones } from './components/Canciones';
 import { DashboardView } from './components/DashboardView';
+import { Timeline } from './components/Timeline';
 import { apiService } from './services/api';
 
 function App() {
-  const [activeTab, setActiveTab] = useState("Canciones");
+  const [activeTab, setActiveTab] = useState("Línea de tiempo");
 
   // Search state lifted from Canciones.jsx
   const [query, setQuery] = useState('');
@@ -78,6 +79,8 @@ function App() {
           />
         ) : activeTab === "Dashboards" ? (
           <DashboardView />
+        ) : activeTab === "Línea de tiempo" ? (
+          <Timeline />
         ) : (
           <div className="content-area">
             <h2 className="page-title">{activeTab}</h2>

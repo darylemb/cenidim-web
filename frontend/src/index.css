@@ -913,3 +913,237 @@ body {
     transform: translateY(0);
   }
 }
+
+/* --- Pentagram Timeline --- */
+
+.pentagram-area {
+  display: flex;
+  flex-direction: column;
+  gap: 5rem;
+  padding: 4rem 0;
+}
+
+.staff-row {
+  position: relative;
+  height: 120px;
+  width: 100%;
+}
+
+.staff-lines {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.staff-lines .line {
+  height: 1px;
+  background-color: var(--text-primary);
+  opacity: 0.3;
+  width: 100%;
+}
+
+.measures-container {
+  position: relative;
+  height: 100%;
+  display: flex;
+  z-index: 2;
+}
+
+.measure {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-left: 2px solid var(--text-primary);
+}
+
+.measure:last-child {
+  border-right: 2px solid var(--text-primary);
+}
+
+.year-label-group {
+  position: absolute;
+  top: -3.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 0 0.5rem;
+  z-index: 3;
+}
+
+.measure-year {
+  font-weight: 800;
+  font-size: 1.5rem;
+  color: var(--accent);
+  background: var(--bg-main);
+  padding: 0 0.5rem;
+  line-height: 1;
+}
+
+.measure-metadata {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 150px;
+  line-height: 1.2;
+  font-weight: 600;
+  margin-top: 0.25rem;
+  background: var(--bg-main);
+  padding: 0 0.25rem;
+}
+
+.song-selector-container {
+  width: 80%;
+}
+
+.stylized-select {
+  width: 100%;
+  appearance: none;
+  background-color: white;
+  border: 2px solid var(--accent);
+  padding: 0.5rem 1rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23751428'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+  border-radius: 4px !important;
+}
+
+.stylized-select:hover {
+  background-color: var(--bg-soft);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.stylized-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(117, 20, 40, 0.2);
+}
+
+/* Lyrics Modal Enhancements */
+.lyrics-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+}
+
+.lyrics-modal {
+  background: white;
+  width: 100%;
+  max-width: 700px;
+  max-height: 85vh;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.lyrics-content {
+  padding: 2.5rem;
+  overflow-y: auto;
+}
+
+.lyrics-content h3 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+.album-info {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+}
+
+.lyrics-content hr {
+  border: 0;
+  border-top: 1px solid var(--border-light);
+  margin-bottom: 2rem;
+}
+
+.lyrics-content pre {
+  font-family: var(--font-family);
+  white-space: pre-wrap;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+.close-modal {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-soft);
+  border: none;
+  border-radius: 50% !important;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  z-index: 10;
+}
+
+.close-modal:hover {
+  background-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .measure-year {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .staff-row {
+    height: auto;
+    margin-bottom: 2rem;
+  }
+  .measures-container {
+    flex-direction: column;
+  }
+  .measure {
+    border-left: none;
+    border-bottom: 2px solid var(--text-primary);
+    padding: 2rem 0;
+  }
+  .measure:last-child {
+    border-right: none;
+  }
+  .measure-year {
+    position: static;
+    margin-bottom: 0.5rem;
+  }
+}

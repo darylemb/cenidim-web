@@ -61,6 +61,7 @@ func main() {
 	{
 		api.GET("/search", handlers.SearchSongs)
 		api.GET("/song/:song_id", handlers.GetSong)
+		api.GET("/timeline", handlers.GetTimeline)
 
 		// Swagger documentation inside /api
 		api.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
