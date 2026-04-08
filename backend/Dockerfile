@@ -9,18 +9,18 @@ RUN apk add --no-cache git
 # Copy the entire backend project
 COPY backend/ ./backend/
 COPY LetrasTXT/ ./LetrasTXT/
-COPY datos.html ./datos.html
+COPY db_fonografia.csv ./db_fonografia.csv
 
 # Move into the backend directory to run Go commands
 WORKDIR /app/backend
 RUN go mod download
 
 # 1. Build the database builder tool
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/db-builder ./cmd/build-db/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/db-builder ./cmd/build-db/
 
 # 2. Execute the tool to generate letras.db
 WORKDIR /app
-RUN ./db-builder -html datos.html -db letras.db
+RUN ./db-builder -csv db_fonografia.csv -db letras.db -letras LetrasTXT
 
 # 3. Build the main API binary
 WORKDIR /app/backend

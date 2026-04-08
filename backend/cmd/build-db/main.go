@@ -2,18 +2,21 @@ package main
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"flag"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"unicode"
 
-	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
-	"unicode"
 	_ "modernc.org/sqlite"
 )
 
@@ -122,7 +125,7 @@ func levenshteinDistance(s, t string) int {
 			if s[i-1] == t[j-1] {
 				d[i][j] = d[i-1][j-1]
 			} else {
-				d[i][j] = min(d[i-1][j]+1, min(d[i][j-1]+1, d[i-1][j-1]+1))
+				d[i][j] = minInt(d[i-1][j]+1, minInt(d[i][j-1]+1, d[i-1][j-1]+1))
 			}
 		}
 	}
@@ -130,20 +133,81 @@ func levenshteinDistance(s, t string) int {
 	return d[len(s)][len(t)]
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
 }
 
+// extractSongTitles parses the Pistas column text and returns individual song titles.
+// Format example: "Lado 1: 1. Song title (composer), 2. Another song; Lado 2: ..."
+func extractSongTitles(pistas string) []string {
+	// Find all numbered track positions: digits followed by ". "
+	trackRe := regexp.MustCompile(`\d+\.\s+`)
+	idxPairs := trackRe.FindAllStringIndex(pistas, -1)
+	if len(idxPairs) == 0 {
+		return nil
+	}
+
+	// Trailing composer/metadata stripper: last parenthetical
+	trailingParen := regexp.MustCompile(`\s*\([^)]*\)\s*$`)
+
+	var titles []string
+	for i, idx := range idxPairs {
+		start := idx[1] // after "N. "
+		var raw string
+		if i+1 < len(idxPairs) {
+			// end is just before the next track number marker
+			// Walk back over the preceding ", " or "; "
+			end := idxPairs[i+1][0]
+			raw = strings.TrimRight(pistas[start:end], " ,;")
+		} else {
+			raw = strings.TrimRight(pistas[start:], " ,;")
+		}
+
+		// Strip trailing parenthetical (composer credit)
+		raw = trailingParen.ReplaceAllString(raw, "")
+		raw = strings.TrimSpace(raw)
+		if raw != "" {
+			titles = append(titles, raw)
+		}
+	}
+	return titles
+}
+
+func loadLyrics(letrasRoot, trackTitle string) (lyrics, filename string) {
+	found, _ := findLyricsFile(letrasRoot, trackTitle)
+	if found == "" {
+		return "", ""
+	}
+	content, err := os.ReadFile(found)
+	if err != nil {
+		log.Printf("⚠️ Error reading lyrics for %s: %v", trackTitle, err)
+		return "", ""
+	}
+	lyricsText := string(content)
+	filename = filepath.Base(found)
+	// Remove first line if it matches the title
+	lines := strings.SplitN(lyricsText, "\n", 2)
+	if len(lines) > 0 && normalize(strings.TrimSpace(lines[0])) == normalize(trackTitle) {
+		if len(lines) > 1 {
+			lyricsText = strings.TrimSpace(lines[1])
+		} else {
+			lyricsText = ""
+		}
+	}
+	return strings.TrimSpace(lyricsText), filename
+}
+
 func main() {
-	// Paths relative to the project root
-	htmlPath := flag.String("html", "../datos.html", "Path to the datos.html file")
+	csvPath := flag.String("csv", "../db_fonografia.csv", "Path to db_fonografia.csv")
 	dbPath := flag.String("db", "letras.db", "Path to the SQLite database file")
+	letrasDir := flag.String("letras", "../LetrasTXT", "Path to LetrasTXT directory")
+	adminPass := flag.String("admin-pass", "admin123", "Initial admin user password")
 	flag.Parse()
 
-	log.Printf("🚀 Parsing %s and building database at %s...", *htmlPath, *dbPath)
+	log.Printf("🚀 Parsing %s and building database at %s...", *csvPath, *dbPath)
 
 	// Remove existing DB
 	if _, err := os.Stat(*dbPath); err == nil {
@@ -158,166 +222,164 @@ func main() {
 	}
 	defer func() { _ = db.Close() }()
 
-	// Create tables
 	_, err = db.Exec(`
-		CREATE TABLE albums (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT UNIQUE NOT NULL,
-			year TEXT,
-			performer TEXT
+		CREATE TABLE fonogramas (
+			clave_fonograma    INTEGER PRIMARY KEY,
+			titulo             TEXT NOT NULL,
+			subtitulo          TEXT,
+			interprete_principal   TEXT,
+			interpretes_invitados  TEXT,
+			interprete_participante TEXT,
+			soporte_fisico     TEXT,
+			editora            TEXT,
+			numero_catalogo    TEXT,
+			ciudad_edicion     TEXT,
+			pais_edicion       TEXT,
+			anio               TEXT,
+			pistas             TEXT,
+			observaciones      TEXT
 		);
 		CREATE TABLE songs (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			album_id INTEGER,
-			title TEXT NOT NULL,
-			filename TEXT,
-			lyrics TEXT,
-			FOREIGN KEY (album_id) REFERENCES albums(id)
+			id           INTEGER PRIMARY KEY AUTOINCREMENT,
+			fonograma_id INTEGER NOT NULL,
+			title        TEXT NOT NULL,
+			filename     TEXT,
+			lyrics       TEXT,
+			FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
+		);
+		CREATE TABLE users (
+			id            INTEGER PRIMARY KEY AUTOINCREMENT,
+			username      TEXT UNIQUE NOT NULL,
+			email         TEXT UNIQUE NOT NULL,
+			password_hash TEXT NOT NULL,
+			role          TEXT NOT NULL DEFAULT 'viewer',
+			created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
 	if err != nil {
 		log.Fatalf("❌ Failed to create tables: %v", err)
 	}
 
-	file, err := os.Open(*htmlPath)
+	// Open and parse CSV
+	csvFile, err := os.Open(*csvPath)
 	if err != nil {
-		log.Fatalf("❌ Failed to open HTML file: %v", err)
+		log.Fatalf("❌ Failed to open CSV: %v", err)
 	}
-	defer file.Close()
+	defer func() { _ = csvFile.Close() }()
 
-	doc, err := goquery.NewDocumentFromReader(file)
-	if err != nil {
-		log.Fatalf("❌ Failed to parse HTML: %v", err)
+	reader := csv.NewReader(csvFile)
+	reader.LazyQuotes = true
+	reader.FieldsPerRecord = -1 // allow variable number of fields
+
+	// Skip header
+	if _, err := reader.Read(); err != nil {
+		log.Fatalf("❌ Failed to read CSV header: %v", err)
 	}
 
-	letrasRoot := filepath.Dir(*htmlPath)
-
-	// Start transaction
 	tx, err := db.Begin()
 	if err != nil {
 		log.Fatalf("❌ Failed to start transaction: %v", err)
 	}
 
-	albumCount := 0
+	fonogramaCount := 0
 	songCount := 0
 
-	// Regex to extract path from showTrack('./path/to/file.txt')
-	re := regexp.MustCompile(`showTrack\(['"](.+)['"]\)`)
-
-	doc.Find("#myTable tbody tr").Each(func(i int, s *goquery.Selection) {
-		tds := s.Find("td")
-		if tds.Length() < 5 {
-			return
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
 		}
-
-		// Table columns: 0:ClavedeFonograma, 1:Año, 2:Intérprete principal, 3:Titulo (Album), 4:Pistas
-		year := strings.TrimSpace(tds.Eq(1).Text())
-		performer := strings.TrimSpace(tds.Eq(2).Text())
-		albumName := strings.TrimSpace(tds.Eq(3).Text())
-
-		if albumName == "" {
-			return
-		}
-
-		// Insert album
-		_, err := tx.Exec("INSERT OR IGNORE INTO albums (name, year, performer) VALUES (?, ?, ?)", albumName, year, performer)
 		if err != nil {
-			log.Printf("⚠️ Error inserting album %s: %v", albumName, err)
-			return
+			log.Printf("⚠️ CSV read error, skipping row: %v", err)
+			continue
 		}
 
-		var albumID int64
-		err = tx.QueryRow("SELECT id FROM albums WHERE name = ?", albumName).Scan(&albumID)
+		// Pad record to 14 fields
+		for len(record) < 14 {
+			record = append(record, "")
+		}
+
+		claveStr := strings.TrimSpace(record[0])
+		if claveStr == "" {
+			continue
+		}
+		clave, err := strconv.Atoi(claveStr)
 		if err != nil {
-			log.Printf("⚠️ Error getting ID for album %s: %v", albumName, err)
-			return
+			log.Printf("⚠️ Non-numeric ClavedeFonograma '%s', skipping", claveStr)
+			continue
 		}
-		albumCount++
 
-		// Process tracks in the last column
-		pistasTd := tds.Eq(4)
-		
-		// Each track is typically followed by a <br>
-		// We can look for buttons or just text
-		pistasTd.Contents().Each(func(j int, node *goquery.Selection) {
-			var trackTitle string
-			var lyricsPath string
+		titulo := strings.TrimSpace(record[1])
+		if titulo == "" {
+			continue
+		}
 
-			if node.Is("button") {
-				trackTitle = strings.TrimSpace(node.Text())
-				onclick, _ := node.Attr("onclick")
-				match := re.FindStringSubmatch(onclick)
-				if len(match) > 1 {
-					lyricsPath = match[1]
-				}
-			} else if goquery.NodeName(node) == "#text" {
-				trackTitle = strings.TrimSpace(node.Text())
+		subtitulo := strings.TrimSpace(record[2])
+		interpretePrincipal := strings.TrimSpace(record[3])
+		interpretesInvitados := strings.TrimSpace(record[4])
+		interpreteParticipante := strings.TrimSpace(record[5])
+		soporteFisico := strings.TrimSpace(record[6])
+		editora := strings.TrimSpace(record[7])
+		numeroCatalogo := strings.TrimSpace(record[8])
+		ciudadEdicion := strings.TrimSpace(record[9])
+		paisEdicion := strings.TrimSpace(record[10])
+		anio := strings.TrimSpace(record[11])
+		pistas := strings.TrimSpace(record[12])
+		observaciones := strings.TrimSpace(record[13])
+
+		_, err = tx.Exec(`
+			INSERT OR REPLACE INTO fonogramas
+			(clave_fonograma, titulo, subtitulo, interprete_principal, interpretes_invitados,
+			 interprete_participante, soporte_fisico, editora, numero_catalogo, ciudad_edicion,
+			 pais_edicion, anio, pistas, observaciones)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			clave, titulo, subtitulo, interpretePrincipal, interpretesInvitados,
+			interpreteParticipante, soporteFisico, editora, numeroCatalogo, ciudadEdicion,
+			paisEdicion, anio, pistas, observaciones,
+		)
+		if err != nil {
+			log.Printf("⚠️ Error inserting fonograma %d: %v", clave, err)
+			continue
+		}
+		fonogramaCount++
+
+		// Extract individual songs from Pistas and link lyrics
+		songTitles := extractSongTitles(pistas)
+		for _, trackTitle := range songTitles {
+			lyricsText, filename := loadLyrics(*letrasDir, trackTitle)
+			if filename != "" {
+				log.Printf("🔍 Matched: '%s' -> %s", trackTitle, filename)
 			}
-
-			if trackTitle == "" {
-				return
-			}
-
-			var lyrics string
-			var filename string
-			
-			// Resolve lyrics path
-			actualLyricsPath := ""
-			if lyricsPath != "" {
-				actualLyricsPath = filepath.Join(letrasRoot, lyricsPath)
-				if _, err := os.Stat(actualLyricsPath); err != nil {
-					actualLyricsPath = "" // Link might be broken
-				}
-			}
-			
-			// If still no path, try fuzzy finding
-			if actualLyricsPath == "" {
-				found, _ := findLyricsFile(filepath.Join(letrasRoot, "LetrasTXT"), trackTitle)
-				if found != "" {
-					actualLyricsPath = found
-					log.Printf("🔍 Fuzzy matched: '%s' -> %s", trackTitle, found)
-				}
-			}
-
-			if actualLyricsPath != "" {
-				content, err := os.ReadFile(actualLyricsPath)
-				if err != nil {
-					log.Printf("⚠️ Error reading lyrics for %s at %s: %v", trackTitle, actualLyricsPath, err)
-				} else {
-					lyrics = string(content)
-					filename = filepath.Base(actualLyricsPath)
-					
-					// Clean up title if it's the first line
-					lines := strings.SplitN(lyrics, "\n", 2)
-					if len(lines) > 0 {
-						firstLine := strings.TrimSpace(lines[0])
-						if normalize(firstLine) == normalize(trackTitle) {
-							if len(lines) > 1 {
-								lyrics = strings.TrimSpace(lines[1])
-							} else {
-								lyrics = ""
-							}
-						}
-					}
-				}
-			}
-
 			_, err = tx.Exec(`
-				INSERT INTO songs (album_id, title, filename, lyrics)
-				VALUES (?, ?, ?, ?)
-			`, albumID, trackTitle, filename, strings.TrimSpace(lyrics))
+				INSERT INTO songs (fonograma_id, title, filename, lyrics)
+				VALUES (?, ?, ?, ?)`,
+				clave, trackTitle, filename, lyricsText,
+			)
 			if err != nil {
-				log.Printf("⚠️ Error inserting song %s: %v", trackTitle, err)
-				return
+				log.Printf("⚠️ Error inserting song '%s': %v", trackTitle, err)
+				continue
 			}
 			songCount++
-		})
-	})
+		}
+	}
+
+	// Create default admin user
+	hash, err := bcrypt.GenerateFromPassword([]byte(*adminPass), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatalf("❌ Failed to hash admin password: %v", err)
+	}
+	_, err = tx.Exec(`
+		INSERT OR IGNORE INTO users (username, email, password_hash, role)
+		VALUES ('admin', 'admin@cenidim.mx', ?, 'admin')`, string(hash))
+	if err != nil {
+		log.Printf("⚠️ Error creating admin user: %v", err)
+	}
 
 	if err := tx.Commit(); err != nil {
 		log.Fatalf("❌ Failed to commit transaction: %v", err)
 	}
 
 	log.Printf("✅ Database built successfully in '%s'!", *dbPath)
-	log.Printf("📊 Summary: %d Albums and %d Songs inserted.", albumCount, songCount)
+	log.Printf("📊 Summary: %d Fonogramas, %d Songs inserted.", fonogramaCount, songCount)
+	log.Printf("👤 Default admin user: admin / %s", *adminPass)
 }

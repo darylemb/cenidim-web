@@ -10,9 +10,13 @@ export const NavBar = ({
   performSearch,
   handleReset,
   limit,
+  user,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const links = ['Línea de tiempo', 'Canciones', 'Dashboards'];
+  const publicLinks = ['Línea de tiempo', 'Canciones', 'Dashboards'];
+  const links = user
+    ? [...publicLinks, 'Admin']
+    : publicLinks;
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);

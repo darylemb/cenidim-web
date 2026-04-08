@@ -8,6 +8,11 @@
 
 const BASE_URL = '/api';
 
+function authHeaders() {
+  const token = localStorage.getItem('cenidim_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export const apiService = {
   /**
    * Search songs in the backend with pagination.
@@ -65,4 +70,174 @@ export const apiService = {
       throw error;
     }
   },
+
+  // ── Auth ──────────────────────────────────────────────────────────────
+  login: async (username, password) => {
+    const response = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Login failed');
+    return data;
+  },
+
+  register: async (username, email, password) => {
+    const response = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Registration failed');
+    return data;
+  },
+
+  getMe: async () => {
+    const response = await fetch(`${BASE_URL}/auth/me`, {
+      headers: { ...authHeaders() },
+    });
+    if (!response.ok) return null;
+    return response.json();
+  },
+
+  // ── Admin – Fonogramas ────────────────────────────────────────────────
+  adminListFonogramas: async (page = 1, limit = 20) => {
+    const response = await fetch(
+      `${BASE_URL}/admin/fonogramas?page=${page}&limit=${limit}`,
+      { headers: { ...authHeaders() } }
+    );
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminGetFonograma: async (id) => {
+    const response = await fetch(`${BASE_URL}/admin/fonogramas/${id}`, {
+      headers: { ...authHeaders() },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminCreateFonograma: async (payload) => {
+    const response = await fetch(`${BASE_URL}/admin/fonogramas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminUpdateFonograma: async (id, payload) => {
+    const response = await fetch(`${BASE_URL}/admin/fonogramas/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminDeleteFonograma: async (id) => {
+    const response = await fetch(`${BASE_URL}/admin/fonogramas/${id}`, {
+      method: 'DELETE',
+      headers: { ...authHeaders() },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  // ── Admin – Songs ─────────────────────────────────────────────────────
+  adminListSongs: async (fonogramaId = '', page = 1, limit = 50) => {
+    const q = fonogramaId ? `&fonograma_id=${fonogramaId}` : '';
+    const response = await fetch(
+      `${BASE_URL}/admin/songs?page=${page}&limit=${limit}${q}`,
+      { headers: { ...authHeaders() } }
+    );
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminCreateSong: async (payload) => {
+    const response = await fetch(`${BASE_URL}/admin/songs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminUpdateSong: async (id, payload) => {
+    const response = await fetch(`${BASE_URL}/admin/songs/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminDeleteSong: async (id) => {
+    const response = await fetch(`${BASE_URL}/admin/songs/${id}`, {
+      method: 'DELETE',
+      headers: { ...authHeaders() },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  // ── Admin – Users ─────────────────────────────────────────────────────
+  adminListUsers: async () => {
+    const response = await fetch(`${BASE_URL}/admin/users`, {
+      headers: { ...authHeaders() },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminCreateUser: async (payload) => {
+    const response = await fetch(`${BASE_URL}/admin/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminUpdateUser: async (id, payload) => {
+    const response = await fetch(`${BASE_URL}/admin/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
+
+  adminDeleteUser: async (id) => {
+    const response = await fetch(`${BASE_URL}/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: { ...authHeaders() },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  },
 };
+

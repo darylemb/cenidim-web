@@ -57,11 +57,11 @@ func SearchSongs(c *gin.Context) {
 
 	searchTerm := fmt.Sprintf("%%%s%%", query)
 
-	countQuery := "SELECT COUNT(*) FROM songs s JOIN albums a ON s.album_id = a.id"
+	countQuery := "SELECT COUNT(*) FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma"
 	searchQuery := `
-		SELECT s.id, s.title, a.name as album, a.year, s.filename
+		SELECT s.id, s.fonograma_id, s.title, f.titulo as album, f.anio as year, s.filename
 		FROM songs s
-		JOIN albums a ON s.album_id = a.id
+		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
 	`
 
 	var whereClause string
@@ -73,13 +73,13 @@ func SearchSongs(c *gin.Context) {
 			whereClause = " WHERE s.title LIKE ?"
 			args = append(args, searchTerm)
 		case "album":
-			whereClause = " WHERE a.name LIKE ?"
+			whereClause = " WHERE f.titulo LIKE ?"
 			args = append(args, searchTerm)
 		case "lyrics":
 			whereClause = " WHERE s.lyrics LIKE ?"
 			args = append(args, searchTerm)
 		default: // "all"
-			whereClause = " WHERE s.title LIKE ? OR a.name LIKE ? OR s.lyrics LIKE ?"
+			whereClause = " WHERE s.title LIKE ? OR f.titulo LIKE ? OR s.lyrics LIKE ?"
 			args = append(args, searchTerm, searchTerm, searchTerm)
 		}
 	}
@@ -107,7 +107,7 @@ func SearchSongs(c *gin.Context) {
 	songs := []models.Song{}
 	for rows.Next() {
 		var s models.Song
-		if err := rows.Scan(&s.ID, &s.Title, &s.Album, &s.Year, &s.Filename); err != nil {
+		if err := rows.Scan(&s.ID, &s.FonogramaID, &s.Title, &s.Album, &s.Year, &s.Filename); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading results"})
 			return
 		}
@@ -145,14 +145,14 @@ func GetSong(c *gin.Context) {
 	}
 
 	query := `
-		SELECT s.id, s.title, a.name as album, a.year, s.filename, s.lyrics
+		SELECT s.id, s.fonograma_id, s.title, f.titulo as album, f.anio as year, s.filename, s.lyrics
 		FROM songs s
-		JOIN albums a ON s.album_id = a.id
+		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
 		WHERE s.id = ?
 	`
 
 	var s models.SongDetail
-	err = database.DB.QueryRow(query, id).Scan(&s.ID, &s.Title, &s.Album, &s.Year, &s.Filename, &s.Lyrics)
+	err = database.DB.QueryRow(query, id).Scan(&s.ID, &s.FonogramaID, &s.Title, &s.Album, &s.Year, &s.Filename, &s.Lyrics)
 
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
@@ -176,10 +176,10 @@ func GetSong(c *gin.Context) {
 // @Router /timeline [get]
 func GetTimeline(c *gin.Context) {
 	query := `
-		SELECT s.id, s.title, a.name as album, a.year, s.filename
+		SELECT s.id, s.fonograma_id, s.title, f.titulo as album, f.anio as year, s.filename
 		FROM songs s
-		JOIN albums a ON s.album_id = a.id
-		WHERE a.year IS NOT NULL AND a.year != ''
+		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
+		WHERE f.anio IS NOT NULL AND f.anio != ''
 	`
 
 	rows, err := database.DB.Query(query)
@@ -202,7 +202,7 @@ func GetTimeline(c *gin.Context) {
 
 	for rows.Next() {
 		var s models.Song
-		if err := rows.Scan(&s.ID, &s.Title, &s.Album, &s.Year, &s.Filename); err != nil {
+		if err := rows.Scan(&s.ID, &s.FonogramaID, &s.Title, &s.Album, &s.Year, &s.Filename); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading timeline results"})
 			return
 		}
@@ -210,7 +210,7 @@ func GetTimeline(c *gin.Context) {
 		// Normalize: Extract first 4 digits
 		key := re.FindString(s.Year)
 		if key == "" {
-			key = s.Year // Fallback if no digits found
+			key = s.Year
 		}
 		
 		if !seenKeys[key] {
@@ -225,7 +225,6 @@ func GetTimeline(c *gin.Context) {
 		timeline[key] = append(timeline[key], s)
 	}
 
-	// Sort yearGroups by SortKey
 	sort.Slice(yearGroups, func(i, j int) bool {
 		if yearGroups[i].SortKey != yearGroups[j].SortKey {
 			return yearGroups[i].SortKey < yearGroups[j].SortKey
@@ -233,7 +232,6 @@ func GetTimeline(c *gin.Context) {
 		return yearGroups[i].Key < yearGroups[j].Key
 	})
 
-	// Extract sorted keys
 	sortedKeys := make([]string, len(yearGroups))
 	for i, yg := range yearGroups {
 		sortedKeys[i] = yg.Key

@@ -4,10 +4,17 @@ import { CombinedHeader } from './components/CombinedHeader';
 import { Canciones } from './components/Canciones';
 import { DashboardView } from './components/DashboardView';
 import { Timeline } from './components/Timeline';
+import { AuthPage } from './components/AuthPage';
+import { AdminPanel } from './components/AdminPanel';
 import { apiService } from './services/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState("Línea de tiempo");
+
+  // Auth state
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
 
   // Search state lifted from Canciones.jsx
   const [query, setQuery] = useState('');
@@ -18,10 +25,43 @@ function App() {
   const [limit, setLimit] = useState(20);
   const [loading, setLoading] = useState(false);
 
+  // Restore session on mount
+  useEffect(() => {
+    const token = localStorage.getItem('cenidim_token');
+    if (token) {
+      apiService.getMe().then((u) => {
+        if (u) setUser(u);
+        else localStorage.removeItem('cenidim_token');
+        setAuthLoading(false);
+      });
+    } else {
+      setAuthLoading(false);
+    }
+  }, []);
+
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setShowAuth(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('cenidim_token');
+    setUser(null);
+    if (activeTab === 'Admin') setActiveTab('Línea de tiempo');
+  };
+
+  // Block navigation to Admin when not logged in
+  const handleSetActiveTab = (tab) => {
+    if (tab === 'Admin' && !user) {
+      setShowAuth(true);
+      return;
+    }
+    setActiveTab(tab);
+  };
+
   // Perform search (params-driven to be stable)
   const performSearch = useCallback((searchTerm, searchField, targetPage = 1, targetLimit = 20) => {
     setLoading(true);
-    // Update local state to reflect the search parameters being used
     setPage(targetPage);
     setLimit(targetLimit);
     
@@ -50,11 +90,23 @@ function App() {
     performSearch('', 'all', 1, 20);
   };
 
+  if (authLoading) {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Cargando...</div>;
+  }
+
+  if (showAuth) {
+    return (
+      <div className="app-container">
+        <AuthPage onLogin={handleLogin} />
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       <CombinedHeader
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSetActiveTab}
         query={query}
         setQuery={setQuery}
         field={field}
@@ -62,6 +114,9 @@ function App() {
         performSearch={performSearch}
         handleReset={handleReset}
         limit={limit}
+        user={user}
+        onLogout={handleLogout}
+        onLoginClick={() => setShowAuth(true)}
       />
 
       <main>
@@ -81,6 +136,8 @@ function App() {
           <DashboardView />
         ) : activeTab === "Línea de tiempo" ? (
           <Timeline />
+        ) : activeTab === "Admin" && user ? (
+          <AdminPanel user={user} />
         ) : (
           <div className="content-area">
             <h2 className="page-title">{activeTab}</h2>
@@ -93,3 +150,4 @@ function App() {
 }
 
 export default App;
+
