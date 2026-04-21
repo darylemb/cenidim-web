@@ -10,9 +10,15 @@ const Pagination = ({ page, total, limit, onChange }) => {
   if (totalPages <= 1) return null;
   return (
     <div className="admin-pagination">
-      <button disabled={page <= 1} onClick={() => onChange(page - 1)}>‹ Ant</button>
-      <span>{page} / {totalPages}</span>
-      <button disabled={page >= totalPages} onClick={() => onChange(page + 1)}>Sig ›</button>
+      <button disabled={page <= 1} onClick={() => onChange(page - 1)}>
+        ‹ Ant
+      </button>
+      <span>
+        {page} / {totalPages}
+      </span>
+      <button disabled={page >= totalPages} onClick={() => onChange(page + 1)}>
+        Sig ›
+      </button>
     </div>
   );
 };
@@ -22,12 +28,52 @@ const ConfirmModal = ({ message, onConfirm, onCancel }) => (
     <div className="modal-content admin-confirm" onClick={(e) => e.stopPropagation()}>
       <p>{message}</p>
       <div className="admin-confirm-actions">
-        <button className="btn-danger" onClick={onConfirm}>Eliminar</button>
-        <button className="btn-secondary" onClick={onCancel}>Cancelar</button>
+        <button className="btn-danger" onClick={onConfirm}>
+          Eliminar
+        </button>
+        <button className="btn-secondary" onClick={onCancel}>
+          Cancelar
+        </button>
       </div>
     </div>
   </div>
 );
+
+// ─── Sort helpers ───────────────────────────────────────────────────────────
+
+const SortableHeader = ({ label, sortKey, currentSortKey, currentSortDir, onSort }) => {
+  const isActive = currentSortKey === sortKey;
+  return (
+    <th className={`sortable-th${isActive ? ' sort-active' : ''}`} onClick={() => onSort(sortKey)}>
+      {label}
+      <span className="sort-arrow">
+        {isActive ? (currentSortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅'}
+      </span>
+    </th>
+  );
+};
+
+const sortList = (list, key, dir) => {
+  if (!key) return list;
+  return [...list].sort((a, b) => {
+    const av = a[key] ?? '';
+    const bv = b[key] ?? '';
+    const cmp = String(av).localeCompare(String(bv), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+    return dir === 'asc' ? cmp : -cmp;
+  });
+};
+
+const renderTruncatedText = (value) => {
+  const text = value && String(value).trim() ? String(value) : '—';
+  return (
+    <span className="table-cell-text" title={text}>
+      {text}
+    </span>
+  );
+};
 
 // ─── Fonogramas tab ──────────────────────────────────────────────────────────
 
@@ -48,8 +94,7 @@ const FONOGRAMA_FIELDS = [
   { key: 'observaciones', label: 'Observaciones', textarea: true },
 ];
 
-const emptyFonograma = () =>
-  Object.fromEntries(FONOGRAMA_FIELDS.map((f) => [f.key, '']));
+const emptyFonograma = () => Object.fromEntries(FONOGRAMA_FIELDS.map((f) => [f.key, '']));
 
 const FonogramasTab = ({ role }) => {
   const canEdit = role === 'editor' || role === 'admin';
@@ -64,6 +109,19 @@ const FonogramasTab = ({ role }) => {
   const [isNew, setIsNew] = useState(false);
   const [formError, setFormError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [sortKey, setSortKey] = useState('clave_fonograma');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedList = sortList(list, sortKey, sortDir);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,11 +136,24 @@ const FonogramasTab = ({ role }) => {
     }
   }, [page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const handleEdit = (f) => { setEditing({ ...f }); setIsNew(false); setFormError(''); };
-  const handleNew = () => { setEditing(emptyFonograma()); setIsNew(true); setFormError(''); };
-  const handleCancel = () => { setEditing(null); setFormError(''); };
+  const handleEdit = (f) => {
+    setEditing({ ...f });
+    setIsNew(false);
+    setFormError('');
+  };
+  const handleNew = () => {
+    setEditing(emptyFonograma());
+    setIsNew(true);
+    setFormError('');
+  };
+  const handleCancel = () => {
+    setEditing(null);
+    setFormError('');
+  };
 
   const handleSave = async () => {
     setFormError('');
@@ -105,7 +176,7 @@ const FonogramasTab = ({ role }) => {
       await apiService.adminDeleteFonograma(id);
       setConfirmDelete(null);
       load();
-    } catch (e) {
+    } catch {
       setConfirmDelete(null);
     }
   };
@@ -115,7 +186,9 @@ const FonogramasTab = ({ role }) => {
       <div className="admin-section-header">
         <h3>Fonogramas ({total})</h3>
         {canEdit && (
-          <button className="btn-primary" onClick={handleNew}>+ Nuevo fonograma</button>
+          <button className="btn-primary" onClick={handleNew}>
+            + Nuevo fonograma
+          </button>
         )}
       </div>
 
@@ -126,22 +199,54 @@ const FonogramasTab = ({ role }) => {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Clave</th>
-                <th>Título</th>
-                <th>Intérprete</th>
-                <th>Año</th>
-                <th>Soporte</th>
+                <SortableHeader
+                  label="Clave"
+                  sortKey="clave_fonograma"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Título"
+                  sortKey="titulo"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Intérprete"
+                  sortKey="interprete_principal"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Año"
+                  sortKey="anio"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Soporte"
+                  sortKey="soporte_fisico"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
                 {(canEdit || canDelete) && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody>
-              {list.map((f) => (
+              {sortedList.map((f) => (
                 <tr key={f.clave_fonograma}>
                   <td>{f.clave_fonograma}</td>
-                  <td>{f.titulo}</td>
-                  <td>{f.interprete_principal}</td>
-                  <td>{f.anio}</td>
-                  <td>{f.soporte_fisico}</td>
+                  <td className="table-cell-truncate">{renderTruncatedText(f.titulo)}</td>
+                  <td className="table-cell-truncate">
+                    {renderTruncatedText(f.interprete_principal)}
+                  </td>
+                  <td className="table-cell-truncate">{renderTruncatedText(f.anio)}</td>
+                  <td className="table-cell-truncate">{renderTruncatedText(f.soporte_fisico)}</td>
                   {(canEdit || canDelete) && (
                     <td className="admin-actions">
                       {canEdit && (
@@ -171,18 +276,20 @@ const FonogramasTab = ({ role }) => {
       {/* Edit / Create modal */}
       {editing && (
         <div className="modal-overlay" onClick={handleCancel}>
-          <div
-            className="modal-content admin-form-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-content admin-form-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{isNew ? 'Nuevo fonograma' : `Editar fonograma #${editing.clave_fonograma}`}</h3>
-              <button className="close-btn" onClick={handleCancel}>&times;</button>
+              <button className="close-btn" onClick={handleCancel}>
+                &times;
+              </button>
             </div>
             <div className="modal-body admin-form-body">
               {FONOGRAMA_FIELDS.map((field) => (
                 <div className="form-group" key={field.key}>
-                  <label>{field.label}{field.required ? ' *' : ''}</label>
+                  <label>
+                    {field.label}
+                    {field.required ? ' *' : ''}
+                  </label>
                   {field.textarea ? (
                     <textarea
                       value={editing[field.key] || ''}
@@ -206,8 +313,12 @@ const FonogramasTab = ({ role }) => {
               ))}
               {formError && <p className="auth-error">{formError}</p>}
               <div className="admin-form-actions">
-                <button className="btn-primary" onClick={handleSave}>Guardar</button>
-                <button className="btn-secondary" onClick={handleCancel}>Cancelar</button>
+                <button className="btn-primary" onClick={handleSave}>
+                  Guardar
+                </button>
+                <button className="btn-secondary" onClick={handleCancel}>
+                  Cancelar
+                </button>
               </div>
             </div>
           </div>
@@ -242,6 +353,19 @@ const SongsTab = ({ role }) => {
   const [formError, setFormError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [showLyrics, setShowLyrics] = useState(null);
+  const [sortKey, setSortKey] = useState('id');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedList = sortList(list, sortKey, sortDir);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -256,7 +380,9 @@ const SongsTab = ({ role }) => {
     }
   }, [page, filterFonograma]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleEdit = (s) => {
     setEditing({ title: s.title, lyrics: s.lyrics || '', _id: s.id });
@@ -310,11 +436,20 @@ const SongsTab = ({ role }) => {
             type="text"
             placeholder="Filtrar por clave fonograma..."
             value={filterFonograma}
-            onChange={(e) => { setFilterFonograma(e.target.value); setPage(1); }}
-            style={{ padding: '0.4rem', border: '1px solid var(--border-light)', fontSize: '0.8rem' }}
+            onChange={(e) => {
+              setFilterFonograma(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              padding: '0.4rem',
+              border: '1px solid var(--border-light)',
+              fontSize: '0.8rem',
+            }}
           />
           {canEdit && (
-            <button className="btn-primary" onClick={handleNew}>+ Nueva canción</button>
+            <button className="btn-primary" onClick={handleNew}>
+              + Nueva canción
+            </button>
           )}
         </div>
       </div>
@@ -326,25 +461,40 @@ const SongsTab = ({ role }) => {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Fonograma</th>
-                <th>Título</th>
+                <SortableHeader
+                  label="ID"
+                  sortKey="id"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Fonograma"
+                  sortKey="fonograma_id"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Título"
+                  sortKey="title"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
                 <th>Tiene letra</th>
                 {(canEdit || canDelete) && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody>
-              {list.map((s) => (
+              {sortedList.map((s) => (
                 <tr key={s.id}>
                   <td>{s.id}</td>
                   <td>{s.fonograma_id}</td>
-                  <td>{s.title}</td>
+                  <td className="table-cell-truncate">{renderTruncatedText(s.title)}</td>
                   <td>
                     {s.lyrics ? (
-                      <button
-                        className="btn-sm btn-link"
-                        onClick={() => setShowLyrics(s)}
-                      >
+                      <button className="btn-sm btn-link" onClick={() => setShowLyrics(s)}>
                         Ver
                       </button>
                     ) : (
@@ -383,7 +533,9 @@ const SongsTab = ({ role }) => {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{showLyrics.title}</h3>
-              <button className="close-btn" onClick={() => setShowLyrics(null)}>&times;</button>
+              <button className="close-btn" onClick={() => setShowLyrics(null)}>
+                &times;
+              </button>
             </div>
             <div className="modal-body">{showLyrics.lyrics}</div>
           </div>
@@ -393,13 +545,12 @@ const SongsTab = ({ role }) => {
       {/* Edit / Create modal */}
       {editing && (
         <div className="modal-overlay" onClick={() => setEditing(null)}>
-          <div
-            className="modal-content admin-form-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-content admin-form-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{isNew ? 'Nueva canción' : `Editar canción #${editing._id}`}</h3>
-              <button className="close-btn" onClick={() => setEditing(null)}>&times;</button>
+              <button className="close-btn" onClick={() => setEditing(null)}>
+                &times;
+              </button>
             </div>
             <div className="modal-body admin-form-body">
               {isNew && (
@@ -408,9 +559,7 @@ const SongsTab = ({ role }) => {
                   <input
                     type="number"
                     value={editing.fonograma_id}
-                    onChange={(e) =>
-                      setEditing((p) => ({ ...p, fonograma_id: e.target.value }))
-                    }
+                    onChange={(e) => setEditing((p) => ({ ...p, fonograma_id: e.target.value }))}
                   />
                 </div>
               )}
@@ -432,8 +581,12 @@ const SongsTab = ({ role }) => {
               </div>
               {formError && <p className="auth-error">{formError}</p>}
               <div className="admin-form-actions">
-                <button className="btn-primary" onClick={handleSave}>Guardar</button>
-                <button className="btn-secondary" onClick={() => setEditing(null)}>Cancelar</button>
+                <button className="btn-primary" onClick={handleSave}>
+                  Guardar
+                </button>
+                <button className="btn-secondary" onClick={() => setEditing(null)}>
+                  Cancelar
+                </button>
               </div>
             </div>
           </div>
@@ -460,6 +613,19 @@ const UsersTab = () => {
   const [isNew, setIsNew] = useState(false);
   const [formError, setFormError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [sortKey, setSortKey] = useState('id');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedList = sortList(list, sortKey, sortDir);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -473,7 +639,9 @@ const UsersTab = () => {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleEdit = (u) => {
     setEditing({ _id: u.id, username: u.username, email: u.email, role: u.role, password: '' });
@@ -525,7 +693,9 @@ const UsersTab = () => {
     <div className="admin-section">
       <div className="admin-section-header">
         <h3>Usuarios</h3>
-        <button className="btn-primary" onClick={handleNew}>+ Nuevo usuario</button>
+        <button className="btn-primary" onClick={handleNew}>
+          + Nuevo usuario
+        </button>
       </div>
 
       {loading ? (
@@ -535,32 +705,61 @@ const UsersTab = () => {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Usuario</th>
-                <th>Correo</th>
-                <th>Rol</th>
-                <th>Creado</th>
+                <SortableHeader
+                  label="ID"
+                  sortKey="id"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Usuario"
+                  sortKey="username"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Correo"
+                  sortKey="email"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Rol"
+                  sortKey="role"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Creado"
+                  sortKey="created_at"
+                  currentSortKey={sortKey}
+                  currentSortDir={sortDir}
+                  onSort={handleSort}
+                />
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {list.map((u) => (
+              {sortedList.map((u) => (
                 <tr key={u.id}>
                   <td>{u.id}</td>
-                  <td>{u.username}</td>
-                  <td>{u.email}</td>
+                  <td className="table-cell-truncate">{renderTruncatedText(u.username)}</td>
+                  <td className="table-cell-truncate">{renderTruncatedText(u.email)}</td>
                   <td>
                     <span className={`role-badge role-${u.role}`}>{u.role}</span>
                   </td>
-                  <td>{u.created_at ? u.created_at.slice(0, 10) : ''}</td>
+                  <td className="table-cell-truncate">
+                    {renderTruncatedText(u.created_at ? u.created_at.slice(0, 10) : '')}
+                  </td>
                   <td className="admin-actions">
                     <button className="btn-sm btn-secondary" onClick={() => handleEdit(u)}>
                       Editar
                     </button>
-                    <button
-                      className="btn-sm btn-danger"
-                      onClick={() => setConfirmDelete(u.id)}
-                    >
+                    <button className="btn-sm btn-danger" onClick={() => setConfirmDelete(u.id)}>
                       Eliminar
                     </button>
                   </td>
@@ -573,13 +772,12 @@ const UsersTab = () => {
 
       {editing && (
         <div className="modal-overlay" onClick={() => setEditing(null)}>
-          <div
-            className="modal-content admin-form-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-content admin-form-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{isNew ? 'Nuevo usuario' : `Editar usuario #${editing._id}`}</h3>
-              <button className="close-btn" onClick={() => setEditing(null)}>&times;</button>
+              <button className="close-btn" onClick={() => setEditing(null)}>
+                &times;
+              </button>
             </div>
             <div className="modal-body admin-form-body">
               <div className="form-group">
@@ -605,12 +803,16 @@ const UsersTab = () => {
                   onChange={(e) => setEditing((p) => ({ ...p, role: e.target.value }))}
                 >
                   {ROLES.map((r) => (
-                    <option key={r} value={r}>{r}</option>
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label>{isNew ? 'Contraseña *' : 'Nueva contraseña (dejar vacío para no cambiar)'}</label>
+                <label>
+                  {isNew ? 'Contraseña *' : 'Nueva contraseña (dejar vacío para no cambiar)'}
+                </label>
                 <input
                   type="password"
                   value={editing.password}
@@ -619,8 +821,12 @@ const UsersTab = () => {
               </div>
               {formError && <p className="auth-error">{formError}</p>}
               <div className="admin-form-actions">
-                <button className="btn-primary" onClick={handleSave}>Guardar</button>
-                <button className="btn-secondary" onClick={() => setEditing(null)}>Cancelar</button>
+                <button className="btn-primary" onClick={handleSave}>
+                  Guardar
+                </button>
+                <button className="btn-secondary" onClick={() => setEditing(null)}>
+                  Cancelar
+                </button>
               </div>
             </div>
           </div>

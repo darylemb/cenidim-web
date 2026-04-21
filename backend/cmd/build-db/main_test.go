@@ -60,23 +60,23 @@ func TestLevenshteinDistance(t *testing.T) {
 
 func TestCalculateMatchScore(t *testing.T) {
 	// Exact match
-	assert.Equal(t, 1.0, calculateMatchScore("hello", "hello"))
+	assert.InDelta(t, 1.0, calculateMatchScore("hello", "hello"), 0)
 
 	// Both empty strings are equal → exact match returns 1.0
-	assert.Equal(t, 1.0, calculateMatchScore("", ""))
+	assert.InDelta(t, 1.0, calculateMatchScore("", ""), 0)
 
 	// Very similar strings (1 edit distance) score above 0.6
-	assert.True(t, calculateMatchScore("cancion", "canciones") > 0.6,
+	assert.Greater(t, calculateMatchScore("cancion", "canciones"), 0.6,
 		"strings with low edit distance should score above 0.6")
 
 	// Totally different strings score below 0.6
-	assert.True(t, calculateMatchScore("hello", "xyz") < 0.6,
+	assert.Less(t, calculateMatchScore("hello", "xyz"), 0.6,
 		"unrelated strings should score below 0.6")
 
 	// Similar-length strings with good overlap score higher than unrelated ones
 	closeScore := calculateMatchScore("grillo", "grillo musico")
 	farScore := calculateMatchScore("grillo", "xyz")
-	assert.True(t, closeScore > farScore, "partial match should score higher than unrelated")
+	assert.Greater(t, closeScore, farScore, "partial match should score higher than unrelated")
 }
 
 // ─── extractSongTitles ────────────────────────────────────────────────────────

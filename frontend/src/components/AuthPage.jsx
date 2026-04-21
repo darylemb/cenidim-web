@@ -33,7 +33,9 @@ export const AuthPage = ({ onLogin }) => {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <div className="logo-icon-small" aria-hidden="true">𝄢</div>
+          <div className="logo-icon-small" aria-hidden="true">
+            𝄢
+          </div>
           <div className="logo-text-small">
             <h2>CENIDIM</h2>
             <span className="sub-text">SECRETARÍA DE CULTURA</span>
@@ -43,13 +45,19 @@ export const AuthPage = ({ onLogin }) => {
         <div className="auth-tabs">
           <button
             className={mode === 'login' ? 'active' : ''}
-            onClick={() => { setMode('login'); setError(''); }}
+            onClick={() => {
+              setMode('login');
+              setError('');
+            }}
           >
             Iniciar sesión
           </button>
           <button
             className={mode === 'register' ? 'active' : ''}
-            onClick={() => { setMode('register'); setError(''); }}
+            onClick={() => {
+              setMode('register');
+              setError('');
+            }}
           >
             Registrarse
           </button>

@@ -104,7 +104,9 @@ export const DashboardView = () => {
 
   return (
     <div className="content-area">
-      <h2 className="page-title">Dashboards Analíticos</h2>
+      <div className="page-header-flex">
+        <h2 className="page-title">Dashboards Analíticos</h2>
+      </div>
 
       {/* Tarjetas de Métricas Rápidas (KPIs) */}
       <div className="dashboard-kpis">

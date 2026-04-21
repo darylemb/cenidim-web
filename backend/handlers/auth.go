@@ -96,7 +96,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(input.Password)); err != nil {
+	if hashErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(input.Password)); hashErr != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}

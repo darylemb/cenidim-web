@@ -67,7 +67,7 @@ func TestAdminListFonogramas(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Equal(t, float64(1), resp["total"])
+	assert.InDelta(t, float64(1), resp["total"], 0)
 }
 
 func TestAdminGetFonograma(t *testing.T) {
@@ -164,7 +164,7 @@ func TestAdminDeleteFonograma(t *testing.T) {
 
 	// Verify cascade: songs for this fonograma should be gone
 	var count int
-	database.DB.QueryRow("SELECT COUNT(*) FROM songs WHERE fonograma_id = 1").Scan(&count)
+	require.NoError(t, database.DB.QueryRow("SELECT COUNT(*) FROM songs WHERE fonograma_id = 1").Scan(&count))
 	assert.Equal(t, 0, count)
 
 	// Already deleted → 404
@@ -202,7 +202,7 @@ func TestAdminSongsCRUD(t *testing.T) {
 	require.Equal(t, http.StatusOK, wl.Code)
 	var listResp map[string]interface{}
 	require.NoError(t, json.Unmarshal(wl.Body.Bytes(), &listResp))
-	assert.Equal(t, float64(3), listResp["total"])
+	assert.InDelta(t, float64(3), listResp["total"], 0)
 
 	// List songs filtered by fonograma_id
 	wf := httptest.NewRecorder()
@@ -325,9 +325,10 @@ func TestAdminDeleteLastAdmin(t *testing.T) {
 	tok := adminTok(t)
 
 	// Insert an admin user with id=1 so we can try to self-delete as last admin
-	database.DB.Exec(
+	_, err := database.DB.Exec(
 		`INSERT INTO users (id, username, email, password_hash, role) VALUES (1, 'admin', 'admin@test.com', 'x', 'admin')`,
 	)
+	require.NoError(t, err)
 
 	wd := httptest.NewRecorder()
 	reqd, _ := http.NewRequest("DELETE", "/admin/users/1", nil)

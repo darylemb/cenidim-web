@@ -47,6 +47,7 @@ func setupTestDB(t *testing.T) {
 		title        TEXT NOT NULL,
 		filename     TEXT,
 		lyrics       TEXT,
+		clasificacion TEXT,
 		FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
 	);
 	CREATE TABLE users (

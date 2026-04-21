@@ -27,18 +27,18 @@ func normalize(s string) string {
 	s = regexp.MustCompile(`\s*\(.*?\)`).ReplaceAllString(s, "")
 	// Remove content in brackets
 	s = regexp.MustCompile(`\s*\[.*?\]`).ReplaceAllString(s, "")
-	
+
 	s = strings.ToLower(s)
 	// Remove diacritics
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	s, _, _ = transform.String(t, s)
-	
+
 	// Remove articles
 	for _, a := range articles {
 		s = strings.TrimPrefix(s, a)
 		s = strings.ReplaceAll(s, " "+a, " ")
 	}
-	
+
 	// Remove non-alphanumeric
 	s = regexp.MustCompile(`[^\w\s]`).ReplaceAllString(s, "")
 	return strings.TrimSpace(regexp.MustCompile(`\s+`).ReplaceAllString(s, " "))
@@ -49,36 +49,36 @@ func findLyricsFile(root, targetTitle string) (string, error) {
 	if len(normalizedTarget) < 3 {
 		return "", nil
 	}
-	
+
 	var bestMatch string
 	bestScore := -1.0
-	
+
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(strings.ToLower(path), ".txt") {
 			return nil
 		}
-		
+
 		base := filepath.Base(path)
 		if strings.HasPrefix(base, ".") || base == ".txt" {
 			return nil
 		}
-		
+
 		filename := strings.TrimSuffix(base, filepath.Ext(path))
 		normalizedFile := normalize(filename)
 		if len(normalizedFile) < 3 {
 			return nil
 		}
-		
+
 		score := calculateMatchScore(normalizedTarget, normalizedFile)
-		
+
 		if score > 0.6 && score > bestScore {
 			bestScore = score
 			bestMatch = path
 		}
-		
+
 		return nil
 	})
-	
+
 	return bestMatch, err
 }
 
@@ -86,24 +86,24 @@ func calculateMatchScore(s1, s2 string) float64 {
 	if s1 == s2 {
 		return 1.0
 	}
-	
+
 	dist := levenshteinDistance(s1, s2)
 	maxLen := len(s1)
 	if len(s2) > maxLen {
 		maxLen = len(s2)
 	}
-	
+
 	if maxLen == 0 {
 		return 0
 	}
-	
+
 	score := 1.0 - float64(dist)/float64(maxLen)
-	
+
 	// Bonus for prefix/substring
 	if strings.Contains(s1, s2) || strings.Contains(s2, s1) {
 		score += 0.1
 	}
-	
+
 	return score
 }
 
@@ -240,11 +240,12 @@ func main() {
 			observaciones      TEXT
 		);
 		CREATE TABLE songs (
-			id           INTEGER PRIMARY KEY AUTOINCREMENT,
-			fonograma_id INTEGER NOT NULL,
-			title        TEXT NOT NULL,
-			filename     TEXT,
-			lyrics       TEXT,
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			fonograma_id   INTEGER NOT NULL,
+			title          TEXT NOT NULL,
+			filename       TEXT,
+			lyrics         TEXT,
+			clasificacion  TEXT,
 			FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
 		);
 		CREATE TABLE users (
@@ -272,8 +273,8 @@ func main() {
 	reader.FieldsPerRecord = -1 // allow variable number of fields
 
 	// Skip header
-	if _, err := reader.Read(); err != nil {
-		log.Fatalf("❌ Failed to read CSV header: %v", err)
+	if _, headerErr := reader.Read(); headerErr != nil {
+		log.Fatalf("❌ Failed to read CSV header: %v", headerErr)
 	}
 
 	tx, err := db.Begin()
@@ -285,12 +286,12 @@ func main() {
 	songCount := 0
 
 	for {
-		record, err := reader.Read()
-		if err == io.EOF {
+		record, rerr := reader.Read()
+		if rerr == io.EOF {
 			break
 		}
-		if err != nil {
-			log.Printf("⚠️ CSV read error, skipping row: %v", err)
+		if rerr != nil {
+			log.Printf("⚠️ CSV read error, skipping row: %v", rerr)
 			continue
 		}
 
@@ -303,8 +304,8 @@ func main() {
 		if claveStr == "" {
 			continue
 		}
-		clave, err := strconv.Atoi(claveStr)
-		if err != nil {
+		clave, claveErr := strconv.Atoi(claveStr)
+		if claveErr != nil {
 			log.Printf("⚠️ Non-numeric ClavedeFonograma '%s', skipping", claveStr)
 			continue
 		}

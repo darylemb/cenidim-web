@@ -1,11 +1,11 @@
 package models
 
 type User struct {
-	ID           int    `json:"id"`
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	Role         string `json:"role"`
-	CreatedAt    string `json:"created_at"`
+	ID        int    `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"created_at"`
 }
 
 // UserInput is used for register/update requests (never expose password_hash)

@@ -27,7 +27,9 @@ func AdminListFonogramas(c *gin.Context) {
 	offset := (page - 1) * limit
 
 	var total int
-	database.DB.QueryRow("SELECT COUNT(*) FROM fonogramas").Scan(&total)
+	if err := database.DB.QueryRow("SELECT COUNT(*) FROM fonogramas").Scan(&total); err != nil {
+		total = 0
+	}
 
 	rows, err := database.DB.Query(`
 		SELECT clave_fonograma, titulo, subtitulo, interprete_principal, interpretes_invitados,
@@ -38,15 +40,17 @@ func AdminListFonogramas(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var list []models.Fonograma
 	for rows.Next() {
 		var f models.Fonograma
-		rows.Scan(&f.ClaveFonograma, &f.Titulo, &f.Subtitulo, &f.InterpretePrincipal,
+		if err := rows.Scan(&f.ClaveFonograma, &f.Titulo, &f.Subtitulo, &f.InterpretePrincipal,
 			&f.InterpretesInvitados, &f.InterpreteParticipante, &f.SoporteFisico,
 			&f.Editora, &f.NumeroCatalogo, &f.CiudadEdicion, &f.PaisEdicion,
-			&f.Anio, &f.Pistas, &f.Observaciones)
+			&f.Anio, &f.Pistas, &f.Observaciones); err != nil {
+			continue
+		}
 		list = append(list, f)
 	}
 	if list == nil {
@@ -111,8 +115,8 @@ func AdminUpdateFonograma(c *gin.Context) {
 		return
 	}
 	var f models.Fonograma
-	if err := c.ShouldBindJSON(&f); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if bindErr := c.ShouldBindJSON(&f); bindErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": bindErr.Error()})
 		return
 	}
 	res, err := database.DB.Exec(`
@@ -144,7 +148,10 @@ func AdminDeleteFonograma(c *gin.Context) {
 		return
 	}
 	// Delete associated songs first
-	database.DB.Exec("DELETE FROM songs WHERE fonograma_id = ?", id)
+	if _, execErr := database.DB.Exec("DELETE FROM songs WHERE fonograma_id = ?", id); execErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
+		return
+	}
 	res, err := database.DB.Exec("DELETE FROM fonogramas WHERE clave_fonograma = ?", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -182,7 +189,9 @@ func AdminListSongs(c *gin.Context) {
 	}
 
 	var total int
-	database.DB.QueryRow("SELECT COUNT(*) FROM songs s"+where, args...).Scan(&total)
+	if err := database.DB.QueryRow("SELECT COUNT(*) FROM songs s"+where, args...).Scan(&total); err != nil {
+		total = 0
+	}
 
 	queryArgs := append(args, limit, offset)
 	rows, err := database.DB.Query(`
@@ -194,7 +203,7 @@ func AdminListSongs(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	type AdminSong struct {
 		models.SongDetail
@@ -202,7 +211,9 @@ func AdminListSongs(c *gin.Context) {
 	var list []AdminSong
 	for rows.Next() {
 		var s AdminSong
-		rows.Scan(&s.ID, &s.FonogramaID, &s.Title, &s.Album, &s.Year, &s.Filename, &s.Lyrics)
+		if err := rows.Scan(&s.ID, &s.FonogramaID, &s.Title, &s.Album, &s.Year, &s.Filename, &s.Lyrics); err != nil {
+			continue
+		}
 		list = append(list, s)
 	}
 	if list == nil {
@@ -221,8 +232,8 @@ func AdminUpdateSong(c *gin.Context) {
 		Title  string `json:"title"`
 		Lyrics string `json:"lyrics"`
 	}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if bindErr := c.ShouldBindJSON(&input); bindErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": bindErr.Error()})
 		return
 	}
 	res, err := database.DB.Exec(
@@ -289,12 +300,14 @@ func AdminListUsers(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var list []models.User
 	for rows.Next() {
 		var u models.User
-		rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.CreatedAt)
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.CreatedAt); err != nil {
+			continue
+		}
 		list = append(list, u)
 	}
 	if list == nil {
@@ -343,8 +356,8 @@ func AdminUpdateUser(c *gin.Context) {
 		Role     string `json:"role"`
 		Password string `json:"password"`
 	}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if bindErr := c.ShouldBindJSON(&input); bindErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": bindErr.Error()})
 		return
 	}
 	if input.Role != "" && input.Role != "admin" && input.Role != "editor" && input.Role != "viewer" {
@@ -353,23 +366,35 @@ func AdminUpdateUser(c *gin.Context) {
 	}
 
 	if input.Password != "" {
-		hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
-		if err != nil {
+		hash, hashErr := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		if hashErr != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing password"})
 			return
 		}
-		database.DB.Exec(
-			`UPDATE users SET password_hash=? WHERE id=?`, string(hash), id)
+		if _, execErr := database.DB.Exec(
+			`UPDATE users SET password_hash=? WHERE id=?`, string(hash), id); execErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
+			return
+		}
 	}
 
 	if input.Username != "" {
-		database.DB.Exec(`UPDATE users SET username=? WHERE id=?`, input.Username, id)
+		if _, execErr := database.DB.Exec(`UPDATE users SET username=? WHERE id=?`, input.Username, id); execErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
+			return
+		}
 	}
 	if input.Email != "" {
-		database.DB.Exec(`UPDATE users SET email=? WHERE id=?`, input.Email, id)
+		if _, execErr := database.DB.Exec(`UPDATE users SET email=? WHERE id=?`, input.Email, id); execErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
+			return
+		}
 	}
 	if input.Role != "" {
-		database.DB.Exec(`UPDATE users SET role=? WHERE id=?`, input.Role, id)
+		if _, execErr := database.DB.Exec(`UPDATE users SET role=? WHERE id=?`, input.Role, id); execErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
+			return
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "User updated"})
 }
@@ -382,11 +407,15 @@ func AdminDeleteUser(c *gin.Context) {
 	}
 	// Don't allow deleting the last admin
 	var adminCount int
-	database.DB.QueryRow(
-		`SELECT COUNT(*) FROM users WHERE role='admin'`).Scan(&adminCount)
+	if scanErr := database.DB.QueryRow(
+		`SELECT COUNT(*) FROM users WHERE role='admin'`).Scan(&adminCount); scanErr != nil {
+		adminCount = 0
+	}
 
 	var targetRole string
-	database.DB.QueryRow(`SELECT role FROM users WHERE id=?`, id).Scan(&targetRole)
+	if scanErr := database.DB.QueryRow(`SELECT role FROM users WHERE id=?`, id).Scan(&targetRole); scanErr != nil {
+		targetRole = ""
+	}
 	if targetRole == "admin" && adminCount <= 1 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete the last admin"})
 		return

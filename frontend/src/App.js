@@ -9,7 +9,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { apiService } from './services/api';
 
 function App() {
-  const [activeTab, setActiveTab] = useState("Línea de tiempo");
+  const [activeTab, setActiveTab] = useState('Línea de tiempo');
 
   // Auth state
   const [user, setUser] = useState(null);
@@ -19,6 +19,9 @@ function App() {
   // Search state lifted from Canciones.jsx
   const [query, setQuery] = useState('');
   const [field, setField] = useState('all');
+  const [clasificacion, setClasificacion] = useState('');
+  const [orderBy, setOrderBy] = useState('id');
+  const [orderDir, setOrderDir] = useState('asc');
   const [results, setResults] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -60,36 +63,59 @@ function App() {
   };
 
   // Perform search (params-driven to be stable)
-  const performSearch = useCallback((searchTerm, searchField, targetPage = 1, targetLimit = 20) => {
-    setLoading(true);
-    setPage(targetPage);
-    setLimit(targetLimit);
-    
-    apiService
-      .searchSongs(searchTerm, searchField, targetPage, targetLimit)
-      .then((data) => {
-        setResults(data.results || []);
-        setTotal(data.total || 0);
-        setLoading(false);
-      })
-      .catch(() => {
-        setResults([]);
-        setTotal(0);
-        setLoading(false);
-      });
-  }, []);
+  const performSearch = useCallback(
+    (
+      searchTerm,
+      searchField,
+      targetPage = 1,
+      targetLimit = 20,
+      targetClasificacion = '',
+      targetOrderBy = 'id',
+      targetOrderDir = 'asc'
+    ) => {
+      setLoading(true);
+      setPage(targetPage);
+      setLimit(targetLimit);
+      setOrderBy(targetOrderBy);
+      setOrderDir(targetOrderDir);
+
+      apiService
+        .searchSongs(
+          searchTerm,
+          searchField,
+          targetPage,
+          targetLimit,
+          targetClasificacion,
+          targetOrderBy,
+          targetOrderDir
+        )
+        .then((data) => {
+          setResults(data.results || []);
+          setTotal(data.total || 0);
+          setLoading(false);
+        })
+        .catch(() => {
+          setResults([]);
+          setTotal(0);
+          setLoading(false);
+        });
+    },
+    []
+  );
 
   // Run initial default search on mount
   useEffect(() => {
-    performSearch('', 'all', 1, 20);
+    performSearch('', 'all', 1, 20, '', 'id', 'asc');
   }, [performSearch]);
 
   const handleReset = () => {
     setQuery('');
     setField('all');
-    performSearch('', 'all', 1, 20);
+    setClasificacion('');
+    setOrderBy('id');
+    setOrderDir('asc');
+    performSearch('', 'all', 1, 20, '', 'id', 'asc');
   };
-
   if (authLoading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Cargando...</div>;
   }
@@ -114,13 +140,16 @@ function App() {
         performSearch={performSearch}
         handleReset={handleReset}
         limit={limit}
+        clasificacion={clasificacion}
+        orderBy={orderBy}
+        orderDir={orderDir}
         user={user}
         onLogout={handleLogout}
         onLoginClick={() => setShowAuth(true)}
       />
 
       <main>
-        {activeTab === "Canciones" ? (
+        {activeTab === 'Canciones' ? (
           <Canciones
             results={results}
             total={total}
@@ -131,17 +160,26 @@ function App() {
             performSearch={performSearch}
             query={query}
             field={field}
+            clasificacion={clasificacion}
+            setClasificacion={setClasificacion}
+            orderBy={orderBy}
+            setOrderBy={setOrderBy}
+            orderDir={orderDir}
+            setOrderDir={setOrderDir}
           />
-        ) : activeTab === "Dashboards" ? (
+        ) : activeTab === 'Dashboards' ? (
           <DashboardView />
-        ) : activeTab === "Línea de tiempo" ? (
+        ) : activeTab === 'Línea de tiempo' ? (
           <Timeline />
-        ) : activeTab === "Admin" && user ? (
+        ) : activeTab === 'Admin' && user ? (
           <AdminPanel user={user} />
         ) : (
           <div className="content-area">
             <h2 className="page-title">{activeTab}</h2>
-            <p>Sección en construcción. Por favor visite la sección del <strong>Canciones</strong> o <strong>Dashboards</strong>.</p>
+            <p>
+              Sección en construcción. Por favor visite la sección del <strong>Canciones</strong> o{' '}
+              <strong>Dashboards</strong>.
+            </p>
           </div>
         )}
       </main>
@@ -150,4 +188,3 @@ function App() {
 }
 
 export default App;
-

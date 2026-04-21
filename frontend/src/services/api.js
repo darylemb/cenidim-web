@@ -22,11 +22,28 @@ export const apiService = {
    * @param {number} limit Number of items per page (default 20)
    * @returns {Promise<Object>} Object with "results" array and "total" count
    */
-  searchSongs: async (query = '', field = 'all', page = 1, limit = 20) => {
+  searchSongs: async (
+    query = '',
+    field = 'all',
+    page = 1,
+    limit = 20,
+    clasificacion = '',
+    orderBy = 'id',
+    orderDir = 'asc'
+  ) => {
     try {
-      const response = await fetch(
-        `${BASE_URL}/search?query=${encodeURIComponent(query)}&field=${encodeURIComponent(field)}&page=${Number(page)}&limit=${Number(limit)}`
-      );
+      const params = new URLSearchParams({
+        query: query,
+        field: field,
+        page: Number(page),
+        limit: Number(limit),
+        order_by: orderBy,
+        order_dir: orderDir,
+      });
+      if (clasificacion) {
+        params.set('clasificacion', clasificacion);
+      }
+      const response = await fetch(`${BASE_URL}/search?${params.toString()}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -104,10 +121,9 @@ export const apiService = {
 
   // ── Admin – Fonogramas ────────────────────────────────────────────────
   adminListFonogramas: async (page = 1, limit = 20) => {
-    const response = await fetch(
-      `${BASE_URL}/admin/fonogramas?page=${page}&limit=${limit}`,
-      { headers: { ...authHeaders() } }
-    );
+    const response = await fetch(`${BASE_URL}/admin/fonogramas?page=${page}&limit=${limit}`, {
+      headers: { ...authHeaders() },
+    });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error');
     return data;
@@ -157,10 +173,9 @@ export const apiService = {
   // ── Admin – Songs ─────────────────────────────────────────────────────
   adminListSongs: async (fonogramaId = '', page = 1, limit = 50) => {
     const q = fonogramaId ? `&fonograma_id=${fonogramaId}` : '';
-    const response = await fetch(
-      `${BASE_URL}/admin/songs?page=${page}&limit=${limit}${q}`,
-      { headers: { ...authHeaders() } }
-    );
+    const response = await fetch(`${BASE_URL}/admin/songs?page=${page}&limit=${limit}${q}`, {
+      headers: { ...authHeaders() },
+    });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error');
     return data;
@@ -240,4 +255,3 @@ export const apiService = {
     return data;
   },
 };
-
