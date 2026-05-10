@@ -88,6 +88,23 @@ export const apiService = {
     }
   },
 
+  /**
+   * Get database statistics for the dashboard.
+   * @returns {Promise<Object>} Stats object with totalSongs, totalAlbums, etc.
+   */
+  getStats: async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/stats`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting stats:', error);
+      throw error;
+    }
+  },
+
   // ── Auth ──────────────────────────────────────────────────────────────
   login: async (username, password) => {
     const response = await fetch(`${BASE_URL}/auth/login`, {

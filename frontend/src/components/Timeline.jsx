@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { apiService } from '../services/api';
 
 export const Timeline = () => {
@@ -7,6 +7,8 @@ export const Timeline = () => {
   const [selectedSong, setSelectedSong] = useState(null);
   const [lyrics, setLyrics] = useState('');
   const [loadingLyrics, setLoadingLyrics] = useState(false);
+  const [visibleYears, setVisibleYears] = useState(new Set());
+  const timelineRef = useRef(null);
 
   useEffect(() => {
     setLoading(true);
@@ -15,12 +17,40 @@ export const Timeline = () => {
       .then((data) => {
         setTimelineData(data);
         setLoading(false);
+        // Initialize all years as visible after data loads
+        setVisibleYears(new Set(data.years));
       })
       .catch((err) => {
         console.error('Error loading timeline:', err);
         setLoading(false);
       });
   }, []);
+
+  // Intersection Observer for lazy loading animations
+  useEffect(() => {
+    if (!timelineRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const year = entry.target.dataset.year;
+            setVisibleYears((prev) => new Set([...prev, year]));
+          }
+        });
+      },
+      {
+        root: timelineRef.current,
+        rootMargin: '100px',
+        threshold: 0.1,
+      }
+    );
+
+    const yearElements = timelineRef.current.querySelectorAll('.timeline-year-item');
+    yearElements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [timelineData.years]);
 
   const handleSongSelect = (e, year) => {
     const songId = e.target.value;
@@ -54,12 +84,6 @@ export const Timeline = () => {
     );
   }
 
-  // Group years into "staves" (rows of 4 measures)
-  const staves = [];
-  for (let i = 0; i < timelineData.years.length; i += 4) {
-    staves.push(timelineData.years.slice(i, i + 4));
-  }
-
   return (
     <div className="content-area">
       <div className="page-header-flex">
@@ -69,68 +93,96 @@ export const Timeline = () => {
         </div>
       </div>
 
-      <div className="timeline-flow">
-        <div className="timeline-intro">
-          <p>Recorre los años del archivo sonoro y selecciona una pista para ver su letra.</p>
-        </div>
-
-        {staves.map((staffYears, staffIndex) => (
-          <section
-            key={staffIndex}
-            className="timeline-row"
-            style={{ '--row-delay': `${staffIndex * 120}ms` }}
-          >
-            <div className="timeline-row-line" aria-hidden="true"></div>
-
-            <div className="timeline-cards-grid">
-              {staffYears.map((year, yearIndex) => {
-                const shortYearMatch = year.match(/\d{4}/);
-                const shortYear = shortYearMatch ? shortYearMatch[0] : year;
-                const hasMetadata = year.length > 6;
-                const songsInYear = timelineData.timeline[year] || [];
-
-                return (
-                  <article
-                    key={year}
-                    className="timeline-card"
-                    style={{ '--card-delay': `${yearIndex * 90}ms` }}
-                  >
-                    <div className="timeline-dot" aria-hidden="true"></div>
-
-                    <div className="year-label-group">
-                      <div className="measure-year">{shortYear}</div>
-                      {hasMetadata && <div className="measure-metadata">{year}</div>}
-                    </div>
-
-                    <div className="timeline-card-body">
-                      <div className="timeline-count">{songsInYear.length} canciones</div>
-                      <div className="song-selector-container">
-                        <select
-                          className="stylized-select timeline-select"
-                          onChange={(e) => handleSongSelect(e, year)}
-                          value=""
-                        >
-                          <option value="" disabled>
-                            Seleccionar pista
-                          </option>
-                          {songsInYear.map((song) => (
-                            <option key={song.id} value={song.id}>
-                              {song.title.length > 30
-                                ? song.title.substring(0, 27) + '...'
-                                : song.title}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+      <div className="timeline-intro">
+        <p>Explora el archivo sonoro por año. Selecciona una canción para ver su letra.</p>
       </div>
 
+      {/* Horizontal scrolling timeline container */}
+      <div className="timeline-container" ref={timelineRef}>
+        <div className="timeline-track">
+          {timelineData.years.map((year, index) => {
+            const songsInYear = timelineData.timeline[year] || [];
+            const isVisible = visibleYears.has(year);
+            const shortYearMatch = year.match(/\d{4}/);
+            const shortYear = shortYearMatch ? shortYearMatch[0] : year;
+
+            return (
+              <div
+                key={year}
+                className={`timeline-year-item ${isVisible ? 'visible' : ''}`}
+                data-year={year}
+                style={{
+                  '--year-index': index,
+                  '--animation-delay': `${index * 50}ms`
+                }}
+              >
+                {/* Connecting line to next year */}
+                {index < timelineData.years.length - 1 && (
+                  <div className="timeline-connector">
+                    <div className="connector-line"></div>
+                    <div className="connector-dot"></div>
+                  </div>
+                )}
+
+                {/* Year node */}
+                <div className="timeline-year-node">
+                  <div className="node-circle">
+                    <span className="node-year">{shortYear}</span>
+                  </div>
+                  <div className="node-label">{year}</div>
+                </div>
+
+                {/* Song count badge */}
+                <div className="timeline-year-badge">
+                  <span className="badge-count">{songsInYear.length}</span>
+                  <span className="badge-label">canciones</span>
+                </div>
+
+                {/* Song selector */}
+                <div className="timeline-song-selector">
+                  <select
+                    className="timeline-select"
+                    onChange={(e) => handleSongSelect(e, year)}
+                    value=""
+                  >
+                    <option value="" disabled>
+                      Seleccionar pista
+                    </option>
+                    {songsInYear.map((song) => (
+                      <option key={song.id} value={song.id}>
+                        {song.title.length > 35
+                          ? song.title.substring(0, 32) + '...'
+                          : song.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Year summary bar at bottom */}
+      <div className="timeline-summary">
+        <div className="summary-track">
+          {timelineData.years.map((year) => {
+            const songsInYear = timelineData.timeline[year] || [];
+            return (
+              <div
+                key={year}
+                className="summary-segment"
+                style={{
+                  '--segment-width': `${Math.max(songsInYear.length * 3, 10)}%`
+                }}
+                title={`${year}: ${songsInYear.length} canciones`}
+              ></div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Lyrics modal */}
       {selectedSong && (
         <div className="lyrics-modal-overlay" onClick={() => setSelectedSong(null)}>
           <div className="lyrics-modal" onClick={(e) => e.stopPropagation()}>

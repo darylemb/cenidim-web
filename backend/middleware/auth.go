@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -19,7 +20,8 @@ type Claims struct {
 func jwtSecret() []byte {
 	s := os.Getenv("JWT_SECRET")
 	if s == "" {
-		s = "cenidim-secret-change-in-production"
+		s = "cenidim-dev-secret-do-not-use-in-production"
+		log.Printf("WARNING: Using default JWT secret. Set JWT_SECRET env var for production.")
 	}
 	return []byte(s)
 }
