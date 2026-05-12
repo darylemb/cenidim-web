@@ -89,10 +89,10 @@ func GetStats(c *gin.Context) {
 	defer func() { _ = clasRows.Close() }()
 
 	for clasRows.Next() {
-		var clas string
+		var class string
 		var count int
-		if err := clasRows.Scan(&clas, &count); err == nil {
-			stats.SongsByClasificacion[clas] = count
+		if err := clasRows.Scan(&class, &count); err == nil {
+			stats.SongsByClasificacion[class] = count
 		}
 	}
 
