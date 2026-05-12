@@ -11,9 +11,9 @@ function filterTable() {
     return ascii(this).includes(ascii(sub));
   }
   
-  var input, field, filter, table, tr, td, i, j, txtValue, minLen;
-  input = document.getElementById("myInput");
-  field = document.getElementById("myField");
+  const input = document.getElementById("myInput");
+  const field = document.getElementById("myField");
+  var filter, table, tr, td, i, j, txtValue, minLen;
   
   minLen = 3;
   
