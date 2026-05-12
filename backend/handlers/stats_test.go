@@ -131,11 +131,14 @@ func TestGetStatsEmptyDatabase(t *testing.T) {
 	schema := `
 	CREATE TABLE fonogramas (
 		clave_fonograma INTEGER PRIMARY KEY,
-		titulo TEXT NOT NULL
+		titulo TEXT NOT NULL,
+		anio TEXT
 	);
 	CREATE TABLE songs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		fonograma_id INTEGER
+		fonograma_id INTEGER,
+		clasificacion TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 	if _, err = db.Exec(schema); err != nil {
 		t.Fatalf("Failed to create schema: %v", err)
