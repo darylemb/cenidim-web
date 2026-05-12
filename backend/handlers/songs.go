@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/daryl/cenidim-go-api/database"
 	"github.com/daryl/cenidim-go-api/models"
@@ -20,6 +23,9 @@ import (
 // @Produce  json
 // @Param query query string false "Search query"
 // @Param field query string false "Field to search in (title, album, lyrics, all)"
+// @Param clasificacion query string false "Filter by clasificacion (ESPAÑOL_ESTANDAR, ESPAÑOL_REGIONAL, LENGUA_INDIGENA)"
+// @Param order_by query string false "Sort field (id, clave, title, album, year, filename, clasificacion)"
+// @Param order_dir query string false "Sort direction (asc, desc)"
 // @Param page query int false "Page number"
 // @Param limit query int false "Items per page"
 // @Success 200 {object} map[string]interface{}
@@ -29,6 +35,9 @@ import (
 func SearchSongs(c *gin.Context) {
 	query := c.DefaultQuery("query", "")
 	field := c.DefaultQuery("field", "all")
+	clasificacion := c.DefaultQuery("clasificacion", "")
+	orderBy := c.DefaultQuery("order_by", "id")
+	orderDir := c.DefaultQuery("order_dir", "asc")
 	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "20")
 
@@ -55,30 +64,74 @@ func SearchSongs(c *gin.Context) {
 
 	searchTerm := fmt.Sprintf("%%%s%%", query)
 
-	countQuery := "SELECT COUNT(*) FROM songs s JOIN albums a ON s.album_id = a.id"
+	countQuery := "SELECT COUNT(*) FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma"
 	searchQuery := `
-		SELECT s.id, s.title, a.name as album, s.filename
+		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
+		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
+		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
+		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
+		       COALESCE(s.clasificacion,'')
 		FROM songs s
-		JOIN albums a ON s.album_id = a.id
+		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
 	`
 
-	var whereClause string
+	var conditions []string
 	var args []interface{}
 
 	if query != "" {
 		switch field {
 		case "title":
-			whereClause = " WHERE s.title LIKE ?"
+			conditions = append(conditions, "s.title LIKE ?")
 			args = append(args, searchTerm)
 		case "album":
-			whereClause = " WHERE a.name LIKE ?"
+			conditions = append(conditions, "f.titulo LIKE ?")
 			args = append(args, searchTerm)
 		case "lyrics":
-			whereClause = " WHERE s.lyrics LIKE ?"
+			conditions = append(conditions, "s.lyrics LIKE ?")
 			args = append(args, searchTerm)
 		default: // "all"
-			whereClause = " WHERE s.title LIKE ? OR a.name LIKE ? OR s.lyrics LIKE ?"
+			conditions = append(conditions, "(s.title LIKE ? OR f.titulo LIKE ? OR s.lyrics LIKE ?)")
 			args = append(args, searchTerm, searchTerm, searchTerm)
+		}
+	}
+
+	if clasificacion != "" {
+		if clasificacion == "ESPAÑOL_ESTANDAR" {
+			// Songs with empty/NULL clasificacion are treated as Español Estándar
+			conditions = append(conditions, "(s.clasificacion = ? OR COALESCE(s.clasificacion,'') = '')")
+			args = append(args, clasificacion)
+		} else {
+			conditions = append(conditions, "s.clasificacion = ?")
+			args = append(args, clasificacion)
+		}
+	}
+
+	orderFieldMap := map[string]string{
+		"id":            "s.id",
+		"clave":         "s.fonograma_id",
+		"title":         "s.title",
+		"album":         "f.titulo",
+		"year":          "f.anio",
+		"filename":      "s.filename",
+		"clasificacion": "s.clasificacion",
+	}
+	sqlOrderField, ok := orderFieldMap[orderBy]
+	if !ok {
+		sqlOrderField = "s.id"
+	}
+	orderDir = strings.ToLower(orderDir)
+	if orderDir != "desc" {
+		orderDir = "asc"
+	}
+
+	// Always push empty/NULL values to the end regardless of sort direction.
+	orderClause := " ORDER BY CASE WHEN COALESCE(" + sqlOrderField + ", '') = '' THEN 1 ELSE 0 END ASC, " + sqlOrderField + " " + orderDir
+
+	var whereClause string
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + conditions[0]
+		for _, cond := range conditions[1:] {
+			whereClause += " AND " + cond
 		}
 	}
 
@@ -91,10 +144,10 @@ func SearchSongs(c *gin.Context) {
 	}
 
 	// Get paginated results
-	finalQuery := searchQuery + whereClause + " ORDER BY s.id LIMIT ? OFFSET ?"
-	args = append(args, limit, offset)
+	finalQuery := searchQuery + whereClause + orderClause + " LIMIT ? OFFSET ?"
+	paginatedArgs := append(args, limit, offset)
 
-	rows, err := database.DB.Query(finalQuery, args...)
+	rows, err := database.DB.Query(finalQuery, paginatedArgs...)
 	if err != nil {
 		log.Printf("error querying songs: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error searching results"})
@@ -105,7 +158,13 @@ func SearchSongs(c *gin.Context) {
 	songs := []models.Song{}
 	for rows.Next() {
 		var s models.Song
-		if err := rows.Scan(&s.ID, &s.Title, &s.Album, &s.Filename); err != nil {
+		if err := rows.Scan(
+			&s.ID, &s.FonogramaID, &s.Title, &s.Filename,
+			&s.Album, &s.Subtitulo, &s.InterpretePrincipal, &s.InterpretesInvitados,
+			&s.InterpreteParticipante, &s.SoporteFisico, &s.Editora, &s.NumeroCatalogo,
+			&s.CiudadEdicion, &s.PaisEdicion, &s.Year, &s.Pistas, &s.Observaciones,
+			&s.Clasificacion,
+		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading results"})
 			return
 		}
@@ -143,14 +202,24 @@ func GetSong(c *gin.Context) {
 	}
 
 	query := `
-		SELECT s.id, s.title, a.name as album, s.filename, s.lyrics
+		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
+		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
+		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
+		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
+		       COALESCE(s.clasificacion,''), COALESCE(s.lyrics,'')
 		FROM songs s
-		JOIN albums a ON s.album_id = a.id
+		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
 		WHERE s.id = ?
 	`
 
 	var s models.SongDetail
-	err = database.DB.QueryRow(query, id).Scan(&s.ID, &s.Title, &s.Album, &s.Filename, &s.Lyrics)
+	err = database.DB.QueryRow(query, id).Scan(
+		&s.ID, &s.FonogramaID, &s.Title, &s.Filename,
+		&s.Album, &s.Subtitulo, &s.InterpretePrincipal, &s.InterpretesInvitados,
+		&s.InterpreteParticipante, &s.SoporteFisico, &s.Editora, &s.NumeroCatalogo,
+		&s.CiudadEdicion, &s.PaisEdicion, &s.Year, &s.Pistas, &s.Observaciones,
+		&s.Clasificacion, &s.Lyrics,
+	)
 
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
@@ -161,4 +230,92 @@ func GetSong(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, s)
+}
+
+// GetTimeline godoc
+// @Summary Get songs timeline
+// @Description Get songs grouped by year for the timeline view
+// @Tags songs
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} map[string][]models.Song
+// @Failure 500 {object} map[string]string
+// @Router /timeline [get]
+func GetTimeline(c *gin.Context) {
+	query := `
+		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
+		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
+		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
+		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
+		       COALESCE(s.clasificacion,'')
+		FROM songs s
+		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
+		WHERE f.anio IS NOT NULL AND f.anio != ''
+	`
+
+	rows, err := database.DB.Query(query)
+	if err != nil {
+		log.Printf("error querying timeline: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching timeline data"})
+		return
+	}
+	defer func() { _ = rows.Close() }()
+
+	timeline := make(map[string][]models.Song)
+	re := regexp.MustCompile(`\d{4}`)
+
+	type YearGroup struct {
+		Key     string
+		SortKey int
+	}
+	yearGroups := []YearGroup{}
+	seenKeys := make(map[string]bool)
+
+	for rows.Next() {
+		var s models.Song
+		if err := rows.Scan(
+			&s.ID, &s.FonogramaID, &s.Title, &s.Filename,
+			&s.Album, &s.Subtitulo, &s.InterpretePrincipal, &s.InterpretesInvitados,
+			&s.InterpreteParticipante, &s.SoporteFisico, &s.Editora, &s.NumeroCatalogo,
+			&s.CiudadEdicion, &s.PaisEdicion, &s.Year, &s.Pistas, &s.Observaciones,
+			&s.Clasificacion,
+		); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading timeline results"})
+			return
+		}
+
+		// Normalize: Extract first 4 digits
+		key := re.FindString(s.Year)
+		if key == "" {
+			key = s.Year
+		}
+
+		if !seenKeys[key] {
+			sortKey := 0
+			if k, err := strconv.Atoi(key); err == nil {
+				sortKey = k
+			}
+			yearGroups = append(yearGroups, YearGroup{Key: key, SortKey: sortKey})
+			seenKeys[key] = true
+		}
+
+		timeline[key] = append(timeline[key], s)
+	}
+
+	sort.Slice(yearGroups, func(i, j int) bool {
+		if yearGroups[i].SortKey != yearGroups[j].SortKey {
+			return yearGroups[i].SortKey < yearGroups[j].SortKey
+		}
+		return yearGroups[i].Key < yearGroups[j].Key
+	})
+
+	sortedKeys := make([]string, len(yearGroups))
+	for i, yg := range yearGroups {
+		sortedKeys[i] = yg.Key
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"years":    sortedKeys,
+		"timeline": timeline,
+	})
 }

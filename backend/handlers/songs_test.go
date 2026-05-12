@@ -16,40 +16,66 @@ import (
 )
 
 func setupTestDB(t *testing.T) {
+	t.Helper()
 	// Use an in-memory database for fast integration tests
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("Failed to open test db: %v", err)
 	}
 
-	// Setup Schema
+	// Setup Schema (matches production schema)
 	schema := `
-	CREATE TABLE albums (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL
+	CREATE TABLE fonogramas (
+		clave_fonograma         INTEGER PRIMARY KEY,
+		titulo                  TEXT NOT NULL,
+		subtitulo               TEXT,
+		interprete_principal    TEXT,
+		interpretes_invitados   TEXT,
+		interprete_participante TEXT,
+		soporte_fisico          TEXT,
+		editora                 TEXT,
+		numero_catalogo         TEXT,
+		ciudad_edicion          TEXT,
+		pais_edicion            TEXT,
+		anio                    TEXT,
+		pistas                  TEXT,
+		observaciones           TEXT
 	);
 	CREATE TABLE songs (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		title TEXT NOT NULL,
-		album_id INTEGER,
-		filename TEXT,
-		lyrics TEXT,
-		FOREIGN KEY (album_id) REFERENCES albums (id)
+		id           INTEGER PRIMARY KEY AUTOINCREMENT,
+		fonograma_id INTEGER,
+		title        TEXT NOT NULL,
+		filename     TEXT,
+		lyrics       TEXT,
+		clasificacion TEXT,
+		FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
+	);
+	CREATE TABLE users (
+		id            INTEGER PRIMARY KEY AUTOINCREMENT,
+		username      TEXT UNIQUE NOT NULL,
+		email         TEXT UNIQUE NOT NULL,
+		password_hash TEXT NOT NULL,
+		role          TEXT NOT NULL DEFAULT 'viewer',
+		created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 	if _, err = db.Exec(schema); err != nil {
 		t.Fatalf("Failed to create schema: %v", err)
 	}
 
-	// Seed Data
-	_, err = db.Exec(`INSERT INTO albums (id, name) VALUES (1, 'Test Album')`)
+	// Seed Data — use empty strings for nullable columns to avoid NULL scan issues
+	_, err = db.Exec(`INSERT INTO fonogramas
+		(clave_fonograma, titulo, subtitulo, interprete_principal, interpretes_invitados,
+		 interprete_participante, soporte_fisico, editora, numero_catalogo, ciudad_edicion,
+		 pais_edicion, anio, pistas, observaciones)
+		VALUES (1, 'Test Album', '', '', '', '', '', '', '', '', '', '1968', '', '')`)
 	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO songs (id, title, album_id, filename, lyrics) VALUES (1, 'Test Song', 1, 'test.txt', 'This is a test lyric about love')`)
+	_, err = db.Exec(`INSERT INTO songs (id, title, fonograma_id, filename, lyrics) VALUES (1, 'Test Song', 1, 'test.txt', 'This is a test lyric about love')`)
 	require.NoError(t, err)
 	// Additional songs for pagination tests. Titles avoid the word "test" so existing
 	// title-based search assertions remain valid.
-	_, err = db.Exec(`INSERT INTO songs (id, title, album_id, filename, lyrics) VALUES (2, 'Another Song', 1, 'another.txt', 'Another lyric about joy')`)
+	_, err = db.Exec(`INSERT INTO songs (id, title, fonograma_id, filename, lyrics) VALUES (2, 'Another Song', 1, 'another.txt', 'Another lyric about joy')`)
 	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO songs (id, title, album_id, filename, lyrics) VALUES (3, 'Final Song', 1, 'final.txt', 'Final lyric about closure')`)
+	_, err = db.Exec(`INSERT INTO songs (id, title, fonograma_id, filename, lyrics) VALUES (3, 'Final Song', 1, 'final.txt', 'Final lyric about closure')`)
 	require.NoError(t, err)
 
 	database.DB = db

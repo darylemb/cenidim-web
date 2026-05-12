@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        - ADMIN_PASS
     ports:
       - "8000:8080" # Map host 8000 to internal Go 8080
     environment:

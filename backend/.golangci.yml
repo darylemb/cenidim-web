@@ -7,6 +7,11 @@ run:
 
 linters:
   settings:
+    misspell:
+      # Spanish domain words — not English misspellings
+      ignore-rules:
+        - participante
+        - Autor
     revive:
       rules:
         - name: exported

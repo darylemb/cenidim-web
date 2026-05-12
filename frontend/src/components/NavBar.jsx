@@ -10,9 +10,14 @@ export const NavBar = ({
   performSearch,
   handleReset,
   limit,
+  clasificacion,
+  orderBy,
+  orderDir,
+  user,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const links = ['Canciones', 'Dashboards'];
+  const publicLinks = ['Línea de tiempo', 'Canciones', 'Dashboards'];
+  const links = user ? [...publicLinks, 'Admin'] : publicLinks;
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -24,7 +29,7 @@ export const NavBar = ({
   };
 
   const handleSearch = () => {
-    performSearch(query, field, 1, limit);
+    performSearch(query, field, 1, limit, clasificacion, orderBy, orderDir);
     setIsMenuOpen(false);
   };
 

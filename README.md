@@ -49,3 +49,43 @@ npm start
 - **Backend**: `go test ./...` (includes Unit and Integration tests).
 - **Frontend**: `npm test` (React Testing Library).
 - **CI/CD**: Fully automated pipeline via GitHub Actions.
+
+## Environment Variables
+
+The backend requires the following environment variables for production:
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `JWT_SECRET` | Secret key for JWT token signing | **Yes** | None |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins | No | `http://localhost,http://localhost:3000,http://localhost:8000` |
+| `DB_PATH` | Path to SQLite database file | No | `letras.db` |
+| `PORT` | Server port | No | `8080` |
+
+### Example Production Setup
+
+```bash
+export JWT_SECRET="your-secure-256-bit-secret-here"
+export CORS_ALLOWED_ORIGINS="https://yourdomain.com,https://www.yourdomain.com"
+export DB_PATH="/app/letras.db"
+export PORT="8080"
+```
+
+## API Endpoints
+
+### Public Endpoints
+- `GET /` - API welcome message
+- `GET /health` - Health check
+- `GET /api/search` - Search songs with pagination
+- `GET /api/song/:song_id` - Get song details with lyrics
+- `GET /api/timeline` - Get songs grouped by year
+- `GET /api/stats` - Get dashboard statistics
+
+### Authentication Endpoints
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login
+- `GET /api/auth/me` - Get current user profile (requires auth)
+
+### Admin Endpoints (requires authentication)
+- Fonogramas CRUD at `/api/admin/fonogramas`
+- Songs CRUD at `/api/admin/songs`
+- Users management at `/api/admin/users`

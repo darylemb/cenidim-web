@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,30 +10,74 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
+import { apiService } from '../services/api';
 
 // Registrar los módulos de chart.js que vamos a usar
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 export const DashboardView = () => {
-  // Datos Dummies para la demostración
-  const totalAlbums = 14;
-  const totalCanciones = 175;
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Datos para gráfico de barras (Canciones por Álbum - Dummy)
+  useEffect(() => {
+    setLoading(true);
+    apiService
+      .getStats()
+      .then((data) => {
+        setStats(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Error loading stats:', err);
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  const isMobile = window.innerWidth < 768;
+
+  if (loading) {
+    return (
+      <div className="content-area">
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>Cargando métricas...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="content-area">
+        <div className="page-header-flex">
+          <h2 className="page-title">Dashboards Analíticos</h2>
+        </div>
+        <div className="auth-error">Error al cargar las métricas: {error}</div>
+      </div>
+    );
+  }
+
+  // Prepare chart data from real stats
+  const topAlbums = stats?.top_albums || [];
+  const songsByClasificacion = stats?.songs_by_clasificacion || {};
+
+  // Bar chart data - Songs per Album (top 10)
   const barChartData = {
-    labels: ['Vol. 2', 'Vol. 3', 'Vol. 4', 'Vol. 6', 'Cantacuentos', 'Son de la Ciudad', 'Otros'],
+    labels: topAlbums.map((a) =>
+      a.album.length > 20 ? a.album.substring(0, 17) + '...' : a.album
+    ),
     datasets: [
       {
         label: 'Cantidad de Canciones',
-        data: [12, 15, 13, 14, 20, 18, 83],
-        backgroundColor: 'rgba(117, 20, 40, 0.7)', // Color Guinda Cenidim
+        data: topAlbums.map((a) => a.count),
+        backgroundColor: 'rgba(117, 20, 40, 0.7)',
         borderColor: 'rgba(117, 20, 40, 1)',
         borderWidth: 1,
       },
     ],
   };
-
-  const isMobile = window.innerWidth < 768;
 
   const barChartOptions = {
     responsive: true,
@@ -61,13 +105,30 @@ export const DashboardView = () => {
     },
   };
 
-  // Datos para gráfico de pastel (Sentimientos Proyectados - Dummy)
+  // Pie chart data - Songs by Clasificacion
+  const clasificacionLabels =
+    Object.keys(songsByClasificacion).length > 0
+      ? Object.keys(songsByClasificacion).map((key) => {
+          const labels = {
+            ESPAÑOL_ESTANDAR: 'Español Estándar',
+            ESPAÑOL_REGIONAL: 'Español Regional',
+            LENGUA_INDIGENA: 'Lengua Indígena',
+          };
+          return labels[key] || key;
+        })
+      : ['Alegría', 'Melancolía', 'Infantil', 'Naturaleza', 'Otros'];
+
+  const clasificacionValues =
+    Object.values(songsByClasificacion).length > 0
+      ? Object.values(songsByClasificacion)
+      : [35, 10, 40, 10, 5];
+
   const pieChartData = {
-    labels: ['Alegría', 'Melancolía', 'Infantil', 'Naturaleza', 'Otros'],
+    labels: clasificacionLabels,
     datasets: [
       {
         label: 'Proyección de Sentimientos',
-        data: [35, 10, 40, 10, 5],
+        data: clasificacionValues,
         backgroundColor: [
           '#c5a46c', // Dorado
           '#60a5fa', // Azul
@@ -104,26 +165,28 @@ export const DashboardView = () => {
 
   return (
     <div className="content-area">
-      <h2 className="page-title">Dashboards Analíticos</h2>
+      <div className="page-header-flex">
+        <h2 className="page-title">Dashboards Analíticos</h2>
+      </div>
 
       {/* Tarjetas de Métricas Rápidas (KPIs) */}
       <div className="dashboard-kpis">
         <div className="kpi-card">
           <h3>Total de Álbumes</h3>
-          <div className="kpi-value">{totalAlbums}</div>
+          <div className="kpi-value">{stats?.total_albums || 0}</div>
           <p className="kpi-desc">Colecciones indexadas en la base de datos.</p>
         </div>
 
         <div className="kpi-card">
           <h3>Total de Canciones</h3>
-          <div className="kpi-value">{totalCanciones}</div>
-          <p className="kpi-desc">Letras disponibles para análisis NLP.</p>
+          <div className="kpi-value">{stats?.total_songs || 0}</div>
+          <p className="kpi-desc">Letras disponibles para análisis.</p>
         </div>
 
         <div className="kpi-card">
-          <h3>Modelo NLP Activo</h3>
-          <div className="kpi-value status-ok">Esperando...</div>
-          <p className="kpi-desc">Se conectará al backend Python próximamente.</p>
+          <h3>Agregadas Recientemente</h3>
+          <div className="kpi-value status-ok">+{stats?.recently_added || 0}</div>
+          <p className="kpi-desc">En los últimos 30 días.</p>
         </div>
       </div>
 
