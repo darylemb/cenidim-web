@@ -11,7 +11,7 @@
 
 Returns dashboard statistics for the frontend.
 
-**Authentication**: Not required
+**Authentication**: Not required. Optional bearer tokens may be sent by authenticated clients.
 
 **Request**: No body
 
