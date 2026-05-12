@@ -54,9 +54,7 @@ export const DashboardView = () => {
         <div className="page-header-flex">
           <h2 className="page-title">Dashboards Analíticos</h2>
         </div>
-        <div className="auth-error">
-          Error al cargar las métricas: {error}
-        </div>
+        <div className="auth-error">Error al cargar las métricas: {error}</div>
       </div>
     );
   }
@@ -67,7 +65,9 @@ export const DashboardView = () => {
 
   // Bar chart data - Songs per Album (top 10)
   const barChartData = {
-    labels: topAlbums.map((a) => a.album.length > 20 ? a.album.substring(0, 17) + '...' : a.album),
+    labels: topAlbums.map((a) =>
+      a.album.length > 20 ? a.album.substring(0, 17) + '...' : a.album
+    ),
     datasets: [
       {
         label: 'Cantidad de Canciones',
@@ -106,20 +106,22 @@ export const DashboardView = () => {
   };
 
   // Pie chart data - Songs by Clasificacion
-  const clasificacionLabels = Object.keys(songsByClasificacion).length > 0
-    ? Object.keys(songsByClasificacion).map((key) => {
-        const labels = {
-          ESPAÑOL_ESTANDAR: 'Español Estándar',
-          ESPAÑOL_REGIONAL: 'Español Regional',
-          LENGUA_INDIGENA: 'Lengua Indígena',
-        };
-        return labels[key] || key;
-      })
-    : ['Alegría', 'Melancolía', 'Infantil', 'Naturaleza', 'Otros'];
+  const clasificacionLabels =
+    Object.keys(songsByClasificacion).length > 0
+      ? Object.keys(songsByClasificacion).map((key) => {
+          const labels = {
+            ESPAÑOL_ESTANDAR: 'Español Estándar',
+            ESPAÑOL_REGIONAL: 'Español Regional',
+            LENGUA_INDIGENA: 'Lengua Indígena',
+          };
+          return labels[key] || key;
+        })
+      : ['Alegría', 'Melancolía', 'Infantil', 'Naturaleza', 'Otros'];
 
-  const clasificacionValues = Object.values(songsByClasificacion).length > 0
-    ? Object.values(songsByClasificacion)
-    : [35, 10, 40, 10, 5];
+  const clasificacionValues =
+    Object.values(songsByClasificacion).length > 0
+      ? Object.values(songsByClasificacion)
+      : [35, 10, 40, 10, 5];
 
   const pieChartData = {
     labels: clasificacionLabels,

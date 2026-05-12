@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { apiService } from '../services/api';
 
 export const Timeline = () => {
@@ -113,7 +113,7 @@ export const Timeline = () => {
                 data-year={year}
                 style={{
                   '--year-index': index,
-                  '--animation-delay': `${index * 50}ms`
+                  '--animation-delay': `${index * 50}ms`,
                 }}
               >
                 {/* Connecting line to next year */}
@@ -150,9 +150,7 @@ export const Timeline = () => {
                     </option>
                     {songsInYear.map((song) => (
                       <option key={song.id} value={song.id}>
-                        {song.title.length > 35
-                          ? song.title.substring(0, 32) + '...'
-                          : song.title}
+                        {song.title.length > 35 ? song.title.substring(0, 32) + '...' : song.title}
                       </option>
                     ))}
                   </select>
@@ -173,7 +171,7 @@ export const Timeline = () => {
                 key={year}
                 className="summary-segment"
                 style={{
-                  '--segment-width': `${Math.max(songsInYear.length * 3, 10)}%`
+                  '--segment-width': `${Math.max(songsInYear.length * 3, 10)}%`,
                 }}
                 title={`${year}: ${songsInYear.length} canciones`}
               ></div>
