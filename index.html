@@ -11,7 +11,7 @@ function filterTable() {
     return ascii(this).includes(ascii(sub));
   }
   
-  var input, feild, filter, table, tr, td, i, j, txtValue, minLen;
+  var input, field, filter, table, tr, td, i, j, txtValue, minLen;
   input = document.getElementById("myInput");
   field = document.getElementById("myField");
   
@@ -102,22 +102,22 @@ function showTrack(path){
   Promise.all([
   fetch(path).then(x => x.text())
   ]).then(([fetchedtext]) => {
-    trackdiv = document.getElementById("letra");
+    const trackdiv = document.getElementById("letra");
     trackdiv.style.display = "block";
     //console.log(fetchedtext);
     fetchedtext = fetchedtext.replace(/(?:\r\n|\r|\n)/g, '<br>');
     trackdiv.innerHTML = fetchedtext;
   });
-  trackbutton = document.getElementById("letrabutton");
+  const trackbutton = document.getElementById("letrabutton");
   trackbutton.style.display = "block";
 }
 
 function hideTrack(){
-  trackdiv = document.getElementById("letra");
+  const trackdiv = document.getElementById("letra");
   trackdiv.style.display = "none";
   //console.log(fetchedtext);
   trackdiv.innerHTML = "";
-  trackbutton = document.getElementById("letrabutton");
+  const trackbutton = document.getElementById("letrabutton");
   trackbutton.style.display = "none";
 }
 
@@ -268,4 +268,3 @@ includeHTML();
 
 </body>
 </html>
-

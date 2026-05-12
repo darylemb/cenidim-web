@@ -18,12 +18,14 @@ type Claims struct {
 }
 
 func jwtSecret() []byte {
-	s := os.Getenv("JWT_SECRET")
-	if s == "" {
-		s = "cenidim-dev-secret-do-not-use-in-production"
-		log.Printf("WARNING: Using default JWT secret. Set JWT_SECRET env var for production.")
+	if s := strings.TrimSpace(os.Getenv("JWT_SECRET")); s != "" {
+		return []byte(s)
 	}
-	return []byte(s)
+	if gin.Mode() == gin.TestMode {
+		return []byte("cenidim-test-secret")
+	}
+	log.Fatal("JWT_SECRET environment variable is required")
+	return nil
 }
 
 // RequireAuth validates the Bearer token and injects claims into context.

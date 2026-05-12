@@ -99,7 +99,8 @@ LEFT JOIN songs s ON s.fonograma_id = f.clave_fonograma
 GROUP BY f.anio;
 
 -- New index for timeline performance
-CREATE INDEX idx_songs_fonograma_year ON songs(fonograma_id, fonograma(anio));
+CREATE INDEX idx_songs_fonograma_id ON songs(fonograma_id);
+CREATE INDEX idx_fonogramas_anio ON fonogramas(anio);
 CREATE INDEX idx_songs_clasificacion ON songs(clasificacion);
 ```
 

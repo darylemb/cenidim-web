@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
       args:
-        ADMIN_PASS: ${ADMIN_PASS}
+        - ADMIN_PASS
     expose:
       - '8080'
     environment:

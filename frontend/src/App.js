@@ -32,11 +32,18 @@ function App() {
   useEffect(() => {
     const token = localStorage.getItem('cenidim_token');
     if (token) {
-      apiService.getMe().then((u) => {
-        if (u) setUser(u);
-        else localStorage.removeItem('cenidim_token');
-        setAuthLoading(false);
-      });
+      apiService
+        .getMe()
+        .then((u) => {
+          if (u) setUser(u);
+          else localStorage.removeItem('cenidim_token');
+        })
+        .catch(() => {
+          localStorage.removeItem('cenidim_token');
+        })
+        .finally(() => {
+          setAuthLoading(false);
+        });
     } else {
       setAuthLoading(false);
     }

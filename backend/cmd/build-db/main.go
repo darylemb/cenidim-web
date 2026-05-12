@@ -246,6 +246,7 @@ func main() {
 			filename       TEXT,
 			lyrics         TEXT,
 			clasificacion  TEXT,
+			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
 		);
 		CREATE TABLE users (

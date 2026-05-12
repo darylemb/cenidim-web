@@ -94,7 +94,9 @@ export const apiService = {
    */
   getStats: async () => {
     try {
-      const response = await fetch(`${BASE_URL}/stats`);
+      const response = await fetch(`${BASE_URL}/stats`, {
+        headers: { ...authHeaders() },
+      });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

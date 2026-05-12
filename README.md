@@ -56,8 +56,8 @@ The backend requires the following environment variables for production:
 
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
-| `JWT_SECRET` | Secret key for JWT token signing | **Yes** | Warning logged |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins | No | `localhost,localhost:3000,localhost:8000` |
+| `JWT_SECRET` | Secret key for JWT token signing | **Yes** | None |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins | No | `http://localhost,http://localhost:3000,http://localhost:8000` |
 | `DB_PATH` | Path to SQLite database file | No | `letras.db` |
 | `PORT` | Server port | No | `8080` |
 

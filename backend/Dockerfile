@@ -15,7 +15,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /app/db-builder ./cmd/build-db/
 
 WORKDIR /app
 ARG ADMIN_PASS
-RUN ./db-builder -csv db_fonografia.csv -db letras.db -letras LetrasTXT -admin-pass "${ADMIN_PASS}"
+RUN if [ -n "${ADMIN_PASS}" ]; then \
+      ./db-builder -csv db_fonografia.csv -db letras.db -letras LetrasTXT -admin-pass "${ADMIN_PASS}"; \
+    else \
+      ./db-builder -csv db_fonografia.csv -db letras.db -letras LetrasTXT; \
+    fi
 
 
 # ── Stage 2: Classify songs with spaCy (Python, Debian slim for wheel support)

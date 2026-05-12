@@ -11,7 +11,7 @@
 
 Returns dashboard statistics for the frontend.
 
-**Authentication**: Required (JWT Bearer token)
+**Authentication**: Not required
 
 **Request**: No body
 
@@ -35,7 +35,6 @@ Returns dashboard statistics for the frontend.
 ```
 
 **Error Responses**:
-- `401 Unauthorized`: Invalid or missing JWT token
 - `500 Internal Server Error`: Database error
 
 ---
