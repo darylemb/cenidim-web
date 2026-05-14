@@ -177,3 +177,55 @@ Task: "T006 - Verify TimelineView tests pass"
 
 - `docker-compose.yaml`: Added JWT_SECRET and GIN_MODE environment variables
 - `backend/middleware/auth.go`: (no change, but now properly configured via env var)
+
+---
+
+## Phase 7: Security & Pipeline Fixes (Priority: P1)
+
+**Goal**: Fix security vulnerabilities, lint issues, and ensure CI pipelines work correctly
+
+### Security Fixes
+
+- [x] T017 [P1] Fix npm vulnerabilities (5 vulnerabilities in dependencies)
+  - Ran `npm audit fix` to resolve:
+    - @eslint/plugin-kit ReDoS vulnerability
+    - flatted Prototype Pollution
+    - picomatch ReDoS and Method Injection
+    - yaml Stack Overflow
+  - **Result**: 0 vulnerabilities after fix
+
+### Lint & Type Checks
+
+- [x] T018 [P1] Frontend lint passes (`npm run lint`)
+- [x] T019 [P1] Frontend build succeeds (`npm run build`)
+- [x] T020 [P1] Backend lint passes (`golangci-lint run`)
+- [x] T021 [P1] Backend tests pass (`go test ./...`)
+
+### Pipeline Verification
+
+- [x] T022 [P1] CI simulation passes (`./scripts/run_ci_local.sh`)
+  - Backend lint: 0 issues
+  - Backend tests: all pass
+  - Frontend typecheck + lint: pass
+  - Frontend build: success
+  - Frontend tests: 8 passed
+  - Docker build + health check: pass
+
+### Files Modified
+
+- `frontend/package.json`: (transitive dependencies updated via audit fix)
+- `frontend/package-lock.json`: (updated by npm audit fix)
+- No code files changed - all issues were in dependencies
+
+### Test Results
+
+**Frontend Tests (8 passed):**
+- TimelineView: 1 test
+- AuthPage: 3 tests
+- DashboardView: 2 tests
+- CancionesView: 2 tests
+
+**Backend Tests (all pass):**
+- handlers: 19 tests (admin CRUD, auth, search, stats)
+- middleware: 12 tests (JWT auth, role-based access)
+- cmd/build-db: 5 tests (normalization, title extraction)
