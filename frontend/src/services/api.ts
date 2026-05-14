@@ -1,12 +1,19 @@
+/**
+ * api.ts
+ * Service for Go/Gin API calls.
+ *
+ * Uses native fetch promises.
+ * Routes use /api to align with the configured proxy.
+ */
+
 import type {
-  SearchResponse,
   Song,
   Stats,
   TimelineData,
+  SearchResponse,
   User,
-  Fonograma,
-  AuthResponse,
   PaginatedResponse,
+  AuthResponse,
 } from '@/types';
 
 const BASE_URL = '/api';
@@ -17,198 +24,242 @@ function authHeaders(): Record<string, string> {
 }
 
 export const apiService = {
-  async searchSongs(
+  searchSongs: async (
     query = '',
     field = 'all',
     page = 1,
     limit = 20,
     clasificacion = '',
     orderBy = 'id',
-    orderDir: 'asc' | 'desc' = 'asc'
-  ): Promise<SearchResponse> {
-    const params = new URLSearchParams({
-      query,
-      field,
-      page: String(page),
-      limit: String(limit),
-      order_by: orderBy,
-      order_dir: orderDir,
-    });
-    if (clasificacion) params.set('clasificacion', clasificacion);
-    const res = await fetch(`${BASE_URL}/search?${params.toString()}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+    orderDir = 'asc'
+  ): Promise<SearchResponse> => {
+    try {
+      const params = new URLSearchParams({
+        query: query,
+        field: field,
+        page: String(page),
+        limit: String(limit),
+        order_by: orderBy,
+        order_dir: orderDir,
+      });
+      if (clasificacion) {
+        params.set('clasificacion', clasificacion);
+      }
+      const response = await fetch(`${BASE_URL}/search?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error searching songs:', error);
+      throw error;
+    }
   },
 
-  async getSongDetail(songId: number): Promise<Song> {
-    const res = await fetch(`${BASE_URL}/song/${encodeURIComponent(songId)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+  getSongDetail: async (songId: number): Promise<Song | null> => {
+    try {
+      const response = await fetch(`${BASE_URL}/song/${encodeURIComponent(songId)}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Error getting song with ID ${songId}:`, error);
+      throw error;
+    }
   },
 
-  async getTimeline(): Promise<TimelineData> {
-    const res = await fetch(`${BASE_URL}/timeline`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+  getTimeline: async (): Promise<TimelineData> => {
+    try {
+      const response = await fetch(`${BASE_URL}/timeline`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting timeline:', error);
+      throw error;
+    }
   },
 
-  async getStats(): Promise<Stats> {
-    const res = await fetch(`${BASE_URL}/stats`, { headers: authHeaders() });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+  getStats: async (): Promise<Stats> => {
+    try {
+      const response = await fetch(`${BASE_URL}/stats`, {
+        headers: { ...authHeaders() },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting stats:', error);
+      throw error;
+    }
   },
 
-  async login(username: string, password: string): Promise<AuthResponse> {
-    const res = await fetch(`${BASE_URL}/auth/login`, {
+  login: async (username: string, password: string): Promise<AuthResponse> => {
+    const response = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Login failed');
     return data;
   },
 
-  async register(username: string, email: string, password: string): Promise<AuthResponse> {
-    const res = await fetch(`${BASE_URL}/auth/register`, {
+  register: async (username: string, email: string, password: string): Promise<AuthResponse> => {
+    const response = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, email, password }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Registration failed');
     return data;
   },
 
-  async getMe(): Promise<User | null> {
-    const res = await fetch(`${BASE_URL}/auth/me`, { headers: authHeaders() });
-    if (!res.ok) return null;
-    return res.json();
-  },
-
-  async adminListFonogramas(page = 1, limit = 20): Promise<PaginatedResponse<Fonograma>> {
-    const res = await fetch(`${BASE_URL}/admin/fonogramas?page=${page}&limit=${limit}`, {
-      headers: authHeaders(),
+  getMe: async (): Promise<User | null> => {
+    const response = await fetch(`${BASE_URL}/auth/me`, {
+      headers: { ...authHeaders() },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    if (!response.ok) return null;
+    return response.json();
+  },
+
+  adminListFonogramas: async (page = 1, limit = 20): Promise<PaginatedResponse<Song>> => {
+    const response = await fetch(`${BASE_URL}/admin/fonogramas?page=${page}&limit=${limit}`, {
+      headers: { ...authHeaders() },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminGetFonograma(id: number): Promise<Fonograma> {
-    const res = await fetch(`${BASE_URL}/admin/fonogramas/${id}`, { headers: authHeaders() });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+  adminGetFonograma: async (id: number): Promise<Song> => {
+    const response = await fetch(`${BASE_URL}/admin/fonogramas/${id}`, {
+      headers: { ...authHeaders() },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminCreateFonograma(payload: Partial<Fonograma>): Promise<Fonograma> {
-    const res = await fetch(`${BASE_URL}/admin/fonogramas`, {
+  adminCreateFonograma: async (payload: Partial<Song>): Promise<Song> => {
+    const response = await fetch(`${BASE_URL}/admin/fonogramas`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminUpdateFonograma(id: number, payload: Partial<Fonograma>): Promise<Fonograma> {
-    const res = await fetch(`${BASE_URL}/admin/fonogramas/${id}`, {
+  adminUpdateFonograma: async (id: number, payload: Partial<Song>): Promise<Song> => {
+    const response = await fetch(`${BASE_URL}/admin/fonogramas/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminDeleteFonograma(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/admin/fonogramas/${id}`, {
+  adminDeleteFonograma: async (id: number): Promise<void> => {
+    const response = await fetch(`${BASE_URL}/admin/fonogramas/${id}`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: { ...authHeaders() },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    if (!response.ok) throw new Error('Error');
   },
 
-  async adminListSongs(fonogramaId = '', page = 1, limit = 50): Promise<PaginatedResponse<Song>> {
+  adminListSongs: async (
+    fonogramaId = '',
+    page = 1,
+    limit = 50
+  ): Promise<PaginatedResponse<Song>> => {
     const q = fonogramaId ? `&fonograma_id=${fonogramaId}` : '';
-    const res = await fetch(`${BASE_URL}/admin/songs?page=${page}&limit=${limit}${q}`, {
-      headers: authHeaders(),
+    const response = await fetch(`${BASE_URL}/admin/songs?page=${page}&limit=${limit}${q}`, {
+      headers: { ...authHeaders() },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminCreateSong(payload: Partial<Song>): Promise<Song> {
-    const res = await fetch(`${BASE_URL}/admin/songs`, {
+  adminCreateSong: async (payload: Partial<Song>): Promise<Song> => {
+    const response = await fetch(`${BASE_URL}/admin/songs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminUpdateSong(id: number, payload: Partial<Song>): Promise<Song> {
-    const res = await fetch(`${BASE_URL}/admin/songs/${id}`, {
+  adminUpdateSong: async (id: number, payload: Partial<Song>): Promise<Song> => {
+    const response = await fetch(`${BASE_URL}/admin/songs/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminDeleteSong(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/admin/songs/${id}`, {
+  adminDeleteSong: async (id: number): Promise<void> => {
+    const response = await fetch(`${BASE_URL}/admin/songs/${id}`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: { ...authHeaders() },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    if (!response.ok) throw new Error('Error');
   },
 
-  async adminListUsers(): Promise<User[]> {
-    const res = await fetch(`${BASE_URL}/admin/users`, { headers: authHeaders() });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+  adminListUsers: async (): Promise<User[]> => {
+    const response = await fetch(`${BASE_URL}/admin/users`, {
+      headers: { ...authHeaders() },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminCreateUser(payload: Partial<User>): Promise<User> {
-    const res = await fetch(`${BASE_URL}/admin/users`, {
+  adminCreateUser: async (payload: {
+    username: string;
+    email: string;
+    password: string;
+    role?: string;
+  }): Promise<User> => {
+    const response = await fetch(`${BASE_URL}/admin/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminUpdateUser(id: number, payload: Partial<User>): Promise<User> {
-    const res = await fetch(`${BASE_URL}/admin/users/${id}`, {
+  adminUpdateUser: async (id: number, payload: Partial<User>): Promise<User> => {
+    const response = await fetch(`${BASE_URL}/admin/users/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
     return data;
   },
 
-  async adminDeleteUser(id: number): Promise<void> {
-    const res = await fetch(`${BASE_URL}/admin/users/${id}`, {
+  adminDeleteUser: async (id: number): Promise<void> => {
+    const response = await fetch(`${BASE_URL}/admin/users/${id}`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: { ...authHeaders() },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
+    if (!response.ok) throw new Error('Error');
   },
 };

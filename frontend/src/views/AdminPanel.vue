@@ -269,7 +269,7 @@ onMounted(() => {
 async function loadFonos() {
   try {
     const data = await apiService.adminListFonogramas(fonoPage.value, 20);
-    fonogramas.value = data.results;
+    fonogramas.value = data.results as unknown as Fonograma[];
     hasMoreFonos.value = data.results.length === 20;
   } catch (e) {
     console.error(e);

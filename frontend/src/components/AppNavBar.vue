@@ -66,7 +66,7 @@ function toggleMobileMenu() {
 
 function navigate(tab: typeof activeTab.value) {
   if (tab === 'admin' && !auth.isAuthenticated) {
-    ui.openAuth();
+    router.push({ name: 'login' });
     return;
   }
   ui.setActiveTab(tab);

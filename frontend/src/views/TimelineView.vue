@@ -132,7 +132,7 @@ async function onSongSelect(event: Event, year: string) {
   loadingLyrics.value = true;
   try {
     const data = await apiService.getSongDetail(parseInt(songId));
-    lyrics.value = data.lyrics ?? '';
+    lyrics.value = data?.lyrics ?? '';
   } catch {
     lyrics.value = 'Error al cargar la letra.';
   } finally {

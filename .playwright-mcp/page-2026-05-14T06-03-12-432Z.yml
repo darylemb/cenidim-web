@@ -1,0 +1,43 @@
+- generic [ref=e4]:
+  - banner [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: C
+        - generic [ref=e9]:
+          - heading "CENIDIM" [level=2] [ref=e10]
+          - text: Archivo Musical
+      - button "Acceder" [ref=e11] [cursor=pointer]
+    - navigation [ref=e12]:
+      - generic [ref=e14]:
+        - button "Línea de tiempo" [ref=e15] [cursor=pointer]
+        - button "Canciones" [ref=e16] [cursor=pointer]
+        - button "Dashboards" [ref=e17] [cursor=pointer]
+        - button "Admin" [ref=e18] [cursor=pointer]
+      - generic [ref=e19]:
+        - combobox [ref=e20]:
+          - option "Todos" [selected]
+          - option "Pista"
+          - option "Álbum"
+          - option "Letra"
+        - textbox "Buscar canciones..." [ref=e21]
+        - generic [ref=e22]:
+          - button "Buscar" [ref=e23] [cursor=pointer]
+          - button "Reset" [ref=e24] [cursor=pointer]
+  - main [ref=e25]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]: C
+        - generic [ref=e30]:
+          - heading "CENIDIM" [level=2] [ref=e31]
+          - text: Archivo Musical
+      - generic [ref=e32]:
+        - button "Iniciar Sesión" [ref=e33] [cursor=pointer]
+        - button "Registrarse" [ref=e34] [cursor=pointer]
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - generic [ref=e37]: Usuario
+          - textbox "Usuario" [active] [ref=e38]
+        - generic [ref=e39]:
+          - generic [ref=e40]: Contraseña
+          - textbox "Contraseña" [ref=e41]
+        - button "Acceder" [ref=e42] [cursor=pointer]

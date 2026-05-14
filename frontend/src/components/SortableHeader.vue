@@ -14,5 +14,5 @@ defineProps<{
   sortDir: 'asc' | 'desc';
 }>();
 
-defineEmits<{ (e: 'sort', key: string): void }>();
+defineEmits<{ (e: 'sort', _key: string): void }>(); // eslint-disable-line no-unused-vars
 </script>

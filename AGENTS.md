@@ -71,6 +71,10 @@ Secuencia: backend lint+test → frontend lint+typecheck+test → Docker build+h
 - Standard hooks: trailing whitespace, end-of-file fixer, YAML check, large-file check
 
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+## Current Plan
+`specs/001-fix-execution/plan.md`
+
+For additional context about the fix execution feature, read:
+- `specs/001-fix-execution/research.md`
+- `specs/001-fix-execution/quickstart.md`
 <!-- SPECKIT END -->

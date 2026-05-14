@@ -20,10 +20,12 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 import AppNavBar from '@/components/AppNavBar.vue';
 
+const router = useRouter();
 const auth = useAuthStore();
 const ui = useUiStore();
 const user = auth.user;
@@ -34,6 +36,6 @@ function handleLogout() {
 }
 
 function openAuth() {
-  ui.openAuth();
+  router.push({ name: 'login' });
 }
 </script>

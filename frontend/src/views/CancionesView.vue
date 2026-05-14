@@ -364,7 +364,7 @@ async function openLyrics(songId: number) {
   try {
     const data = await apiService.getSongDetail(songId);
     selectedSongData.value = data;
-    selectedLyrics.value = data.lyrics ?? '';
+    selectedLyrics.value = data?.lyrics ?? '';
   } catch {
     selectedLyrics.value = 'Error al cargar la letra.';
   } finally {
