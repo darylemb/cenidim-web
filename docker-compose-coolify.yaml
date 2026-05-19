@@ -5,49 +5,22 @@ services:
       dockerfile: backend/Dockerfile
       args:
         - ADMIN_PASS
-    expose:
-      - '8080'
     environment:
       - DB_PATH=/app/letras.db
+      - JWT_SECRET=${JWT_SECRET}
+      - GIN_MODE=release
     restart: unless-stopped
     healthcheck:
-      test:
-        - CMD
-        - ./healthcheck
+      test: ['CMD', './healthcheck']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
-    networks:
-      - app-internal
 
   frontend:
-    container_name: cenidim-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    expose:
-      - '8080'
     restart: unless-stopped
-    healthcheck:
-      test:
-        - CMD
-        - wget
-        - -q
-        - --spider
-        - http://localhost:8080/
-      interval: 30s
-      timeout: 10s
-      retries: 3
     depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - app-internal
-      - public-network
-
-networks:
-  app-internal:
-    driver: bridge
-  public-network:
-    external: true
+      - backend
