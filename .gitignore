@@ -31,3 +31,5 @@ yarn-error.log*
 .mypy_cache
 
 bin/
+
+docker-compose.yaml

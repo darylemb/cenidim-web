@@ -11,9 +11,9 @@ function filterTable() {
     return ascii(this).includes(ascii(sub));
   }
   
-  var input, feild, filter, table, tr, td, i, j, txtValue, minLen;
-  input = document.getElementById("myInput");
-  field = document.getElementById("myField");
+  const input = document.getElementById("myInput");
+  const searchField = document.getElementById("myField");
+  var filter, table, tr, td, i, j, txtValue, minLen;
   
   minLen = 3;
   
@@ -26,13 +26,13 @@ function filterTable() {
       td = tr[i].getElementsByTagName("td");
       
       if (td.length > 0){
-        if (field.value == "author"){
+        if (searchField.value == "author"){
           j = 2;
-        }else if(field.value == "year"){
+        }else if(searchField.value == "year"){
           j = 1;
-        }else if (field.value == "title"){
+        }else if (searchField.value == "title"){
           j = 3;
-        }else if(field.value == "track"){
+        }else if(searchField.value == "track"){
           j = 4;
         }else{
           j = -1;
@@ -61,13 +61,13 @@ function filterTable() {
       }
     }
   }else{
-    if (field.value == "author"){
+    if (searchField.value == "author"){
       hideTable();
-    }else if(field.value == "year"){
+    }else if(searchField.value == "year"){
       hideTable();
-    }else if(field.value == "title"){
+    }else if(searchField.value == "title"){
       hideTable();
-    }else if(field.value == "track"){
+    }else if(searchField.value == "track"){
       hideTable();
     }else{
       showTable();
@@ -102,22 +102,22 @@ function showTrack(path){
   Promise.all([
   fetch(path).then(x => x.text())
   ]).then(([fetchedtext]) => {
-    trackdiv = document.getElementById("letra");
+    const trackdiv = document.getElementById("letra");
     trackdiv.style.display = "block";
     //console.log(fetchedtext);
     fetchedtext = fetchedtext.replace(/(?:\r\n|\r|\n)/g, '<br>');
     trackdiv.innerHTML = fetchedtext;
   });
-  trackbutton = document.getElementById("letrabutton");
+  const trackbutton = document.getElementById("letrabutton");
   trackbutton.style.display = "block";
 }
 
 function hideTrack(){
-  trackdiv = document.getElementById("letra");
+  const trackdiv = document.getElementById("letra");
   trackdiv.style.display = "none";
   //console.log(fetchedtext);
   trackdiv.innerHTML = "";
-  trackbutton = document.getElementById("letrabutton");
+  const trackbutton = document.getElementById("letrabutton");
   trackbutton.style.display = "none";
 }
 
@@ -268,4 +268,3 @@ includeHTML();
 
 </body>
 </html>
-

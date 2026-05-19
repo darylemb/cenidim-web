@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -17,11 +18,14 @@ type Claims struct {
 }
 
 func jwtSecret() []byte {
-	s := os.Getenv("JWT_SECRET")
-	if s == "" {
-		s = "cenidim-secret-change-in-production"
+	if s := strings.TrimSpace(os.Getenv("JWT_SECRET")); s != "" {
+		return []byte(s)
 	}
-	return []byte(s)
+	if gin.Mode() == gin.TestMode {
+		return []byte("cenidim-test-secret")
+	}
+	log.Fatal("JWT_SECRET environment variable is required")
+	return nil
 }
 
 // RequireAuth validates the Bearer token and injects claims into context.

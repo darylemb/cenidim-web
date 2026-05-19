@@ -17,6 +17,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/daryl/cenidim-go-api/database"
@@ -41,8 +42,19 @@ func main() {
 	r.Use(gin.Recovery()) // Panic recovery middleware
 
 	// Middleware: CORS
+	allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if allowedOrigins == "" {
+		allowedOrigins = "http://localhost,http://localhost:3000,http://localhost:8000"
+	}
+	origins := strings.Split(allowedOrigins, ",")
+	allowOrigins := make([]string, 0, len(origins))
+	for _, origin := range origins {
+		if trimmed := strings.TrimSpace(origin); trimmed != "" {
+			allowOrigins = append(allowOrigins, trimmed)
+		}
+	}
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:  []string{"*"},
+		AllowOrigins:  allowOrigins,
 		AllowMethods:  []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:  []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders: []string{"Content-Length"},
@@ -63,6 +75,7 @@ func main() {
 		api.GET("/search", handlers.SearchSongs)
 		api.GET("/song/:song_id", handlers.GetSong)
 		api.GET("/timeline", handlers.GetTimeline)
+		api.GET("/stats", handlers.GetStats)
 
 		// Auth endpoints
 		auth := api.Group("/auth")
