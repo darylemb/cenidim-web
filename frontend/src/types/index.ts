@@ -62,6 +62,7 @@ export interface Stats {
   songs_with_lyrics: number;
   songs_by_oov_level: Record<string, number>;
   songs_by_indigena: Record<string, number>;
+  songs_without_year: number;
 }
 
 export interface AlbumCount {

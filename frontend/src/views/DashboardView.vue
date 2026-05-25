@@ -30,29 +30,40 @@
         <div class="kpi-value">~{{ avgLyricsChars }}</div>
         <p class="kpi-desc">Longitud promedio de letra.</p>
       </div>
+      <div class="kpi-card kpi-card--warning" v-if="(stats?.songs_without_year ?? 0) > 0">
+        <h3>Sin Año de Datos</h3>
+        <div class="kpi-value">{{ stats?.songs_without_year ?? 0 }}</div>
+        <p class="kpi-desc">Canciones con año desconocido.</p>
+      </div>
     </div>
 
     <div class="dashboard-charts">
-      <div class="chart-container">
+      <div class="chart-container chart-container--full">
         <Bar :data="albumChartData" :options="albumChartOptions" />
       </div>
-      <div class="chart-container">
+    </div>
+
+    <div class="dashboard-charts">
+      <div class="chart-container chart-container--full">
         <Doughnut :data="clasificacionChartData" :options="doughnutChartOptions" />
       </div>
     </div>
 
     <div class="dashboard-charts">
-      <div class="chart-container">
+      <div class="chart-container chart-container--full">
         <Line :data="yearLineChartData" :options="yearLineChartOptions" />
       </div>
-      <div class="chart-container">
+    </div>
+
+    <div class="dashboard-charts">
+      <div class="chart-container chart-container--full">
         <Bar :data="oovChartData" :options="oovChartOptions" />
       </div>
     </div>
 
-    <div class="dashboard-charts dashboard-charts--single">
-      <div class="chart-container chart-container--tall">
-        <PolarArea :data="indigenaChartData" :options="polarChartOptions" />
+    <div class="dashboard-charts">
+      <div class="chart-container chart-container--full chart-container--tall">
+        <WordCloud />
       </div>
     </div>
   </div>
@@ -71,9 +82,9 @@ import {
   ArcElement,
   LineElement,
   PointElement,
-  RadialLinearScale,
 } from 'chart.js';
-import { Bar, Doughnut, Line, PolarArea } from 'vue-chartjs';
+import { Bar, Doughnut, Line } from 'vue-chartjs';
+import WordCloud from '@/components/WordCloud.vue';
 import { apiService } from '@/services/api';
 import type { Stats } from '@/types';
 
@@ -86,8 +97,7 @@ ChartJS.register(
   Legend,
   ArcElement,
   LineElement,
-  PointElement,
-  RadialLinearScale
+  PointElement
 );
 
 const stats = ref<Stats | null>(null);
@@ -96,6 +106,7 @@ const loading = ref(true);
 onMounted(async () => {
   try {
     stats.value = await apiService.getStats();
+    console.log('Stats loaded:', stats.value);
   } catch (e) {
     console.error('Error loading stats:', e);
   } finally {
@@ -108,6 +119,19 @@ const avgLyricsChars = computed(() => {
   return val > 0 ? Math.round(val).toLocaleString() : '0';
 });
 
+const albumColors = [
+  'rgba(117, 20, 40, 0.85)',
+  'rgba(59, 130, 246, 0.85)',
+  'rgba(16, 185, 129, 0.85)',
+  'rgba(245, 158, 11, 0.85)',
+  'rgba(139, 92, 246, 0.85)',
+  'rgba(236, 72, 153, 0.85)',
+  'rgba(6, 182, 212, 0.85)',
+  'rgba(249, 115, 22, 0.85)',
+  'rgba(34, 197, 94, 0.85)',
+  'rgba(168, 85, 247, 0.85)',
+];
+
 // ── Album Bar Chart ──────────────────────────────────────────
 const albumChartData = computed(() => {
   const top = stats.value?.top_albums ?? [];
@@ -117,9 +141,9 @@ const albumChartData = computed(() => {
       {
         label: 'Cantidad de Canciones',
         data: top.map((a) => a.count),
-        backgroundColor: 'rgba(117, 20, 40, 0.7)',
-        borderColor: 'rgba(117, 20, 40, 1)',
-        borderWidth: 1,
+        backgroundColor: top.map((_, i) => albumColors[i % albumColors.length]),
+        borderColor: top.map((_, i) => albumColors[i % albumColors.length].replace('0.85', '1')),
+        borderWidth: 2,
       },
     ],
   };
@@ -147,20 +171,20 @@ const albumChartOptions = {
 // ── Clasificacion Doughnut ────────────────────────────────────
 const clasificacionChartData = computed(() => {
   const map = stats.value?.songs_by_clasificacion ?? {};
+  const hasData = Object.keys(map).length > 0;
   const labels: Record<string, string> = {
     ESPAÑOL_ESTANDAR: 'Español Estándar',
     ESPAÑOL_REGIONAL: 'Español Regional',
     LENGUA_INDIGENA: 'Lengua Indígena',
   };
   return {
-    labels:
-      Object.keys(map).length > 0
-        ? Object.keys(map).map((k) => labels[k] ?? k)
-        : ['Español Estándar', 'Español Regional', 'Lengua Indígena'],
+    labels: hasData
+      ? Object.keys(map).map((k) => labels[k] ?? k)
+      : ['Español Estándar', 'Español Regional', 'Lengua Indígena'],
     datasets: [
       {
-        data: Object.values(map).length > 0 ? Object.values(map) : [35, 10, 40],
-        backgroundColor: ['#c5a46c', '#60a5fa', '#751428'],
+        data: hasData ? Object.values(map) : [0, 0, 0],
+        backgroundColor: hasData ? ['#c5a46c', '#60a5fa', '#751428'] : ['#e5e7eb', '#e5e7eb', '#e5e7eb'],
         hoverOffset: 20,
         borderWidth: 0,
       },
@@ -180,7 +204,7 @@ const doughnutChartOptions = {
     },
     title: {
       display: true,
-      text: 'Clasificación Temática',
+      text: 'Clasificación de Español',
       font: { size: 14, weight: 'bold' as const },
       padding: { bottom: 20 },
     },
@@ -190,19 +214,34 @@ const doughnutChartOptions = {
 // ── Year Line Chart ──────────────────────────────────────────
 const yearLineChartData = computed(() => {
   const byYear = stats.value?.songs_by_year ?? {};
-  const sortedYears = Object.keys(byYear).sort();
+  const sdCount = byYear['s/d'] ?? 0;
+  const validYears = Object.keys(byYear)
+    .filter((y) => y !== 's/d')
+    .sort();
+  const labels = [...validYears];
+  const data = validYears.map((y) => byYear[y]);
+  if (sdCount > 0) {
+    labels.push('s/d');
+    data.push(sdCount);
+  }
   return {
-    labels: sortedYears,
+    labels,
     datasets: [
       {
         label: 'Canciones',
-        data: sortedYears.map((y) => byYear[y]),
+        data,
         borderColor: '#751428',
         backgroundColor: 'rgba(117, 20, 40, 0.1)',
         fill: true,
         tension: 0.4,
-        pointRadius: 4,
+        pointRadius: 6,
         pointBackgroundColor: '#751428',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointHoverRadius: 8,
+        pointHoverBackgroundColor: '#751428',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 3,
       },
     ],
   };
@@ -211,7 +250,16 @@ const yearLineChartData = computed(() => {
 const yearLineChartOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  animation: { duration: 1200, easing: 'easeInOutQuart' as const },
+  animation: {
+    duration: 1500,
+    easing: 'easeOutQuart' as const,
+    animateRotate: true,
+    animateScale: true,
+  },
+  interaction: {
+    mode: 'index' as const,
+    intersect: false,
+  },
   plugins: {
     legend: { display: false },
     title: {
@@ -219,6 +267,27 @@ const yearLineChartOptions = {
       text: 'Canciones por Año',
       font: { size: 14, weight: 'bold' as const },
       padding: { bottom: 20 },
+    },
+    tooltip: {
+      enabled: true,
+      backgroundColor: 'rgba(117, 20, 40, 0.9)',
+      titleColor: '#fff',
+      bodyColor: '#fff',
+      borderColor: 'rgba(117, 20, 40, 1)',
+      borderWidth: 1,
+      cornerRadius: 8,
+      padding: 12,
+      displayColors: false,
+      callbacks: {
+        title: (items: unknown[]) => {
+          const ctx = items[0] as { label: string };
+          return `Año: ${ctx.label}`;
+        },
+        label: (item: unknown) => {
+          const ctx = item as { raw: number };
+          return `Canciones: ${ctx.raw}`;
+        },
+      },
     },
   },
   scales: {
@@ -230,20 +299,33 @@ const yearLineChartOptions = {
 // ── OOV Level Bar Chart ────────────────────────────────────────
 const oovChartData = computed(() => {
   const map = stats.value?.songs_by_oov_level ?? {};
+  const hasData = Object.keys(map).length > 0;
   const labels: Record<string, string> = {
     BAJA: 'BAJA (<5%)',
     MEDIA: 'MEDIA (5-18%)',
     ALTA: 'ALTA (>18%)',
   };
+
+  if (!hasData) {
+    return {
+      labels: ['Sin datos de OOV'],
+      datasets: [
+        {
+          label: 'Nivel OOV',
+          data: [0],
+          backgroundColor: ['#e5e7eb'],
+          borderWidth: 0,
+        },
+      ],
+    };
+  }
+
   return {
-    labels:
-      Object.keys(map).length > 0
-        ? Object.keys(map).map((k) => labels[k] ?? k)
-        : ['BAJA (<5%)', 'MEDIA (5-18%)', 'ALTA (>18%)'],
+    labels: Object.keys(map).map((k) => labels[k] ?? k),
     datasets: [
       {
         label: 'Nivel OOV',
-        data: Object.values(map).length > 0 ? Object.values(map) : [10, 25, 5],
+        data: Object.values(map),
         backgroundColor: ['#34d399', '#fbbf24', '#f87171'],
         borderWidth: 0,
       },
@@ -270,55 +352,38 @@ const oovChartOptions = {
     y: { grid: { display: false } },
   },
 };
-
-// ── Indigena Polar Chart ───────────────────────────────────────
-const indigenaChartData = computed(() => {
-  const map = stats.value?.songs_by_indigena ?? {};
-  return {
-    labels:
-      Object.keys(map).length > 0
-        ? Object.keys(map).map((k) =>
-            k === 'CON_INDIGENA' ? 'Con Palabra Indígena' : 'Sin Palabra Indígena'
-          )
-        : ['Con Palabra Indígena', 'Sin Palabra Indígena'],
-    datasets: [
-      {
-        data: Object.values(map).length > 0 ? Object.values(map) : [8, 42],
-        backgroundColor: ['#c5a46c', '#751428'],
-        borderWidth: 0,
-      },
-    ],
-  };
-});
-
-const polarChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: { duration: 1200, easing: 'easeInOutQuart' as const },
-  plugins: {
-    legend: {
-      position: 'right' as const,
-      labels: { usePointStyle: true, padding: 20, font: { size: 12 } },
-    },
-    title: {
-      display: true,
-      text: 'Presencia de Palabra Indígena',
-      font: { size: 14, weight: 'bold' as const },
-      padding: { bottom: 20 },
-    },
-  },
-  scales: {
-    r: {
-      ticks: { display: false },
-      grid: { color: '#e2e8f0' },
-    },
-  },
-};
 </script>
 
 <style scoped>
-.dashboard-charts--single {
-  grid-template-columns: 1fr;
-  max-width: 600px;
+.dashboard-charts {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.chart-container {
+  width: 100%;
+  max-width: 100%;
+  height: 350px;
+}
+
+.chart-container--full {
+  width: 100%;
+  max-width: 100%;
+}
+
+.chart-container--tall {
+  height: 420px;
+}
+
+.kpi-card--warning {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+  border-left: 4px solid #ffc107;
+}
+
+.kpi-card--warning .kpi-value {
+  color: #856404;
 }
 </style>
