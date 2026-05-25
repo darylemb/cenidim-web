@@ -72,9 +72,10 @@ Secuencia: backend lint+test → frontend lint+typecheck+test → Docker build+h
 
 <!-- SPECKIT START -->
 ## Current Plan
-`specs/001-fix-execution/plan.md`
+`specs/003-remaining-tasks/plan.md`
 
-For additional context about the fix execution feature, read:
-- `specs/001-fix-execution/research.md`
-- `specs/001-fix-execution/quickstart.md`
+For additional context about the dashboard improvements and Trivy scanning, read:
+- `specs/003-remaining-tasks/research.md`
+- `specs/003-remaining-tasks/quickstart.md`
+- `specs/003-remaining-tasks/tasks.md`
 <!-- SPECKIT END -->

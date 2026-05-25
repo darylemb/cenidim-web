@@ -29,7 +29,7 @@ The system is built with:
 - **Backend**: Go 1.21+ with Gin framework, SQLite database
 - **Frontend**: Vue 3 with Vite, TypeScript strict mode, Pinia state, Vue Router
 - **Infrastructure**: Docker with multi-stage builds, unprivileged nginx
-- **Quality**: golangci-lint for Go, ESLint + vue-tsc for frontend, Vitest for tests
+- **Quality**: golangci-lint for Go, ESLint + vue-tsc for frontend, Vitest for unit tests, Playwright for E2E tests
 
 Technology choices are fixed unless approved through the amendment process.
 
@@ -44,7 +44,7 @@ Technology choices are fixed unless approved through the amendment process.
 ### Quality Gates
 
 1. **Backend**: `golangci-lint run` and `go test ./...`
-2. **Frontend**: `npm run lint`, `npm run build` (includes typecheck), `npm run test -- --run`
+2. **Frontend**: `npm run lint`, `npm run build` (includes typecheck), `npm run test -- --run`, `npm run test:e2e`
 3. **Docker**: Health check at `localhost:8000/health`
 
 ### Git Workflow

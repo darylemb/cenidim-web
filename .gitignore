@@ -33,3 +33,7 @@ yarn-error.log*
 bin/
 
 docker-compose.yaml
+
+.playwright-mcp/
+.opencode/
+.roo/

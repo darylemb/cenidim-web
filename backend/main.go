@@ -76,6 +76,7 @@ func main() {
 		api.GET("/song/:song_id", handlers.GetSong)
 		api.GET("/timeline", handlers.GetTimeline)
 		api.GET("/stats", handlers.GetStats)
+		api.GET("/word-cloud", handlers.GetWordCloud)
 
 		// Auth endpoints
 		auth := api.Group("/auth")

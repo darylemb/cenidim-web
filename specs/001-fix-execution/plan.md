@@ -1,93 +1,104 @@
-# Implementation Plan: Fix Execution Issues
+# Implementation Plan: [FEATURE]
 
-**Branch**: `001-fix-execution` | **Date**: 2026-05-13 | **Spec**: [link](../spec.md)
-**Input**: Feature specification from `/specs/001-fix-execution/spec.md`
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+
+**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
 ## Summary
 
-Fix execution issues in the frontend test suite and TypeScript consistency. The primary problem is Chart.js throwing unhandled promise rejections in jsdom environment during tests, and a secondary issue is the api.js file being plain JavaScript in a TypeScript project.
+[Extract from feature spec: primary requirement + technical approach from research]
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x (Vue 3 + Vite + Vitest)
-**Primary Dependencies**: vue-chartjs, chart.js, vitest, @vue/test-utils
-**Storage**: N/A (no database changes)
-**Testing**: Vitest with @vue/test-utils and jsdom environment
-**Target Platform**: Web browser (frontend)
-**Project Type**: Vue 3 web application with TypeScript strict mode
-**Performance Goals**: N/A (bug fix, not performance work)
-**Constraints**: Must not break existing functionality; must pass all quality gates
-**Scale/Scope**: Small scope - test fixes and type consistency across ~4 test files and 1 service file
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
+
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Test-First Development | ✅ COMPLIANT | Fixing tests to pass; tests define the acceptance criteria |
-| II. API-First Design | ✅ N/A | No API changes |
-| III. Security by Design | ✅ N/A | No security changes |
-| IV. Operational Observability | ✅ N/A | No observability changes |
-| V. Continuous Delivery | ⚠️ VIOLATION | CI blocks on test errors; must fix |
-
-**Gate Result**: Phase 0 can proceed. Constitution V (Continuous Delivery) is blocked by failing tests - fixing this is the core purpose of this feature.
+[Gates determined based on constitution file]
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/001-fix-execution/
-├── plan.md              # This file
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output
-├── quickstart.md        # Phase 1 output
-├── contracts/           # Phase 1 output (N/A - internal only)
-└── tasks.md             # Phase 2 output (/speckit.tasks - not this command)
+specs/[###-feature]/
+├── plan.md              # This file (/speckit.plan command output)
+├── research.md          # Phase 0 output (/speckit.plan command)
+├── data-model.md        # Phase 1 output (/speckit.plan command)
+├── quickstart.md        # Phase 1 output (/speckit.plan command)
+├── contracts/           # Phase 1 output (/speckit.plan command)
+└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  not include Option labels.
+-->
 
 ```text
+# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
+src/
+├── models/
+├── services/
+├── cli/
+└── lib/
+
+tests/
+├── contract/
+├── integration/
+└── unit/
+
+# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
+
 frontend/
 ├── src/
-│   ├── services/
-│   │   ├── api.ts          # Will replace api.js
-│   │   └── api.js          # To be removed after migration
-│   ├── views/
-│   │   ├── __tests__/
-│   │   │   ├── DashboardView.test.ts
-│   │   │   ├── TimelineView.test.ts
-│   │   │   ├── AuthPage.test.ts
-│   │   │   └── CancionesView.test.ts
-│   │   ├── DashboardView.vue
-│   │   └── TimelineView.vue
-│   └── components/
-│       └── Chart components using vue-chartjs
-└── test/
-    └── setup.ts            # Vitest setup with jsdom
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
+
+# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
+
+ios/ or android/
+└── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
-**Structure Decision**: Web application (Option 2) - Vue 3 frontend with backend API. Changes are confined to frontend test fixes and TypeScript migration for api service.
+**Structure Decision**: [Document the selected structure and reference the real
+directories captured above]
 
 ## Complexity Tracking
 
-No complexity deviations. Simple bug fixes within existing architecture.
+> **Fill ONLY if Constitution Check has violations that must be justified**
 
-## Phase 0: Research
-
-See `research.md` for detailed findings on Chart.js jsdom mocking and api.js TypeScript migration strategy.
-
-## Phase 1: Design & Contracts
-
-See `data-model.md` and `quickstart.md` for type definitions and implementation guidance.
-
-## Post-Phase 1 Constitution Check
-
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Test-First Development | ✅ COMPLIANT | Tests will pass after fix |
-| V. Continuous Delivery | ✅ FIXED | Test errors resolved |
-
-**Re-check Result**: All gates pass. Ready for `/speckit.tasks`.
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
