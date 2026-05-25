@@ -1,0 +1,9 @@
+Verificar la correcta clasificación de tipos de español (debe coincidir la cantidad de canciones, sin discrepancia en el total)
+
+Crear nube de palabras con la mayor cantidad de palabras encontrada en las canciones existentes
+
+Revisar la creacion de la tematica de las canciones (no usar inferencia para esto)
+
+Corregir los dashboards, para las canciones s/d, omitirlas del grafico, revisar que la distribucicion de canciones por album coincida correctamente con la cantidad de canciones
+
+Agrega al constitution.md (y guardalo para futuras ejecuciones) el testing de toda la UI con playwright, verifica que los lint, los tests y las pipelines locales se ejecuten cada vez que terminas un speckit implement

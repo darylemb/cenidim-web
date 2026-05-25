@@ -31,3 +31,9 @@ yarn-error.log*
 .mypy_cache
 
 bin/
+
+docker-compose.yaml
+
+.playwright-mcp/
+.opencode/
+.roo/

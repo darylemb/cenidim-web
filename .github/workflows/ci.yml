@@ -7,53 +7,100 @@ on:
     branches: [ "main", "dev"]
 
 jobs:
-  backend-go-checks:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: stable
-          cache: true
-          cache-dependency-path: backend/go.sum
-
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
-          working-directory: ./backend
-
-      - name: Run Backend Tests
-        run: go test -v ./...
-
-  frontend-build:
+  lint:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./frontend
     steps:
       - uses: actions/checkout@v5
-      - name: Use Node.js 24
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      
-      - name: Install dependencies
-        run: npm ci
-        
-      - name: Lint frontend
-        run: npm run lint
-        
-      - name: Build React App
-        run: npm run build
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run test -- --run
+
+  backend-go-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61
+      - run: golangci-lint run
+      - run: go test -v ./...
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build Docker images
+        run: docker compose build
+      - name: Install Trivy
+        run: |
+          sudo apt-get update && sudo apt-get install -y trivy
+      - name: Run Trivy vulnerability scanner
+        run: |
+          trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress cenidim-backend:latest || true
+          trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress cenidim-frontend:latest || true
+      - name: Run Trivy filesystem scan
+        run: |
+          trivy config --severity HIGH,CRITICAL . || true
+      - name: Upload Trivy results as artifact
+        if: always()
+        run: |
+          trivy image --format sarif --output trivy-results.sarif --severity HIGH,CRITICAL --no-progress cenidim-backend:latest || true
+          trivy image --format sarif --output frontend-trivy-results.sarif --severity HIGH,CRITICAL --no-progress cenidim-frontend:latest || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-results
+          path: |
+            trivy-results.sarif
+            frontend-trivy-results.sarif
+          retention-days: 30
+      - name: Start services
+        run: docker compose up -d
+      - name: Health check
+        run: sleep 5 && curl -sf http://localhost:8000/health
+      - name: Stop services
+        run: docker compose down

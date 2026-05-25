@@ -38,6 +38,7 @@ type Song struct {
 	Pistas                 string `json:"pistas,omitempty"`
 	Observaciones          string `json:"observaciones,omitempty"`
 	Clasificacion          string `json:"clasificacion,omitempty"`
+	Tema                   string `json:"tema,omitempty"`
 }
 
 type SongDetail struct {

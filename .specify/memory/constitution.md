@@ -1,50 +1,72 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Cenidim Web Application Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Test-First Development (NON-NEGOTIABLE)
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+All features MUST be supported by tests before implementation is considered complete. The backend MUST pass `go test ./...` and the frontend MUST pass `npm test` before merging. TDD discipline: write failing tests first, then implement to make them pass. This ensures reliability and enables safe refactoring.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. API-First Design
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+Every capability is exposed through a RESTful API consumed by the frontend. APIs define contracts between services and clients. API changes that break contracts require a migration plan. The backend exposes well-defined endpoints at `/api/*` with proper versioning consideration.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Security by Design
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Authentication uses JWT with appropriate secret management. Role-based access control protects admin endpoints at `/api/admin/*`. CORS origins are explicitly configured via environment variables. Security events MUST be logged. Secrets MUST NOT be committed to the repository.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Operational Observability
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+All services expose health check endpoints (`GET /health`). Structured logging enables debugging in production. Docker containers use distroless images for minimal attack surface. Health checks are implemented as separate binaries to verify runtime integrity.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Continuous Delivery
+
+Every change MUST pass CI before merging: backend lint and tests, frontend lint/typecheck/build and tests. Docker builds are verified with health checks. The database is built deterministically from source CSV and lyrics files. Deployments use `docker compose up --build -d`.
+
+## Technology Stack
+
+The system is built with:
+
+- **Backend**: Go 1.21+ with Gin framework, SQLite database
+- **Frontend**: Vue 3 with Vite, TypeScript strict mode, Pinia state, Vue Router
+- **Infrastructure**: Docker with multi-stage builds, unprivileged nginx
+- **Quality**: golangci-lint for Go, ESLint + vue-tsc for frontend, Vitest for unit tests, Playwright for E2E tests
+
+Technology choices are fixed unless approved through the amendment process.
+
+## Development Workflow
+
+### Prerequisites
+
+- Database initialization: `./scripts/build_db.sh` (requires Go + spaCy `es_core_news_md` model)
+- Backend dev: `cd backend && go run main.go` (port 8080)
+- Frontend dev: `cd frontend && npm install && npm run dev` (port 5173)
+
+### Quality Gates
+
+1. **Backend**: `golangci-lint run` and `go test ./...`
+2. **Frontend**: `npm run lint`, `npm run build` (includes typecheck), `npm run test -- --run`, `npm run test:e2e`
+3. **Docker**: Health check at `localhost:8000/health`
+
+### Git Workflow
+
+Features use branch-based workflow. Commits MUST be atomic and reference feature context. Use `speckit.git` hooks for automated commits at workflow boundaries.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution is the authoritative source for development practices. It supersedes informal conventions.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Amendment Procedure**:
+1. Propose change with rationale and migration impact
+2. Document compliance requirements
+3. Require approval from project maintainers
+4. Version bump follows semantic versioning:
+   - MAJOR: Backward-incompatible governance or principle changes
+   - MINOR: New principles or materially expanded guidance
+   - PATCH: Clarifications, wording, typo fixes
+
+**Compliance**:
+- All PRs MUST verify adherence to these principles
+- Complexity deviations MUST be justified in plan documents
+- Runtime guidance is in `README.md`
+
+**Version**: 1.0.0 | **Ratified**: 2026-05-13 | **Last Amended**: 2026-05-13

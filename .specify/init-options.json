@@ -1,9 +1,9 @@
 {
-  "ai": "roo",
+  "ai": "opencode",
   "branch_numbering": "sequential",
-  "context_file": ".roo/rules/specify-rules.md",
+  "context_file": "AGENTS.md",
   "here": true,
-  "integration": "roo",
+  "integration": "opencode",
   "script": "sh",
-  "speckit_version": "0.8.8.dev0"
+  "speckit_version": "0.8.10.dev0"
 }
