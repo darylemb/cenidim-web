@@ -39,7 +39,8 @@ func setupTestDB(t *testing.T) {
 		pais_edicion            TEXT,
 		anio                    TEXT,
 		pistas                  TEXT,
-		observaciones           TEXT
+		observaciones           TEXT,
+		version                 INTEGER DEFAULT 0
 	);
 	CREATE TABLE songs (
 		id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +48,7 @@ func setupTestDB(t *testing.T) {
 		title        TEXT NOT NULL,
 		filename     TEXT,
 		lyrics       TEXT,
+		version      INTEGER DEFAULT 0,
 		clasificacion TEXT,
 		FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
 	);
@@ -56,7 +58,8 @@ func setupTestDB(t *testing.T) {
 		email         TEXT UNIQUE NOT NULL,
 		password_hash TEXT NOT NULL,
 		role          TEXT NOT NULL DEFAULT 'viewer',
-		created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+		created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+		version       INTEGER DEFAULT 0
 	);`
 	if _, err = db.Exec(schema); err != nil {
 		t.Fatalf("Failed to create schema: %v", err)

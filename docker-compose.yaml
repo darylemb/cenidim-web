@@ -4,13 +4,15 @@ services:
       context: .
       dockerfile: backend/Dockerfile
       args:
-        - ADMIN_PASS
+        - ADMIN_PASS=admin123
     ports:
       - "8000:8080" # Map host 8000 to internal Go 8080
     environment:
-      - DB_PATH=/app/letras.db
+      - DB_PATH=/data/letras.db
       - JWT_SECRET=cenidim-dev-secret-2024
       - GIN_MODE=release
+    volumes:
+      - ./backend/data:/data
     healthcheck:
       test: ["CMD", "./healthcheck"]
       interval: 30s

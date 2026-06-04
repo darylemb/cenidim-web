@@ -4,6 +4,13 @@
       <h2 class="page-title">Dashboards Analíticos</h2>
     </div>
 
+    <div v-if="loading" class="loading-state">
+      <div class="spinner" aria-label="Cargando estadísticas"></div>
+      <span>Cargando estadísticas...</span>
+    </div>
+
+    <template v-else>
+
     <div class="dashboard-kpis">
       <div class="kpi-card">
         <h3>Total de Álbumes</h3>
@@ -38,80 +45,62 @@
     </div>
 
     <div class="dashboard-charts">
-      <div class="chart-container chart-container--full">
+      <div class="chart-container chart-container--full" role="img" :aria-label="'Gráfico: ' + albumChartData.datasets[0].label">
         <Bar :data="albumChartData" :options="albumChartOptions" />
       </div>
     </div>
 
     <div class="dashboard-charts">
-      <div class="chart-container chart-container--full">
+      <div class="chart-container chart-container--full" role="img" aria-label="Gráfico de clasificación de español por tipo de canción">
         <Doughnut :data="clasificacionChartData" :options="doughnutChartOptions" />
       </div>
     </div>
 
     <div class="dashboard-charts">
-      <div class="chart-container chart-container--full">
+      <div class="chart-container chart-container--full" role="img" aria-label="Gráfico de canciones por año">
         <Line :data="yearLineChartData" :options="yearLineChartOptions" />
       </div>
     </div>
 
     <div class="dashboard-charts">
-      <div class="chart-container chart-container--full">
+      <div class="chart-container chart-container--full" role="img" aria-label="Gráfico de nivel OOV por canción">
         <Bar :data="oovChartData" :options="oovChartOptions" />
       </div>
     </div>
 
     <div class="dashboard-charts">
-      <div class="chart-container chart-container--full chart-container--tall">
+      <div class="chart-container chart-container--full chart-container--tall" role="img" aria-label="Nube de palabras frecuentes en las canciones">
         <WordCloud />
       </div>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  LineElement,
-  PointElement,
-} from 'chart.js';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Bar, Doughnut, Line } from 'vue-chartjs';
 import WordCloud from '@/components/WordCloud.vue';
 import { apiService } from '@/services/api';
 import type { Stats } from '@/types';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  LineElement,
-  PointElement
-);
-
 const stats = ref<Stats | null>(null);
 const loading = ref(true);
+let statsController: AbortController | null = null;
 
 onMounted(async () => {
+  statsController = new AbortController();
   try {
-    stats.value = await apiService.getStats();
-    console.log('Stats loaded:', stats.value);
-  } catch (e) {
-    console.error('Error loading stats:', e);
+    stats.value = await apiService.getStats(statsController.signal);
+  } catch {
+    // silently fail, stats remain null and UI shows empty state
   } finally {
     loading.value = false;
   }
+});
+
+onUnmounted(() => {
+  statsController?.abort();
 });
 
 const avgLyricsChars = computed(() => {
@@ -281,11 +270,13 @@ const yearLineChartOptions = {
       callbacks: {
         title: (items: unknown[]) => {
           const ctx = items[0] as { label: string };
+          if (!ctx || typeof ctx.label !== 'string') return '';
           return `Año: ${ctx.label}`;
         },
         label: (item: unknown) => {
-          const ctx = item as { raw: number };
-          return `Canciones: ${ctx.raw}`;
+          const ctx = item as { raw: unknown };
+          const value = typeof ctx.raw === 'number' ? ctx.raw : 0;
+          return `Canciones: ${value}`;
         },
       },
     },

@@ -5,7 +5,7 @@
       <div v-if="loading" class="word-cloud-loading">Cargando...</div>
       <div v-else-if="error" class="word-cloud-error">{{ error }}</div>
       <div v-else class="word-cloud-canvas" ref="canvasContainer">
-        <svg viewBox="0 0 700 450" class="word-cloud-svg" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox="0 0 700 450" class="word-cloud-svg" preserveAspectRatio="xMidYMid meet" aria-label="Nube de palabras frecuentes en las canciones">
           <g v-for="(word, index) in cloudLayout" :key="index">
             <text
               :x="word.x"
@@ -31,7 +31,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { apiService } from '@/services/api';
+
+const SPANISH_STOP_WORDS = new Set([
+  'de', 'la', 'que', 'el', 'en', 'y', 'a', 'los', 'del', 'se', 'las', 'por', 'un', 'para', 'con',
+  'no', 'una', 'su', 'al', 'lo', 'como', 'más', 'pero', 'sus', 'le', 'ya', 'o', 'este', 'sí',
+  'porque', 'esta', 'entre', 'cuando', 'muy', 'sin', 'sobre', 'también', 'me', 'hasta', 'hay',
+  'donde', 'quien', 'desde', 'todo', 'nos', 'durante', 'todos', 'uno', 'les', 'ni', 'contra',
+  'otros', 'ese', 'eso', 'ante', 'ellos', 'e', 'esto', 'mí', 'antes', 'algunos', 'qué', 'unos',
+  'yo', 'otro', 'otras', 'otra', 'él', 'tanto', 'esa', 'estos', 'mucho', 'quienes', 'nada',
+  'muchos', 'cual', 'poco', 'ella', 'estar', 'estas', 'algunas', 'algo', 'nosotros', 'mi',
+  'mis', 'tú', 'te', 'ti', 'tu', 'tus', 'ellas', 'nosotras', 'vosotros', 'vosotras', 'os',
+  'mío', 'mía', 'míos', 'mías', 'tuyo', 'tuya', 'tuyos', 'tuyas', 'suyo', 'suya', 'suyos',
+  'suyas', 'nuestro', 'nuestra', 'nuestros', 'nuestras', 'vuestro', 'vuestra', 'vuestros',
+  'vuestras', 'esos', 'esas', 'estoy', 'estás', 'está', 'estamos', 'estáis', 'están', 'esté',
+  'estés', 'estemos', 'estéis', 'estén', 'estaré', 'estarás', 'estará', 'estaremos', 'estaréis',
+  'estarán', 'estaría', 'estarías', 'estaríamos', 'estaríais', 'estarían', 'estaba', 'estabas',
+  'estábamos', 'estabais', 'estaban', 'estuve', 'estuviste', 'estuvo', 'estuvimos', 'estuvisteis',
+  'estuvieron', 'estuviera', 'estuvieras', 'estuviéramos', 'estuvierais', 'estuvieran',
+  'estuviese', 'estuvieses', 'estuviésemos', 'estuvieseis', 'estuviesen', 'estando', 'estado',
+  'estada', 'estados', 'estadas', 'estad', 'he', 'has', 'ha', 'hemos', 'habéis', 'han', 'haya',
+  'hayas', 'hayamos', 'hayáis', 'hayan', 'habré', 'habrás', 'habrá', 'habremos', 'habréis',
+  'habrán', 'habría', 'habrías', 'habríamos', 'habríais', 'habrían', 'había', 'habías',
+  'habíamos', 'habíais', 'habían', 'hube', 'hubiste', 'hubo', 'hubimos', 'hubisteis', 'hubieron',
+  'hubiera', 'hubieras', 'hubiéramos', 'hubierais', 'hubieran', 'hubiese', 'hubieses',
+  'hubiésemos', 'hubieseis', 'hubiesen', 'habiendo', 'habido', 'habida', 'habidos', 'habidas',
+  'soy', 'eres', 'es', 'somos', 'sois', 'son', 'sea', 'seas', 'seamos', 'seáis', 'sean', 'seré',
+  'serás', 'será', 'seremos', 'seréis', 'serán', 'sería', 'serías', 'seríamos', 'seríais',
+  'serían', 'era', 'eras', 'éramos', 'erais', 'eran', 'fui', 'fuiste', 'fue', 'fuimos',
+  'fuisteis', 'fueron', 'fuera', 'fueras', 'fuéramos', 'fuerais', 'fueran', 'fuese', 'fueses',
+  'fuésemos', 'fueseis', 'fuesen', 'siendo', 'sido', 'tengo', 'tienes', 'tiene', 'tenemos',
+  'tenéis', 'tienen', 'tenga', 'tengas', 'tengamos', 'tengáis', 'tengan', 'tendré', 'tendrás',
+  'tendrá', 'tendremos', 'tendréis', 'tendrán', 'tendría', 'tendrías', 'tendríamos', 'tendríais',
+  'tendrían', 'tenía', 'tenías', 'teníamos', 'teníais', 'tenían', 'tuve', 'tuviste', 'tuvo',
+  'tuvimos', 'tuvisteis', 'tuvieron', 'tuviera', 'tuvieras', 'tuviéramos', 'tuvierais',
+  'tuvieran', 'tuviese', 'tuvieses', 'tuviésemos', 'tuvieseis', 'tuviesen', 'teniendo',
+  'tenido', 'tenida', 'tenidos', 'tenidas', 'tened',
+]);
 
 interface WordItem {
   text: string;
@@ -51,6 +88,8 @@ const totalWords = ref<number>(0);
 const loading = ref(true);
 const error = ref<string | null>(null);
 
+let _wordCloudController: AbortController | null = null;
+
 const svgWidth = 700;
 const svgHeight = 450;
 
@@ -62,7 +101,7 @@ const palette = [
 
 const topWords = computed(() => {
   return words.value
-    .filter(w => w.text.length >= 4)
+    .filter(w => w.text.length >= 4 && !SPANISH_STOP_WORDS.has(w.text.toLowerCase()))
     .sort((a, b) => b.size - a.size)
     .slice(0, 100);
 });
@@ -154,14 +193,15 @@ const cloudLayout = computed<LayoutWord[]>(() => {
 });
 
 async function fetchWordCloud() {
+  _wordCloudController?.abort();
+  _wordCloudController = new AbortController();
   try {
     loading.value = true;
-    const response = await fetch('/api/word-cloud');
-    if (!response.ok) throw new Error('Error loading word cloud');
-    const data = await response.json();
+    const data = await apiService.getWordCloud(_wordCloudController.signal);
     words.value = data.words || [];
     totalWords.value = data.totalWords || 0;
   } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') return;
     error.value = e instanceof Error ? e.message : 'Unknown error';
   } finally {
     loading.value = false;
@@ -170,6 +210,10 @@ async function fetchWordCloud() {
 
 onMounted(() => {
   fetchWordCloud();
+});
+
+onUnmounted(() => {
+  _wordCloudController?.abort();
 });
 </script>
 

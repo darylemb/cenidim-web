@@ -22,26 +22,30 @@ import (
 
 var articles = []string{"el ", "la ", "los ", "las ", "un ", "una ", "unos ", "unas "}
 
+var (
+	parenRe      = regexp.MustCompile(`\s*\(.*?\)`)
+	bracketRe    = regexp.MustCompile(`\s*\[.*?\]`)
+	nonAlnumRe   = regexp.MustCompile(`[^\w\s]`)
+	spaceRe      = regexp.MustCompile(`\s+`)
+	trackRe      = regexp.MustCompile(`\d+\.\s+`)
+	trailingParen = regexp.MustCompile(`\s*\([^)]*\)\s*$`)
+)
+
 func normalize(s string) string {
-	// Remove content in parentheses (metadata)
-	s = regexp.MustCompile(`\s*\(.*?\)`).ReplaceAllString(s, "")
-	// Remove content in brackets
-	s = regexp.MustCompile(`\s*\[.*?\]`).ReplaceAllString(s, "")
+	s = parenRe.ReplaceAllString(s, "")
+	s = bracketRe.ReplaceAllString(s, "")
 
 	s = strings.ToLower(s)
-	// Remove diacritics
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	s, _, _ = transform.String(t, s)
 
-	// Remove articles
 	for _, a := range articles {
 		s = strings.TrimPrefix(s, a)
 		s = strings.ReplaceAll(s, " "+a, " ")
 	}
 
-	// Remove non-alphanumeric
-	s = regexp.MustCompile(`[^\w\s]`).ReplaceAllString(s, "")
-	return strings.TrimSpace(regexp.MustCompile(`\s+`).ReplaceAllString(s, " "))
+	s = nonAlnumRe.ReplaceAllString(s, "")
+	return strings.TrimSpace(spaceRe.ReplaceAllString(s, " "))
 }
 
 func findLyricsFile(root, targetTitle string) (string, error) {
@@ -143,30 +147,22 @@ func minInt(a, b int) int {
 // extractSongTitles parses the Pistas column text and returns individual song titles.
 // Format example: "Lado 1: 1. Song title (composer), 2. Another song; Lado 2: ..."
 func extractSongTitles(pistas string) []string {
-	// Find all numbered track positions: digits followed by ". "
-	trackRe := regexp.MustCompile(`\d+\.\s+`)
 	idxPairs := trackRe.FindAllStringIndex(pistas, -1)
 	if len(idxPairs) == 0 {
 		return nil
 	}
 
-	// Trailing composer/metadata stripper: last parenthetical
-	trailingParen := regexp.MustCompile(`\s*\([^)]*\)\s*$`)
-
 	var titles []string
 	for i, idx := range idxPairs {
-		start := idx[1] // after "N. "
+		start := idx[1]
 		var raw string
 		if i+1 < len(idxPairs) {
-			// end is just before the next track number marker
-			// Walk back over the preceding ", " or "; "
 			end := idxPairs[i+1][0]
 			raw = strings.TrimRight(pistas[start:end], " ,;")
 		} else {
 			raw = strings.TrimRight(pistas[start:], " ,;")
 		}
 
-		// Strip trailing parenthetical (composer credit)
 		raw = trailingParen.ReplaceAllString(raw, "")
 		raw = strings.TrimSpace(raw)
 		if raw != "" {
@@ -204,8 +200,12 @@ func main() {
 	csvPath := flag.String("csv", "../db_fonografia.csv", "Path to db_fonografia.csv")
 	dbPath := flag.String("db", "letras.db", "Path to the SQLite database file")
 	letrasDir := flag.String("letras", "../LetrasTXT", "Path to LetrasTXT directory")
-	adminPass := flag.String("admin-pass", "admin123", "Initial admin user password")
+	adminPass := flag.String("admin-pass", "", "Initial admin user password (required)")
 	flag.Parse()
+
+	if *adminPass == "" {
+		log.Fatal("❌ --admin-pass is required")
+	}
 
 	log.Printf("🚀 Parsing %s and building database at %s...", *csvPath, *dbPath)
 
@@ -222,7 +222,7 @@ func main() {
 	}
 	defer func() { _ = db.Close() }()
 
-	_, err = db.Exec(`
+_, err = db.Exec(`
 		CREATE TABLE fonogramas (
 			clave_fonograma    INTEGER PRIMARY KEY,
 			titulo             TEXT NOT NULL,
@@ -231,13 +231,14 @@ func main() {
 			interpretes_invitados  TEXT,
 			interprete_participante TEXT,
 			soporte_fisico     TEXT,
-			editora            TEXT,
+			editoria            TEXT,
 			numero_catalogo    TEXT,
 			ciudad_edicion     TEXT,
 			pais_edicion       TEXT,
 			anio               TEXT,
 			pistas             TEXT,
-			observaciones      TEXT
+			observaciones      TEXT,
+			version            INTEGER DEFAULT 0
 		);
 		CREATE TABLE songs (
 			id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -248,6 +249,7 @@ func main() {
 			clasificacion  TEXT,
 			tema           TEXT,
 			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+			version        INTEGER DEFAULT 0,
 			FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
 		);
 		CREATE TABLE users (
@@ -256,7 +258,8 @@ func main() {
 			email         TEXT UNIQUE NOT NULL,
 			password_hash TEXT NOT NULL,
 			role          TEXT NOT NULL DEFAULT 'viewer',
-			created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+			created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+			version       INTEGER DEFAULT 0
 		);
 	`)
 	if err != nil {
@@ -322,7 +325,7 @@ func main() {
 		interpretesInvitados := strings.TrimSpace(record[4])
 		interpreteParticipante := strings.TrimSpace(record[5])
 		soporteFisico := strings.TrimSpace(record[6])
-		editora := strings.TrimSpace(record[7])
+		editoria := strings.TrimSpace(record[7])
 		numeroCatalogo := strings.TrimSpace(record[8])
 		ciudadEdicion := strings.TrimSpace(record[9])
 		paisEdicion := strings.TrimSpace(record[10])
@@ -333,11 +336,11 @@ func main() {
 		_, err = tx.Exec(`
 			INSERT OR REPLACE INTO fonogramas
 			(clave_fonograma, titulo, subtitulo, interprete_principal, interpretes_invitados,
-			 interprete_participante, soporte_fisico, editora, numero_catalogo, ciudad_edicion,
+			 interprete_participante, soporte_fisico, editoria, numero_catalogo, ciudad_edicion,
 			 pais_edicion, anio, pistas, observaciones)
 			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			clave, titulo, subtitulo, interpretePrincipal, interpretesInvitados,
-			interpreteParticipante, soporteFisico, editora, numeroCatalogo, ciudadEdicion,
+			interpreteParticipante, soporteFisico, editoria, numeroCatalogo, ciudadEdicion,
 			paisEdicion, anio, pistas, observaciones,
 		)
 		if err != nil {
@@ -384,5 +387,5 @@ func main() {
 
 	log.Printf("✅ Database built successfully in '%s'!", *dbPath)
 	log.Printf("📊 Summary: %d Fonogramas, %d Songs inserted.", fonogramaCount, songCount)
-	log.Printf("👤 Default admin user: admin / %s", *adminPass)
+	log.Printf("👤 Admin user created: admin")
 }

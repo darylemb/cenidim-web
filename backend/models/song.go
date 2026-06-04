@@ -15,6 +15,7 @@ type Fonograma struct {
 	Anio                   string `json:"anio,omitempty"`
 	Pistas                 string `json:"pistas,omitempty"`
 	Observaciones          string `json:"observaciones,omitempty"`
+	Version                int    `json:"version"`
 }
 
 type Song struct {
@@ -22,6 +23,7 @@ type Song struct {
 	FonogramaID int    `json:"fonograma_id"`
 	Title       string `json:"title"`
 	Filename    string `json:"filename"`
+	Version     int    `json:"version"`
 
 	// All fonograma columns (joined)
 	Album                  string `json:"album"`

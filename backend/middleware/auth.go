@@ -45,7 +45,7 @@ func RequireAuth() gin.HandlerFunc {
 
 		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 				return nil, jwt.ErrSignatureInvalid
 			}
 			return jwtSecret(), nil

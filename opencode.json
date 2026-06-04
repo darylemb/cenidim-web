@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "minimax/MiniMax-M2.7",
   "mcp": {
     "playwright": {
       "type": "local",
@@ -8,6 +9,69 @@
         "-y",
         "@playwright/mcp"
       ]
+    }
+  },
+  "agent": {
+    "fullstack": {
+      "description": "Senior Fullstack Developer. Revisa Clean Code, modularidad, TypeScript y patrones de diseño contra los archivos en SPECS_DIR.",
+      "mode": "subagent",
+      "model": "minimax/MiniMax-M2.7",
+      "permission": {
+        "edit": "deny",
+        "bash": "allow"
+      },
+      "instructions": ".opencode/agents/fullstack.md"
+    },
+    "data-architect": {
+      "description": "Arquitecto de Datos. Auditor de sincronización, condiciones de carrera, coherencia y resiliencia de estado.",
+      "mode": "subagent",
+      "model": "minimax/MiniMax-M2.7",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      },
+      "instructions": ".opencode/agents/data-architect.md"
+    },
+    "tester": {
+      "description": "QA Automation Engineer. Validador de criterios de aceptación y cobertura de tests usando spec-kit validate.",
+      "mode": "subagent",
+      "model": "minimax/MiniMax-M2.7",
+      "permission": {
+        "edit": "deny",
+        "bash": "allow"
+      },
+      "instructions": ".opencode/agents/tester.md"
+    },
+    "auditor": {
+      "description": "Ingeniero de Seguridad AppSec (Read-only). OWASP Top 10 estricto.",
+      "mode": "subagent",
+      "model": "minimax/MiniMax-M2.7",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      },
+      "instructions": ".opencode/agents/auditor.md"
+    },
+    "refactoring": {
+      "description": "Senior AI Solution Architect. Agente de fallback que genera el Meta-Prompt de spec-kit para auto-reparación.",
+      "mode": "subagent",
+      "model": "minimax/MiniMax-M2.7",
+      "permission": {
+        "edit": "allow",
+        "bash": "deny"
+      },
+      "instructions": ".opencode/agents/refactoring.md"
+    }
+  },
+  "instructions": [
+    "Usa el comando /code-review para iniciar pipelines. Si un subagente no emite su token [APPROVED], invoca inmediatamente a @refactoring y detén el proceso."
+  ],
+  "command": {
+    "code-review": {
+      "description": "Ejecuta revisión de código multi-agente secuencial (Fullstack → Data-Architect → Tester → Auditor).",
+      "agent": "fullstack",
+      "subtask": true,
+      "template": "Por favor, realiza la revisión de los siguientes archivos: $ARGUMENTS.\n\nSigue estrictamente este flujo secuencial utilizando a los subagentes:\n1. Pasa los archivos a @fullstack para validar lógica contra los specs en specs. Si aprueba, continúa. Si rechaza, transfiere el control a @refactoring.\n2. Pasa el contexto a @data-architect para evaluar la sincronización y consistencia de datos. Si aprueba, continúa. Si rechaza, transfiere el control a @refactoring.\n3. Pasa el contexto a @tester para correr 'spec-kit validate' o tests locales. Si aprueba, continúa. Si rechaza, transfiere el control a @refactoring.\n4. Pasa el contexto final a @auditor para análisis OWASP. Si aprueba, emite el veredicto de Mergeable. Si rechaza, transfiere el control a @refactoring."
     }
   }
 }

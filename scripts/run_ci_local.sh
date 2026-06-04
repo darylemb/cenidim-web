@@ -19,12 +19,25 @@ cd ..
 echo "=== Docker build + health check ==="
 docker compose build
 docker compose up -d
-sleep 5
-curl -sf http://localhost:8000/health || {
-  echo "FAIL: health check"
+
+max_wait=30
+count=0
+while [ $count -lt $max_wait ]; do
+  if curl -sf http://localhost:8000/health 2>/dev/null; then
+    echo "Health check passed"
+    break
+  fi
+  count=$((count+1))
+  sleep 1
+done
+
+if [ $count -eq $max_wait ]; then
+  echo "FAIL: health check timed out after ${max_wait}s"
+  docker compose logs
   docker compose down
   exit 1
-}
+fi
+
 docker compose down
 
 echo "=== All checks passed ==="

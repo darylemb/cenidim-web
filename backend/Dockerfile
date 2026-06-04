@@ -14,12 +14,8 @@ RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/db-builder ./cmd/build-db/
 
 WORKDIR /app
-ARG ADMIN_PASS
-RUN if [ -n "${ADMIN_PASS}" ]; then \
-      ./db-builder -csv db_fonografia.csv -db letras.db -letras LetrasTXT -admin-pass "${ADMIN_PASS}"; \
-    else \
-      ./db-builder -csv db_fonografia.csv -db letras.db -letras LetrasTXT; \
-    fi
+ARG ADMIN_PASS=${ADMIN_PASS:-admin123}
+RUN ./db-builder -csv db_fonografia.csv -db letras.db -letras LetrasTXT -admin-pass "${ADMIN_PASS}"
 
 
 # ── Stage 2: Classify songs with spaCy (Python, Debian slim for wheel support)
@@ -27,8 +23,8 @@ FROM python:3.12-slim AS classifier
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir spacy && \
-    python -m spacy download es_core_news_sm
+RUN pip install --no-cache-dir click spacy && \
+    python -m spacy download es_core_news_md
 
 COPY --from=db-builder /app/letras.db ./letras.db
 COPY scripts/ ./scripts/
@@ -63,8 +59,8 @@ FROM gcr.io/distroless/static-debian12
 WORKDIR /app
 
 COPY --from=api-builder /app/main .
-COPY --from=classifier  /app/letras.db .
 COPY --from=api-builder /app/healthcheck .
+COPY --from=classifier --chown=nonroot:nonroot /app/letras.db /data/
 
 USER nonroot:nonroot
 

@@ -16,7 +16,7 @@
       </div>
     </div>
     <div :class="['nav-search', { open: mobileMenuOpen }]">
-      <select v-model="searchField" class="nav-field-select">
+      <select v-model="searchFieldModel" class="nav-field-select">
         <option value="all">Todos</option>
         <option value="title">Pista</option>
         <option value="album">Álbum</option>
@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUiStore } from '@/stores/ui';
 import { useSearchStore } from '@/stores/search';
@@ -51,7 +51,10 @@ const auth = useAuthStore();
 const { mobileMenuOpen, activeTab } = storeToRefs(ui);
 
 const searchTerm = ref('');
-const searchField = ref<'all' | 'title' | 'album' | 'lyrics'>('all');
+const searchFieldModel = computed({
+  get: () => search.field,
+  set: (val) => { search.field = val; }
+});
 
 const tabs = [
   { name: 'timeline' as const, label: 'Línea de tiempo' },
@@ -77,12 +80,11 @@ function navigate(tab: typeof activeTab.value) {
 function doSearch() {
   ui.setActiveTab('canciones');
   router.push({ name: 'canciones' });
-  search.performSearch(searchTerm.value, searchField.value, 1, search.limit);
+  search.performSearch(searchTerm.value, search.field, 1, search.limit);
 }
 
 function doReset() {
   searchTerm.value = '';
-  searchField.value = 'all';
   search.resetSearch();
 }
 </script>

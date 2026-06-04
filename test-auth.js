@@ -1,4 +1,7 @@
-const { chromium } = require('playwright');
+import { chromium } from 'playwright';
+
+const TEST_USER = process.env.E2E_TEST_USER || 'admin';
+const TEST_PASS = process.env.E2E_TEST_PASS || 'admin123';
 
 async function testAuth() {
   console.log('Starting browser...');
@@ -10,14 +13,12 @@ async function testAuth() {
     failed: [],
   };
 
-  // Capture console messages
   page.on('console', msg => console.log('Browser console:', msg.text()));
   page.on('pageerror', err => console.log('Page error:', err.message));
 
   try {
-    // Test 1: Health check
     console.log('\n=== Test 1: Health Check ===');
-    const healthRes = await page.goto('http://localhost:8000/health');
+    const healthRes = await page.goto('http://localhost:8080/health');
     const healthText = await page.textContent('body');
     console.log('Health response:', healthText);
     if (healthText.includes('healthy')) {
@@ -26,9 +27,8 @@ async function testAuth() {
       results.failed.push('Health check');
     }
 
-    // Test 2: Login page loads
     console.log('\n=== Test 2: Login Page Load ===');
-    const frontendRes = await page.goto('http://localhost:80/');
+    const frontendRes = await page.goto('http://localhost:5173/');
     console.log('Frontend status:', frontendRes.status());
     if (frontendRes.status() === 200) {
       results.passed.push('Frontend loads');
@@ -36,10 +36,8 @@ async function testAuth() {
       results.failed.push('Frontend loads');
     }
 
-    // Wait for page to be ready
     await page.waitForLoadState('networkidle');
 
-    // Test 3: Check for login form elements
     console.log('\n=== Test 3: Login Form Present ===');
     const hasUsernameInput = await page.locator('input[type="text"], input[name="username"]').count() > 0;
     const hasPasswordInput = await page.locator('input[type="password"]').count() > 0;
@@ -55,27 +53,23 @@ async function testAuth() {
       results.failed.push('Login form elements');
     }
 
-    // Test 4: Try to login
     console.log('\n=== Test 4: Login Form Submission ===');
     const usernameInput = page.locator('input[type="text"], input[name="username"]').first();
     const passwordInput = page.locator('input[type="password"]').first();
     const loginBtn = page.locator('button[type="submit"]').first();
 
     if (await usernameInput.count() > 0) {
-      await usernameInput.fill('admin');
-      await passwordInput.fill('admin123');
+      await usernameInput.fill(TEST_USER);
+      await passwordInput.fill(TEST_PASS);
       await loginBtn.click();
 
-      // Wait for response
-      await page.waitForTimeout(2000);
+      await page.waitForLoadState('networkidle');
 
       const currentUrl = page.url();
       console.log('URL after login attempt:', currentUrl);
 
-      // Check if we're still on login page or redirected
       if (currentUrl.includes('login') || currentUrl.includes('auth')) {
         console.log('Login page shown - authentication may have failed');
-        // Check for error messages
         const errorText = await page.locator('.error, [role="alert"], .text-red').textContent().catch(() => 'none');
         console.log('Error displayed:', errorText);
       } else {
@@ -85,7 +79,6 @@ async function testAuth() {
       results.failed.push('Could not find login form');
     }
 
-    // Test 5: Check network requests for auth
     console.log('\n=== Test 5: Auth API Network Request ===');
     page.on('request', req => {
       if (req.url().includes('/api/auth')) {
@@ -99,7 +92,9 @@ async function testAuth() {
         try {
           const body = await res.text();
           console.log('Auth response body:', body.substring(0, 200));
-        } catch (e) {}
+        } catch (e) {
+          console.log('Could not read response body:', e.message);
+        }
       }
     });
 

@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/daryl/cenidim-go-api/database"
@@ -258,7 +260,7 @@ func GetWordCloud(c *gin.Context) {
 	for rows.Next() {
 		var letra string
 		if err := rows.Scan(&letra); err == nil {
-			words := extractWords(letra)
+			words := extractWords(cleanLyrics(letra))
 			for _, word := range words {
 				wordLower := word
 				totalWords++
@@ -307,6 +309,35 @@ wordFreqs := make([]WordFreq, 0, len(wordCounts))
 		TotalWords:       totalWords,
 		ExcludedStopWords: excludedCount,
 	})
+}
+
+// cleanLyrics removes metadata markers and short parentheticals from raw lyrics text.
+// This replicates the preprocessing in scripts/classify_songs.py.
+func cleanLyrics(text string) string {
+	// Cut at metadata markers (these appear at end of lyrics files)
+	if idx := strings.Index(text, "Personajes:"); idx != -1 {
+		text = text[:idx]
+	}
+	if idx := strings.Index(text, "Tema:"); idx != -1 {
+		text = text[:idx]
+	}
+	if idx := strings.Index(text, "Dura:"); idx != -1 {
+		text = text[:idx]
+	}
+
+	// Remove short parentheticals (content in parens shorter than 19 chars is metadata noise)
+	// e.g. "(F. Gabilondo S.)" is metadata, but meaningful lyrics in parens are kept
+	re := regexp.MustCompile(`\(.{0,18}\)`)
+	text = re.ReplaceAllString(text, "")
+
+	// Remove | and - used as separators in lyrics files
+	text = strings.ReplaceAll(text, "|", "")
+	text = strings.ReplaceAll(text, "-", "")
+
+	// Collapse whitespace
+	spaceRe := regexp.MustCompile(`\s+`)
+	text = spaceRe.ReplaceAllString(text, " ")
+	return strings.TrimSpace(text)
 }
 
 // extractWords splits text into words

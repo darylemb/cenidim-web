@@ -56,43 +56,61 @@ export const apiService = {
     }
   },
 
-  getSongDetail: async (songId: number): Promise<Song | null> => {
+  getSongDetail: async (songId: number, signal?: AbortSignal): Promise<Song | null> => {
     try {
-      const response = await fetch(`${BASE_URL}/song/${encodeURIComponent(songId)}`);
+      const response = await fetch(`${BASE_URL}/song/${encodeURIComponent(songId)}`, { signal });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return await response.json();
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return null;
       console.error(`Error getting song with ID ${songId}:`, error);
       throw error;
     }
   },
 
-  getTimeline: async (): Promise<TimelineData> => {
+  getTimeline: async (signal?: AbortSignal): Promise<TimelineData> => {
     try {
-      const response = await fetch(`${BASE_URL}/timeline`);
+      const response = await fetch(`${BASE_URL}/timeline`, { signal });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return await response.json();
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') throw error;
       console.error('Error getting timeline:', error);
       throw error;
     }
   },
 
-  getStats: async (): Promise<Stats> => {
+  getStats: async (signal?: AbortSignal): Promise<Stats> => {
     try {
       const response = await fetch(`${BASE_URL}/stats`, {
         headers: { ...authHeaders() },
+        signal,
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return await response.json();
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') throw error;
       console.error('Error getting stats:', error);
+      throw error;
+    }
+  },
+
+  getWordCloud: async (signal?: AbortSignal): Promise<{ words: {text: string; size: number}[]; totalWords: number }> => {
+    try {
+      const response = await fetch(`${BASE_URL}/word-cloud`, { signal });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') throw error;
+      console.error('Error getting word cloud:', error);
       throw error;
     }
   },

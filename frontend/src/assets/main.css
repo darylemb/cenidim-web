@@ -53,6 +53,25 @@ body {
   flex-direction: column;
 }
 
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent);
+  color: white;
+  padding: 0.5rem 1rem;
+  z-index: 1000;
+  transition: top 0.2s;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid var(--cenidim-dorado);
+}
+
 .combined-header {
   position: sticky;
   top: 0;

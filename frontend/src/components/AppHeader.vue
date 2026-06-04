@@ -23,12 +23,13 @@
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
+import { storeToRefs } from 'pinia';
 import AppNavBar from '@/components/AppNavBar.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
 const ui = useUiStore();
-const user = auth.user;
+const { user } = storeToRefs(auth);
 
 function handleLogout() {
   auth.logout();

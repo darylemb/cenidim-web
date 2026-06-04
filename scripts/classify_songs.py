@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 classify_songs.py
-Clasifica las canciones en la BD SQLite usando spaCy (es_core_news_sm).
+Clasifica las canciones en la BD SQLite usando spaCy (es_core_news_md).
 Debe ejecutarse DESPUÉS de build-db (Go), sobre la misma BD resultante.
 
 Uso:
@@ -9,6 +9,7 @@ Uso:
 """
 
 import argparse
+import re
 import sqlite3
 import sys
 
@@ -19,23 +20,36 @@ except ImportError:
     sys.exit(1)
 
 try:
-    nlp = spacy.load("es_core_news_sm")
+    nlp = spacy.load("es_core_news_md")
 except OSError:
-    print("ERROR: modelo es_core_news_sm no encontrado.")
-    print("Ejecuta: python -m spacy download es_core_news_sm")
+    print("ERROR: modelo es_core_news_md no encontrado.")
+    print("Ejecuta: python -m spacy download es_core_news_md")
     sys.exit(1)
 
-# Diccionario de palabras indígenas (Purépecha/Michoacán)
 PALABRAS_INDIGENAS = {
     "ihuatsï", "misitu", "sapichu", "turhípiti", "pireri",
     "kukuta", "uarhi", "uichu", "túkuru", "auani",
     "kani", "jarhámuta", "uátsï", "uátsi",
     "axuni", "kuini", "tzintzun", "kuaraki",
     "kurhikaueri", "kutsi", "kutzi", "koki", "kuanasi",
-    "kuiris", "japunda", "japonda", "akuitse",
+    "kuiris", "japunda", "japonda", "akuitse"
 }
 
-# Keywords para clasificación de temas (sin ML - solo palabras clave)
+STOPWORDS_EXTRA = {
+    "el", "la", "los", "las", "lo", "uno", "este", "ese", "esta", "eso", "él",
+    "a", "de", "del", "al", "en", "con", "por", "para", "sin", "sobre", "entre", "hasta",
+    "y", "o", "ni", "pero", "porque", "si", "como", "cuando",
+    "yo", "tú", "tu", "me", "te", "se", "le", "nos", "mi", "mis", "su", "sus",
+    "otros", "que", "qué", "ya", "muy", "más", "tan", "todo", "todos",
+    "bien", "así", "donde", "ay", "un", "una", "no", "es", "ir", "ser",
+    "lai", "ver", "hay"
+}
+
+PALABRAS_CORTE = ["Dura:", "Tema:", "Personajes:"]
+
+RE_AUTOR = re.compile(r'^autor\s*[:\.]?\s*', re.IGNORECASE)
+RE_PARENTESIS = re.compile(r'\(.*?\)', re.DOTALL)
+
 TEMA_KEYWORDS = {
     "NAVIDAD": [
         "navidad", "navideña", "navideño", "reyes", "rey magos", "nochebuena",
@@ -73,7 +87,7 @@ TEMA_KEYWORDS = {
     ],
     "NATURALEZA": [
         "sol", "luna", "estrella", "estrellas", "cielo", "mar",
-        "playa", "montaña", "río", "rio", " lago", "campo", "flor",
+        "playa", "montaña", "río", "rio", "lago", "campo", "flor",
         "flores", "árbol", "arbol", "bosque", "selva", "jungla",
         "lluvia", "lloviendo", "nube", "nubes", "viento", "tormenta",
         "trueno", "rayo", "amanecer", "atardecer", "anochecer",
@@ -90,8 +104,8 @@ TEMA_KEYWORDS = {
         "patria", "país", "pais", "méxico", "mexico", "bander", "himno",
         "independencia", "revolución", "revolucion", "revolucionario",
         "patriota", "patriotismo", "nacional", "viva", "honor",
-        "libertad", "libre", "libertad", "soldado", "ejército", "ejercito",
-        "guerrero", "heroico", "heroes", "héroes", "meth", "meth",
+        "libertad", "libre", "soldado", "ejército", "ejercito",
+        "guerrero", "heroico", "heroes", "héroes",
     ],
     "DROGAS": [
         "droga", "drogas", "cocaína", "cocaina", "marihuana", "marijuana",
@@ -109,16 +123,50 @@ TEMA_KEYWORDS = {
     ],
 }
 
-# Palabras comunes a excluir de matching
-TEMA_STOP_WORDS = {
-    "el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del",
-    "al", "a", "en", "con", "por", "para", "sin", "sobre", "entre",
-    "es", "son", "está", "estan", "ser", "estar", "fue", "fueron",
-    "lo", "que", "y", "e", "o", "u", "pero", "porque", "como",
-}
+
+def preprocess_text(texto_raw, song_title=""):
+    """
+    Preprocesa el texto de la canción aplicando filtros mejorados.
+    1. Elimina encabezados (título + autor)
+    2. Elimina paréntesis cortos (< 19 chars)
+    3. Corta metadatos finales (Dura:, Tema:, Personajes:)
+    4. Limpieza general
+    """
+    lineas = texto_raw.split("\n")
+    idx_inicio = 0
+
+    if song_title:
+        for i, linea in enumerate(lineas):
+            if linea.strip().lower() == song_title.strip().lower():
+                idx_inicio = i + 1
+                break
+
+    while idx_inicio < len(lineas) and not lineas[idx_inicio].strip():
+        idx_inicio += 1
+
+    if idx_inicio < len(lineas) and RE_AUTOR.match(lineas[idx_inicio].strip()):
+        idx_inicio += 1
+        while idx_inicio < len(lineas) and not lineas[idx_inicio].strip():
+            idx_inicio += 1
+
+    texto = "\n".join(lineas[idx_inicio:])
+
+    def reemplazar(match):
+        return match.group(0) if len(match.group(0)) >= 19 else ""
+
+    texto = RE_PARENTESIS.sub(reemplazar, texto)
+
+    for marca in PALABRAS_CORTE:
+        if marca in texto:
+            texto = texto.split(marca)[0]
+
+    texto = re.sub(r"\s+", " ", texto.strip())
+    texto = texto.replace("|", "").replace("-", "")
+
+    return texto
 
 
-def clasificacion_oov(texto, umbral_regional=5):
+def clasificacion_oov(texto_raw, song_title="", umbral_estandar=5.0, umbral_regional=18.0):
     """
     Clasifica un texto según porcentaje de palabras fuera de vocabulario (OOV)
     y presencia de palabras indígenas.
@@ -129,50 +177,56 @@ def clasificacion_oov(texto, umbral_regional=5):
         - contiene_indigena: bool
         - n_tokens: int
     """
+    texto = preprocess_text(texto_raw, song_title)
     texto = str(texto).lower()
     doc = nlp(texto)
 
-    total = 0
-    oov = 0
-    palabras = []
+    n_total = 0
+    n_oov = 0
+    contiene_indigena = False
 
     for token in doc:
-        if token.is_alpha and len(token) > 2 and not token.is_stop:
-            total += 1
-            palabras.append(token.text)
+        if (
+            token.is_alpha
+            and len(token) > 2
+            and not token.is_stop
+            and token.lemma_ not in STOPWORDS_EXTRA
+            and token.text not in STOPWORDS_EXTRA
+        ):
+            n_total += 1
             if token.is_oov:
-                oov += 1
+                n_oov += 1
+            if token.text in PALABRAS_INDIGENAS or token.lemma_ in PALABRAS_INDIGENAS:
+                contiene_indigena = True
 
-    pct_oov = (oov / total) * 100 if total > 0 else 0
-    contiene_indigena = any(p in PALABRAS_INDIGENAS for p in palabras)
+    pct_oov = (100 * n_oov / n_total) if n_total > 0 else 0
 
-    if pct_oov >= umbral_regional and contiene_indigena:
+    if contiene_indigena:
         categoria = "LENGUA_INDIGENA"
-    elif pct_oov >= umbral_regional:
+    elif pct_oov < umbral_estandar:
+        categoria = "ESPAÑOL_ESTANDAR"
+    elif pct_oov < umbral_regional:
         categoria = "ESPAÑOL_REGIONAL"
     else:
-        categoria = "ESPAÑOL_ESTANDAR"
+        categoria = "LENGUA_INDIGENA"
 
     return {
         "pct_oov": pct_oov,
         "categoria": categoria,
         "contiene_indigena": contiene_indigena,
-        "n_tokens": total,
+        "n_tokens": n_total,
     }
 
 
 def clasificar_tema(texto):
-    """
-    Clasifica el tema de una canción usando keywords (sin ML).
-    Returns: tema string (e.g., "AMOR", "NAVIDAD", "DESPECHO") or "GENERAL" si no hay match.
-    """
     texto_lower = texto.lower()
 
     theme_scores = {}
     for tema, keywords in TEMA_KEYWORDS.items():
         score = 0
         for kw in keywords:
-            if kw.lower() in texto_lower:
+            pattern = r'\b' + re.escape(kw.lower()) + r'\b'
+            if re.search(pattern, texto_lower):
                 score += 1
         if score > 0:
             theme_scores[tema] = score
@@ -191,7 +245,7 @@ def main():
     con = sqlite3.connect(args.db)
     cur = con.cursor()
 
-    cur.execute("SELECT id, lyrics FROM songs WHERE lyrics IS NOT NULL AND lyrics != ''")
+    cur.execute("SELECT id, title, lyrics FROM songs WHERE lyrics IS NOT NULL AND lyrics != ''")
     rows = cur.fetchall()
 
     total = len(rows)
@@ -200,25 +254,23 @@ def main():
         con.close()
         return
 
-    # Create tables if not exist
-    update_cur = con.cursor()
-    update_cur.execute("CREATE TABLE IF NOT EXISTS song_stats (song_id INTEGER PRIMARY KEY, pct_oov REAL, categoria TEXT, contiene_indigena INTEGER, n_tokens INTEGER)")
+    cur.execute("CREATE TABLE IF NOT EXISTS song_stats (song_id INTEGER PRIMARY KEY, pct_oov REAL, categoria TEXT, contiene_indigena INTEGER, n_tokens INTEGER)")
     try:
-        update_cur.execute("ALTER TABLE songs ADD COLUMN clasificacion TEXT")
+        cur.execute("ALTER TABLE songs ADD COLUMN clasificacion TEXT")
     except sqlite3.OperationalError:
-        pass  # Column already exists
+        pass
     try:
-        update_cur.execute("ALTER TABLE songs ADD COLUMN tema TEXT")
+        cur.execute("ALTER TABLE songs ADD COLUMN tema TEXT")
     except sqlite3.OperationalError:
-        pass  # Column already exists
+        pass
 
     print(f"Clasificando {total} canciones con letra...")
 
     stats_clasificacion = {"ESPAÑOL_ESTANDAR": 0, "ESPAÑOL_REGIONAL": 0, "LENGUA_INDIGENA": 0}
     stats_tema = {}
 
-    for i, (song_id, lyrics) in enumerate(rows, 1):
-        resultado = clasificacion_oov(lyrics)
+    for i, (song_id, song_title, lyrics) in enumerate(rows, 1):
+        resultado = clasificacion_oov(lyrics, song_title)
         categoria = resultado["categoria"]
         stats_clasificacion[categoria] += 1
 
@@ -227,12 +279,12 @@ def main():
             stats_tema[tema] = 0
         stats_tema[tema] += 1
 
-        update_cur.execute(
+        cur.execute(
             "UPDATE songs SET clasificacion = ?, tema = ? WHERE id = ?",
             (categoria, tema, song_id),
         )
 
-        update_cur.execute(
+        cur.execute(
             "INSERT OR REPLACE INTO song_stats (song_id, pct_oov, categoria, contiene_indigena, n_tokens) VALUES (?, ?, ?, ?, ?)",
             (song_id, resultado["pct_oov"], categoria, 1 if resultado["contiene_indigena"] else 0, resultado["n_tokens"]),
         )

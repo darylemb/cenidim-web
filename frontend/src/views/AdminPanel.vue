@@ -213,6 +213,15 @@
       @confirm="executeDelete"
       @cancel="confirmTarget = null"
     />
+
+    <!-- Form Modal -->
+    <AdminFormModal
+      v-if="showFormModal"
+      :form-type="formType"
+      :item="formItem"
+      @cancel="showFormModal = false"
+      @submitted="handleFormSubmitted"
+    />
   </div>
 </template>
 
@@ -223,6 +232,7 @@ import { apiService } from '@/services/api';
 import type { Fonograma, Song, User } from '@/types';
 import SortableHeader from '@/components/SortableHeader.vue';
 import ConfirmModal from '@/components/ConfirmModal.vue';
+import AdminFormModal from '@/components/AdminFormModal.vue';
 
 const auth = useAuthStore();
 
@@ -241,6 +251,10 @@ const hasMoreSongs = ref(false);
 const confirmTarget = ref<{ type: 'fonograma' | 'song' | 'user'; id: number } | null>(null);
 const confirmMessage = ref('');
 const confirmLoading = ref(false);
+
+const showFormModal = ref(false);
+const formType = ref<'fonograma' | 'song' | 'user'>('fonograma');
+const formItem = ref<Fonograma | Song | User | null>(null);
 
 const fonoCols = [
   { key: 'clave_fonograma', label: 'Clave' },
@@ -326,16 +340,29 @@ function songSort(key: string) {
   });
 }
 
-function openFonoForm(_?: Fonograma | null) {
-  // TODO: implement form modal
+function openFonoForm(item?: Fonograma | null) {
+  formType.value = 'fonograma';
+  formItem.value = item ?? null;
+  showFormModal.value = true;
 }
 
-function openSongForm(_?: Song | null) {
-  // TODO: implement form modal
+function openSongForm(item?: Song | null) {
+  formType.value = 'song';
+  formItem.value = item ?? null;
+  showFormModal.value = true;
 }
 
-function openUserForm(_?: User | null) {
-  // TODO: implement form modal
+function openUserForm(item?: User | null) {
+  formType.value = 'user';
+  formItem.value = item ?? null;
+  showFormModal.value = true;
+}
+
+function handleFormSubmitted() {
+  showFormModal.value = false;
+  if (formType.value === 'fonograma') loadFonos();
+  else if (formType.value === 'song') loadSongs();
+  else if (formType.value === 'user') loadUsers();
 }
 
 function confirmDeleteFono(id: number) {

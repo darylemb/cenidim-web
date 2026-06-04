@@ -68,7 +68,7 @@ func SearchSongs(c *gin.Context) {
 	searchQuery := `
 		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
-		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
+		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editoria,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
 		       COALESCE(s.clasificacion,'')
 		FROM songs s
@@ -106,6 +106,14 @@ func SearchSongs(c *gin.Context) {
 		}
 	}
 
+	validOrderFields := map[string]bool{
+		"id": true, "clave": true, "title": true, "album": true,
+		"year": true, "filename": true, "clasificacion": true,
+	}
+	if !validOrderFields[orderBy] {
+		orderBy = "id"
+	}
+
 	orderFieldMap := map[string]string{
 		"id":            "s.id",
 		"clave":         "s.fonograma_id",
@@ -115,10 +123,7 @@ func SearchSongs(c *gin.Context) {
 		"filename":      "s.filename",
 		"clasificacion": "s.clasificacion",
 	}
-	sqlOrderField, ok := orderFieldMap[orderBy]
-	if !ok {
-		sqlOrderField = "s.id"
-	}
+	sqlOrderField := orderFieldMap[orderBy]
 	orderDir = strings.ToLower(orderDir)
 	if orderDir != "desc" {
 		orderDir = "asc"
@@ -204,7 +209,7 @@ func GetSong(c *gin.Context) {
 	query := `
 		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
-		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
+		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editoria,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
 		       COALESCE(s.clasificacion,''), COALESCE(s.lyrics,'')
 		FROM songs s
@@ -225,7 +230,7 @@ func GetSong(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
 		return
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 
@@ -242,18 +247,33 @@ func GetSong(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /timeline [get]
 func GetTimeline(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "1000")
+	limit := 1000
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 5000 {
+		limit = l
+	}
+
 	query := `
 		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
-		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
+		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editoria,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
 		       COALESCE(s.clasificacion,'')
 		FROM songs s
 		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
 		WHERE f.anio IS NOT NULL AND f.anio != ''
+		LIMIT ?
 	`
+	args := []interface{}{limit}
 
-	rows, err := database.DB.Query(query)
+	countQuery := `SELECT COUNT(*) FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma WHERE f.anio IS NOT NULL AND f.anio != ''`
+	var total int
+	if err := database.DB.QueryRow(countQuery).Scan(&total); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error counting timeline data"})
+		return
+	}
+
+	rows, err := database.DB.Query(query, args...)
 	if err != nil {
 		log.Printf("error querying timeline: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching timeline data"})
@@ -284,7 +304,6 @@ func GetTimeline(c *gin.Context) {
 			return
 		}
 
-		// Normalize: Extract first 4 digits
 		key := re.FindString(s.Year)
 		if key == "" {
 			key = s.Year
@@ -300,6 +319,9 @@ func GetTimeline(c *gin.Context) {
 		}
 
 		timeline[key] = append(timeline[key], s)
+		if len(timeline[key]) > 100 {
+			continue
+		}
 	}
 
 	sort.Slice(yearGroups, func(i, j int) bool {
@@ -317,5 +339,7 @@ func GetTimeline(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"years":    sortedKeys,
 		"timeline": timeline,
+		"total":    total,
+		"truncated": total > limit,
 	})
 }
