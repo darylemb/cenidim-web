@@ -33,7 +33,7 @@ func AdminListFonogramas(c *gin.Context) {
 
 	rows, err := database.DB.Query(`
 		SELECT clave_fonograma, titulo, subtitulo, interprete_principal, interpretes_invitados,
-		       interprete_participante, soporte_fisico, editoria, numero_catalogo,
+		       interprete_participante, soporte_fisico, editora, numero_catalogo,
 		       ciudad_edicion, pais_edicion, anio, pistas, observaciones
 		FROM fonogramas ORDER BY clave_fonograma LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
@@ -68,7 +68,7 @@ func AdminGetFonograma(c *gin.Context) {
 	var f models.Fonograma
 	err = database.DB.QueryRow(`
 		SELECT clave_fonograma, titulo, subtitulo, interprete_principal, interpretes_invitados,
-		       interprete_participante, soporte_fisico, editoria, numero_catalogo,
+		       interprete_participante, soporte_fisico, editora, numero_catalogo,
 		       ciudad_edicion, pais_edicion, anio, pistas, observaciones
 		FROM fonogramas WHERE clave_fonograma = ?`, id).Scan(
 		&f.ClaveFonograma, &f.Titulo, &f.Subtitulo, &f.InterpretePrincipal,
@@ -94,7 +94,7 @@ func AdminCreateFonograma(c *gin.Context) {
 	}
 	_, err := database.DB.Exec(`
 		INSERT INTO fonogramas (clave_fonograma, titulo, subtitulo, interprete_principal,
-		  interpretes_invitados, interprete_participante, soporte_fisico, editoria,
+		  interpretes_invitados, interprete_participante, soporte_fisico, editora,
 		  numero_catalogo, ciudad_edicion, pais_edicion, anio, pistas, observaciones)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		f.ClaveFonograma, f.Titulo, f.Subtitulo, f.InterpretePrincipal,
@@ -122,7 +122,7 @@ func AdminUpdateFonograma(c *gin.Context) {
 	res, err := database.DB.Exec(`
 		UPDATE fonogramas SET titulo=?, subtitulo=?, interprete_principal=?,
 		  interpretes_invitados=?, interprete_participante=?, soporte_fisico=?,
-		  editoria=?, numero_catalogo=?, ciudad_edicion=?, pais_edicion=?,
+		  editora=?, numero_catalogo=?, ciudad_edicion=?, pais_edicion=?,
 		  anio=?, pistas=?, observaciones=?
 		WHERE clave_fonograma=?`,
 		f.Titulo, f.Subtitulo, f.InterpretePrincipal, f.InterpretesInvitados,

@@ -33,7 +33,7 @@ func setupTestDB(t *testing.T) {
 		interpretes_invitados   TEXT,
 		interprete_participante TEXT,
 		soporte_fisico          TEXT,
-		editoria                TEXT,
+		editora                TEXT,
 		numero_catalogo         TEXT,
 		ciudad_edicion          TEXT,
 		pais_edicion            TEXT,
@@ -69,7 +69,7 @@ func setupTestDB(t *testing.T) {
 	// Seed Data — use empty strings for nullable columns to avoid NULL scan issues
 	_, err = db.Exec(`INSERT INTO fonogramas
 		(clave_fonograma, titulo, subtitulo, interprete_principal, interpretes_invitados,
-		 interprete_participante, soporte_fisico, editoria, numero_catalogo, ciudad_edicion,
+		 interprete_participante, soporte_fisico, editora, numero_catalogo, ciudad_edicion,
 		 pais_edicion, anio, pistas, observaciones)
 		VALUES (1, 'Test Album', '', '', '', '', '', '', '', '', '', '1968', '', '')`)
 	require.NoError(t, err)

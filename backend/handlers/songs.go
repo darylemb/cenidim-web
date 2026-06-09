@@ -94,7 +94,7 @@ func SearchSongs(c *gin.Context) {
 	searchQuery := `
 		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
-		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editoria,''), COALESCE(f.numero_catalogo,''),
+		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
 		       COALESCE(s.clasificacion,''), COALESCE(s.tema,'')
 		FROM songs s
@@ -243,7 +243,7 @@ func GetSong(c *gin.Context) {
 	query := `
 		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
-		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editoria,''), COALESCE(f.numero_catalogo,''),
+		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
 		       COALESCE(s.clasificacion,''), COALESCE(s.lyrics,'')
 		FROM songs s
@@ -319,7 +319,7 @@ func GetTimeline(c *gin.Context) {
 	query := `
 		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
-		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editoria,''), COALESCE(f.numero_catalogo,''),
+		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
 		       COALESCE(s.clasificacion,''), COALESCE(s.tema,'')
 		FROM songs s

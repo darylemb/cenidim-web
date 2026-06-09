@@ -231,7 +231,7 @@ _, err = db.Exec(`
 			interpretes_invitados  TEXT,
 			interprete_participante TEXT,
 			soporte_fisico     TEXT,
-			editoria            TEXT,
+			editora            TEXT,
 			numero_catalogo    TEXT,
 			ciudad_edicion     TEXT,
 			pais_edicion       TEXT,
@@ -325,7 +325,7 @@ _, err = db.Exec(`
 		interpretesInvitados := strings.TrimSpace(record[4])
 		interpreteParticipante := strings.TrimSpace(record[5])
 		soporteFisico := strings.TrimSpace(record[6])
-		editoria := strings.TrimSpace(record[7])
+		editora := strings.TrimSpace(record[7])
 		numeroCatalogo := strings.TrimSpace(record[8])
 		ciudadEdicion := strings.TrimSpace(record[9])
 		paisEdicion := strings.TrimSpace(record[10])
@@ -336,11 +336,11 @@ _, err = db.Exec(`
 		_, err = tx.Exec(`
 			INSERT OR REPLACE INTO fonogramas
 			(clave_fonograma, titulo, subtitulo, interprete_principal, interpretes_invitados,
-			 interprete_participante, soporte_fisico, editoria, numero_catalogo, ciudad_edicion,
+			 interprete_participante, soporte_fisico, editora, numero_catalogo, ciudad_edicion,
 			 pais_edicion, anio, pistas, observaciones)
 			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			clave, titulo, subtitulo, interpretePrincipal, interpretesInvitados,
-			interpreteParticipante, soporteFisico, editoria, numeroCatalogo, ciudadEdicion,
+			interpreteParticipante, soporteFisico, editora, numeroCatalogo, ciudadEdicion,
 			paisEdicion, anio, pistas, observaciones,
 		)
 		if err != nil {
