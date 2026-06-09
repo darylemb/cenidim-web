@@ -12,37 +12,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Pre-Execution Checks
 
-**Check for extension hooks (before implementation)**:
-- Check if `.specify/extensions.yml` exists in the project root.
-- If it exists, read it and look for entries under the `hooks.before_implement` key
-- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
-- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
-- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
-  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
-  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-- For each executable hook, output the following based on its `optional` flag:
-  - **Optional hook** (`optional: true`):
-    ```
-    ## Extension Hooks
-
-    **Optional Pre-Hook**: {extension}
-    Command: `/{command}`
-    Description: {description}
-
-    Prompt: {prompt}
-    To execute: `/{command}`
-    ```
-  - **Mandatory hook** (`optional: false`):
-    ```
-    ## Extension Hooks
-
-    **Automatic Pre-Hook**: {extension}
-    Executing: `/{command}`
-    EXECUTE_COMMAND: {command}
-    
-    Wait for the result of the hook command before proceeding to the Outline.
-    ```
-- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+<!-- include: .opencode/commands/_lib/hooks-preamble.md (HOOK_KEY=before_implement, HOOK_PHASE=Pre, HOOK_TRIGGER="before proceeding to the Outline") -->
 
 ## Outline
 
@@ -89,7 +59,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **IF EXISTS**: Read quickstart.md for integration scenarios
 
 4. **Project Setup Verification**:
-   - **REQUIRED**: Create/verify ignore files based on actual project setup:
+   - **REQUIRED**: Create/verify ignore files based on actual project setup.
 
    **Detection & Creation Logic**:
    - Check if the following command succeeds to determine if the repository is a git repo (create/verify .gitignore if so):
@@ -99,8 +69,7 @@ You **MUST** consider the user input before proceeding (if not empty).
      ```
 
    - Check if Dockerfile* exists or Docker in plan.md → create/verify .dockerignore
-   - Check if .eslintrc* exists → create/verify .eslintignore
-   - Check if eslint.config.* exists → ensure the config's `ignores` entries cover required patterns
+   - Check if .eslintrc* or eslint.config.* exists → create/verify .eslintignore
    - Check if .prettierrc* exists → create/verify .prettierignore
    - Check if .npmrc or package.json exists → create/verify .npmignore (if publishing)
    - Check if terraform files (*.tf) exist → create/verify .terraformignore
@@ -109,28 +78,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    **If ignore file already exists**: Verify it contains essential patterns, append missing critical patterns only
    **If ignore file missing**: Create with full pattern set for detected technology
 
-   **Common Patterns by Technology** (from plan.md tech stack):
-   - **Node.js/JavaScript/TypeScript**: `node_modules/`, `dist/`, `build/`, `*.log`, `.env*`
-   - **Python**: `__pycache__/`, `*.pyc`, `.venv/`, `venv/`, `dist/`, `*.egg-info/`
-   - **Java**: `target/`, `*.class`, `*.jar`, `.gradle/`, `build/`
-   - **C#/.NET**: `bin/`, `obj/`, `*.user`, `*.suo`, `packages/`
-   - **Go**: `*.exe`, `*.test`, `vendor/`, `*.out`
-   - **Ruby**: `.bundle/`, `log/`, `tmp/`, `*.gem`, `vendor/bundle/`
-   - **PHP**: `vendor/`, `*.log`, `*.cache`, `*.env`
-   - **Rust**: `target/`, `debug/`, `release/`, `*.rs.bk`, `*.rlib`, `*.prof*`, `.idea/`, `*.log`, `.env*`
-   - **Kotlin**: `build/`, `out/`, `.gradle/`, `.idea/`, `*.class`, `*.jar`, `*.iml`, `*.log`, `.env*`
-   - **C++**: `build/`, `bin/`, `obj/`, `out/`, `*.o`, `*.so`, `*.a`, `*.exe`, `*.dll`, `.idea/`, `*.log`, `.env*`
-   - **C**: `build/`, `bin/`, `obj/`, `out/`, `*.o`, `*.a`, `*.so`, `*.exe`, `*.dll`, `autom4te.cache/`, `config.status`, `config.log`, `.idea/`, `*.log`, `.env*`
-   - **Swift**: `.build/`, `DerivedData/`, `*.swiftpm/`, `Packages/`
-   - **R**: `.Rproj.user/`, `.Rhistory`, `.RData`, `.Ruserdata`, `*.Rproj`, `packrat/`, `renv/`
-   - **Universal**: `.DS_Store`, `Thumbs.db`, `*.tmp`, `*.swp`, `.vscode/`, `.idea/`
-
-   **Tool-Specific Patterns**:
-   - **Docker**: `node_modules/`, `.git/`, `Dockerfile*`, `.dockerignore`, `*.log*`, `.env*`, `coverage/`
-   - **ESLint**: `node_modules/`, `dist/`, `build/`, `coverage/`, `*.min.js`
-   - **Prettier**: `node_modules/`, `dist/`, `build/`, `coverage/`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
-   - **Terraform**: `.terraform/`, `*.tfstate*`, `*.tfvars`, `.terraform.lock.hcl`
-   - **Kubernetes/k8s**: `*.secret.yaml`, `secrets/`, `.kube/`, `kubeconfig*`, `*.key`, `*.crt`
+   **Patterns for this project** (Go + Vue 3 + Python + Docker): ver `.opencode/commands/_references/ignore-patterns.md` seccion "Subset para este proyecto". Para otros lenguajes, consultar el mismo archivo seccion "Common Patterns by Technology".
 
 5. Parse tasks.md structure and extract:
    - **Task phases**: Setup, Tests, Core, Integration, Polish
@@ -140,7 +88,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 6. Execute implementation following the task plan:
    - **Phase-by-phase execution**: Complete each phase before moving to the next
-   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together  
+   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together
    - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
@@ -160,40 +108,33 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Suggest next steps if implementation cannot proceed
    - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
 
-9. Completion validation:
-   - Verify all required tasks are completed
-   - Check that implemented features match the original specification
-   - Validate that tests pass and coverage meets requirements
-   - Confirm the implementation follows the technical plan
-   - Report final status with summary of completed work
+9. **Quality Gate (OBLIGATORIO antes de reportar SUCCESS)**:
+   Ejecutar en este orden; abortar si CUALQUIERA falla:
+
+   ```bash
+   # Backend (Go)
+   cd backend && golangci-lint run && go test ./...
+
+   # Frontend (Vue 3 + TS)
+   cd frontend && npm run lint && npm run typecheck && npm run test -- --run
+
+   # Design tokens (SC-009 del spec 004)
+   bash scripts/audit_design_tokens.sh frontend/src 0.05
+   ```
+
+   - Si `golangci-lint` falla → listar errores, NO marcar implement como completo.
+   - Si `go test` falla → listar tests fallidos, NO marcar implement como completo.
+   - Si `npm run lint` o `npm run typecheck` falla → listar errores, NO marcar implement como completo.
+   - Si `npm run test` falla → listar tests fallidos, NO marcar implement como completo.
+   - Si `audit_design_tokens.sh` excede 5% de drift → listar violaciones, NO marcar implement como completo.
+   - Si todos pasan → continuar con step 10.
+
+   Tambien invocar la skill `spec-kit-validate` (`.opencode/skills/spec-kit-validate/SKILL.md`)
+   para verificar alineacion con la spec: leer `specs/$FEATURE_DIR/spec.md`, comparar implementacion
+   contra criterios de aceptacion, reportar gaps.
+
+   **Output esperado**: resumen `[QUALITY_GATE_PASS]` o `[QUALITY_GATE_FAIL]` con detalle de cada paso.
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.
 
-10. **Check for extension hooks**: After completion validation, check if `.specify/extensions.yml` exists in the project root.
-    - If it exists, read it and look for entries under the `hooks.after_implement` key
-    - If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
-    - Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
-    - For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
-      - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
-      - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-    - For each executable hook, output the following based on its `optional` flag:
-      - **Optional hook** (`optional: true`):
-        ```
-        ## Extension Hooks
-
-        **Optional Hook**: {extension}
-        Command: `/{command}`
-        Description: {description}
-
-        Prompt: {prompt}
-        To execute: `/{command}`
-        ```
-      - **Mandatory hook** (`optional: false`):
-        ```
-        ## Extension Hooks
-
-        **Automatic Hook**: {extension}
-        Executing: `/{command}`
-        EXECUTE_COMMAND: {command}
-        ```
-    - If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+10. <!-- include: .opencode/commands/_lib/hooks-preamble.md (HOOK_KEY=after_implement, HOOK_PHASE=Post, HOOK_TRIGGER=none) -->

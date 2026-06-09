@@ -1,3 +1,0 @@
-batch,status,exit_code,file_count,output_file
-1,ok,0,25,review-reports/code-review-20260530-122905/batch_001.log
-2,ok,0,25,review-reports/code-review-20260530-122905/batch_002.log

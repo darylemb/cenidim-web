@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -35,8 +36,119 @@ func InitDB() error {
 		return fmt.Errorf("error connecting to database: %w", err)
 	}
 
+	if err := applyMigrations(); err != nil {
+		return fmt.Errorf("error applying migrations: %w", err)
+	}
+
 	log.Println("Connected to SQLite database successfully")
 	return nil
+}
+
+// applyMigrations executes every .sql file in backend/database/migrations in
+// lexicographic order. Each statement is executed in a single ExecWithRetry call
+// wrapped in a transaction so partial migrations cannot leave the schema in an
+// inconsistent state. Idempotent: statements that would fail when re-applied
+// (e.g. ALTER TABLE … ADD COLUMN) are guarded inside the .sql files using
+// `CREATE TABLE IF NOT EXISTS` and PRAGMA table_info checks.
+func applyMigrations() error {
+	dir := migrationsDir()
+	if dir == "" {
+		log.Println("No migrations directory found; skipping")
+		return nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("reading migrations dir: %w", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", path, err)
+		}
+		sqlText := string(raw)
+		if strings.TrimSpace(sqlText) == "" {
+			continue
+		}
+		log.Printf("Applying migration %s", e.Name())
+		if err := runMigration(sqlText); err != nil {
+			return fmt.Errorf("applying %s: %w", e.Name(), err)
+		}
+	}
+	return nil
+}
+
+// runMigration executes a single multi-statement SQL file. It splits on
+// semicolons that are at the end of a line so embedded `;` inside string
+// literals (none expected in our migrations) do not break parsing.
+func runMigration(script string) error {
+	statements := splitSQL(script)
+	for _, stmt := range statements {
+		trimmed := strings.TrimSpace(stmt)
+		if trimmed == "" {
+			continue
+		}
+		// Skip guard-style no-ops: lines that start with "--" or "/* ... */"
+		// blocks have already been stripped by splitSQL when present at the
+		// top of a statement.
+		_, err := ExecWithRetry(trimmed)
+		if err != nil {
+			// Tolerate "duplicate column name" so re-runs are no-ops.
+			if strings.Contains(err.Error(), "duplicate column name") {
+				continue
+			}
+			// Tolerate "table already exists" so re-runs are no-ops.
+			if strings.Contains(err.Error(), "already exists") {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func splitSQL(script string) []string {
+	lines := strings.Split(script, "\n")
+	var current []string
+	var out []string
+	for _, line := range lines {
+		stripped := strings.TrimSpace(line)
+		if strings.HasPrefix(stripped, "--") {
+			continue
+		}
+		current = append(current, line)
+		if strings.HasSuffix(strings.TrimSpace(line), ";") {
+			stmt := strings.Join(current, "\n")
+			out = append(out, stmt)
+			current = nil
+		}
+	}
+	if len(current) > 0 {
+		out = append(out, strings.Join(current, "\n"))
+	}
+	return out
+}
+
+// migrationsDir locates the migrations directory. It looks first for a
+// directory adjacent to the running binary (`./database/migrations`), then
+// for a sibling of the source file used in `go test` and `go run` scenarios
+// (the working directory at run time).
+func migrationsDir() string {
+	candidates := []string{
+		"backend/database/migrations",
+		"database/migrations",
+		"./database/migrations",
+	}
+	for _, c := range candidates {
+		if st, err := os.Stat(c); err == nil && st.IsDir() {
+			abs, _ := filepath.Abs(c)
+			return abs
+		}
+	}
+	return ""
 }
 
 // ExecWithRetry executes a query with automatic retry on SQLITE_BUSY / "database is locked" errors

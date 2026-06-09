@@ -2,9 +2,6 @@
   <div class="content-area">
     <div class="page-header-flex">
       <h2 class="page-title">Cronología Musical</h2>
-      <div class="total-indicator">
-        <strong>{{ years.length }}</strong> años registrados
-      </div>
     </div>
 
     <div class="timeline-intro">
@@ -72,6 +69,13 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * TimelineView shows the full catalog year-by-year. It is intentionally
+ * decoupled from the dashboard's filter set (which lives in
+ * DashboardView) — per project rule "filters only in Dashboards".
+ * The page just lists the catalog by year, no chip strip, no year-range,
+ * no theme controls.
+ */
 import { ref, onMounted, onUnmounted } from 'vue';
 import { apiService } from '@/services/api';
 import type { Song } from '@/types';
@@ -93,11 +97,11 @@ let _lyricsController: AbortController | null = null;
 onMounted(async () => {
   timelineController.value = new AbortController();
   try {
-    const data = await apiService.getTimeline(timelineController.value.signal);
-    const validYears = data.years.filter((y: string) => y !== 's/d');
+    const data = await apiService.getTimeline('', timelineController.value.signal);
+    const validYears = (data.years ?? []).filter((y: string) => y !== 's/d');
     years.value = validYears;
     timeline.value = Object.fromEntries(
-      Object.entries(data.timeline).filter(([key]) => key !== 's/d')
+      Object.entries(data.timeline ?? {}).filter(([key]) => key !== 's/d')
     );
     visibleYears.value = new Set(validYears);
     setupObserver();
@@ -182,22 +186,18 @@ async function onSongSelect(event: Event, year: string) {
 .timeline-item-enter-active {
   transition: all 0.5s ease-out;
 }
-
 .timeline-item-leave-active {
   transition: all 0.3s ease-in;
   position: absolute;
 }
-
 .timeline-item-enter-from {
   opacity: 0;
   transform: translateX(30px);
 }
-
 .timeline-item-leave-to {
   opacity: 0;
   transform: translateX(-30px);
 }
-
 .timeline-item-move {
   transition: transform 0.5s ease;
 }

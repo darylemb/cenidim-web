@@ -17,29 +17,55 @@ import (
 
 // SearchSongs godoc
 // @Summary Search songs
-// @Description Search songs by title, album, or lyrics with pagination
+// @Description Search songs by title, album, or lyrics with pagination. Honors
+// @Description the shared filter parameters: theme, year_from, year_to,
+// @Description clasificacion, album, q.
 // @Tags songs
 // @Accept  json
 // @Produce  json
-// @Param query query string false "Search query"
-// @Param field query string false "Field to search in (title, album, lyrics, all)"
+// @Param query         query string false "Search query (deprecated alias for q)"
+// @Param q             query string false "Search query"
+// @Param field         query string false "Field to search in (title, album, lyrics, all)"
+// @Param theme         query string false "Comma-separated theme list; use __none__ for unclassified"
+// @Param year_from     query int    false "Inclusive lower bound on year"
+// @Param year_to       query int    false "Inclusive upper bound on year"
 // @Param clasificacion query string false "Filter by clasificacion (ESPAÑOL_ESTANDAR, ESPAÑOL_REGIONAL, LENGUA_INDIGENA)"
-// @Param order_by query string false "Sort field (id, clave, title, album, year, filename, clasificacion)"
-// @Param order_dir query string false "Sort direction (asc, desc)"
-// @Param page query int false "Page number"
-// @Param limit query int false "Items per page"
+// @Param album         query string false "Exact album match"
+// @Param order_by      query string false "Sort field (id, clave, title, album, year, filename, clasificacion)"
+// @Param order_dir     query string false "Sort direction (asc, desc)"
+// @Param page          query int    false "Page number"
+// @Param limit         query int    false "Items per page"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /search [get]
 func SearchSongs(c *gin.Context) {
-	query := c.DefaultQuery("query", "")
+	// `q` wins; `query` is kept as a deprecated alias.
+	qRaw := strings.TrimSpace(c.Query("q"))
+	if qRaw == "" {
+		qRaw = strings.TrimSpace(c.Query("query"))
+	}
 	field := c.DefaultQuery("field", "all")
 	clasificacion := c.DefaultQuery("clasificacion", "")
 	orderBy := c.DefaultQuery("order_by", "id")
 	orderDir := c.DefaultQuery("order_dir", "asc")
 	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "20")
+
+	fp := ParseFilterParams(c)
+	// If the caller used the legacy `query` parameter, route it through the
+	// shared `Q` field so ApplySongFilters can find it.
+	if fp.Q == "" {
+		fp.Q = qRaw
+	}
+	if msg := fp.ValidateYearRange(); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+	if msg := fp.ValidateQueryLength(256); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
@@ -62,7 +88,7 @@ func SearchSongs(c *gin.Context) {
 	}
 	offset := (page - 1) * limit
 
-	searchTerm := fmt.Sprintf("%%%s%%", query)
+	searchTerm := fmt.Sprintf("%%%s%%", qRaw)
 
 	countQuery := "SELECT COUNT(*) FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma"
 	searchQuery := `
@@ -70,7 +96,7 @@ func SearchSongs(c *gin.Context) {
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
 		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editoria,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
-		       COALESCE(s.clasificacion,'')
+		       COALESCE(s.clasificacion,''), COALESCE(s.tema,'')
 		FROM songs s
 		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
 	`
@@ -78,7 +104,7 @@ func SearchSongs(c *gin.Context) {
 	var conditions []string
 	var args []interface{}
 
-	if query != "" {
+	if qRaw != "" {
 		switch field {
 		case "title":
 			conditions = append(conditions, "s.title LIKE ?")
@@ -105,6 +131,17 @@ func SearchSongs(c *gin.Context) {
 			args = append(args, clasificacion)
 		}
 	}
+
+	// Apply the shared filter parameters (theme, year range, etc.).
+	prior := ""
+	if len(conditions) > 0 {
+		prior = conditions[0]
+		for _, c := range conditions[1:] {
+			prior += " AND " + c
+		}
+	}
+	filterCond, filterArgs := fp.ApplySongFilters(prior)
+	args = append(args, filterArgs...)
 
 	validOrderFields := map[string]bool{
 		"id": true, "clave": true, "title": true, "album": true,
@@ -133,11 +170,8 @@ func SearchSongs(c *gin.Context) {
 	orderClause := " ORDER BY CASE WHEN COALESCE(" + sqlOrderField + ", '') = '' THEN 1 ELSE 0 END ASC, " + sqlOrderField + " " + orderDir
 
 	var whereClause string
-	if len(conditions) > 0 {
-		whereClause = " WHERE " + conditions[0]
-		for _, cond := range conditions[1:] {
-			whereClause += " AND " + cond
-		}
+	if filterCond != "" {
+		whereClause = " WHERE " + filterCond
 	}
 
 	// Get total count
@@ -168,7 +202,7 @@ func SearchSongs(c *gin.Context) {
 			&s.Album, &s.Subtitulo, &s.InterpretePrincipal, &s.InterpretesInvitados,
 			&s.InterpreteParticipante, &s.SoporteFisico, &s.Editora, &s.NumeroCatalogo,
 			&s.CiudadEdicion, &s.PaisEdicion, &s.Year, &s.Pistas, &s.Observaciones,
-			&s.Clasificacion,
+			&s.Clasificacion, &s.Tema,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading results"})
 			return
@@ -239,11 +273,22 @@ func GetSong(c *gin.Context) {
 
 // GetTimeline godoc
 // @Summary Get songs timeline
-// @Description Get songs grouped by year for the timeline view
+// @Description Get songs grouped by year for the timeline view. Honors the
+// @Description shared filter parameters: theme, year_from, year_to,
+// @Description clasificacion, album, q. Songs without a year (s/d) are
+// @Description grouped under the literal key "s/d" in the response; when a
+// @Description year range is supplied, the s/d bucket is omitted.
 // @Tags songs
 // @Accept  json
 // @Produce  json
+// @Param theme         query string false "Comma-separated theme list; use __none__ for unclassified"
+// @Param year_from     query int    false "Inclusive lower bound on year"
+// @Param year_to       query int    false "Inclusive upper bound on year"
+// @Param clasificacion query string false "Comma-separated classification list"
+// @Param album         query string false "Exact album match"
+// @Param q             query string false "Free-text search across title, lyrics, and album"
 // @Success 200 {object} map[string][]models.Song
+// @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /timeline [get]
 func GetTimeline(c *gin.Context) {
@@ -253,22 +298,40 @@ func GetTimeline(c *gin.Context) {
 		limit = l
 	}
 
+	fp := ParseFilterParams(c)
+	if msg := fp.ValidateYearRange(); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+	if msg := fp.ValidateQueryLength(256); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+
+	priorWhere := "f.anio IS NOT NULL AND f.anio != ''"
+	// When a year range is supplied the s/d bucket is omitted; the SQL "no
+	// year" predicate becomes redundant so we drop it.
+	if fp.YearFrom != nil || fp.YearTo != nil {
+		priorWhere = "f.anio != ''"
+	}
+	whereCond, whereArgs := fp.ApplySongFilters(priorWhere)
+
 	query := `
 		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
 		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editoria,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
-		       COALESCE(s.clasificacion,'')
+		       COALESCE(s.clasificacion,''), COALESCE(s.tema,'')
 		FROM songs s
 		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
-		WHERE f.anio IS NOT NULL AND f.anio != ''
+	` + whereWrap(whereCond) + `
 		LIMIT ?
 	`
-	args := []interface{}{limit}
+	args := append(whereArgs, limit)
 
-	countQuery := `SELECT COUNT(*) FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma WHERE f.anio IS NOT NULL AND f.anio != ''`
+	countQuery := `SELECT COUNT(*) FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma ` + whereWrap(whereCond)
 	var total int
-	if err := database.DB.QueryRow(countQuery).Scan(&total); err != nil {
+	if err := database.DB.QueryRow(countQuery, whereArgs...).Scan(&total); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error counting timeline data"})
 		return
 	}
@@ -298,7 +361,7 @@ func GetTimeline(c *gin.Context) {
 			&s.Album, &s.Subtitulo, &s.InterpretePrincipal, &s.InterpretesInvitados,
 			&s.InterpreteParticipante, &s.SoporteFisico, &s.Editora, &s.NumeroCatalogo,
 			&s.CiudadEdicion, &s.PaisEdicion, &s.Year, &s.Pistas, &s.Observaciones,
-			&s.Clasificacion,
+			&s.Clasificacion, &s.Tema,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading timeline results"})
 			return

@@ -346,81 +346,99 @@ async function handleSubmit() {
 }
 
 .modal-body {
-  padding: 1.5rem 2rem;
+  padding: var(--space-5) var(--space-6);
   overflow-y: auto;
 }
 
 .form-error {
-  background: #fee2e2;
-  color: #dc2626;
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-size: 0.875rem;
+  background: rgba(154, 42, 42, 0.08);
+  color: var(--color-danger);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-danger);
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
-  margin-bottom: 1rem;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
 }
 
 .form-group label {
-  font-size: 0.875rem;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
   font-weight: 500;
-  color: var(--text-primary, #374151);
+  color: var(--color-text);
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-light, #d1d5db);
-  border-radius: 6px;
-  font-size: 0.875rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
   font-family: inherit;
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: var(--tap-target-min);
+  transition: var(--transition-fast);
+}
+
+.form-group input:hover,
+.form-group select:hover,
+.form-group textarea:hover {
+  border-color: var(--color-border-strong);
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: var(--color-primary, #3b82f6);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(117, 20, 40, 0.1);
 }
 
 .input-readonly {
-  background: var(--bg-disabled, #f3f4f6);
-  color: var(--text-muted, #6b7280);
+  background: var(--color-bg-soft);
+  color: var(--color-text-muted);
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-light, #e5e7eb);
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: var(--hairline-soft);
 }
 
 .close-btn {
   background: none;
   border: none;
-  font-size: 1.5rem;
-  color: var(--text-muted, #6b7280);
+  font-size: var(--font-size-xl);
+  color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
   line-height: 1;
+  min-width: var(--tap-target-min);
+  min-height: var(--tap-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
 }
 
 .close-btn:hover {
-  color: var(--text-primary, #374151);
+  color: var(--color-text);
 }
 </style>

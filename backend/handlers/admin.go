@@ -439,3 +439,39 @@ func AdminDeleteUser(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted"})
 }
+
+// AdminUnlinkIdentity godoc
+// @Summary Unlink a Google identity from a user
+// @Description Removes the user_identities row(s) for the given user so that
+// @Description future Google sign-ins with that Google account will not
+// @Description match this user.
+// @Tags admin
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /admin/users/{id}/identity [delete]
+func AdminUnlinkIdentity(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+	found, err := unlinkIdentity(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "identity_not_linked"})
+		return
+	}
+	_, _ = database.DB.Exec(
+		`UPDATE users SET last_sign_in_method = NULL, last_sign_in_at = NULL WHERE id = ?`,
+		id,
+	)
+	c.Status(http.StatusNoContent)
+}

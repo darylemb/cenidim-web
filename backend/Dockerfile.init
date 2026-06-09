@@ -1,0 +1,85 @@
+# syntax=docker/dockerfile:1.4
+# Dockerfile.init — sidecar that regenerates letras.db from source
+# on every container start.
+#
+# Multi-stage build:
+#   Stage 1 — compile the Go db-builder in a clean golang:alpine image.
+#   Stage 2 — final slim image with Python + spaCy + the Go binary.
+#
+# This keeps the final image lean (~1.2 GB) by isolating the Go
+# toolchain and its 1+ GB of build cache in stage 1. The Go module
+# cache (~1 GB for modernc.org/libc) is mounted via BuildKit cache
+# mounts so it lives outside the image layers and doesn't bloat the
+# Docker VM disk.
+
+# ── Stage 1: Go toolchain + db-builder binary ─────────────────────
+FROM golang:alpine AS go-builder
+
+WORKDIR /app
+
+RUN apk add --no-cache git
+
+# Copy ONLY the module manifests first so this layer is cacheable
+# across builds that don't touch dependencies.
+COPY backend/go.mod backend/go.sum ./backend/
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    cd /app/backend && go mod download
+
+# Now copy the source and build the binary.
+COPY backend/ ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' \
+    -o /app/db-builder ./cmd/build-db/
+
+
+# ── Stage 2: Python + spaCy + the Go binary ──────────────────────
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Single apt call for the system's only CLI tool we actually need
+# (ca-certificates for HTTPS). We deliberately do NOT install
+# sqlite3 — pulling a second apt layer after the heavy pip install
+# below would risk running out of /var/cache/apt space.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# spaCy + Spanish model. We install the model wheel directly via
+# pip instead of `python -m spacy download` because the latter
+# silently fails to copy the model files into site-packages in
+# some Docker/network environments (spaCy 3.8.x), leaving the
+# image without the model and breaking the runtime classifier.
+# --no-cache-dir keeps pip's cache from growing; the final `find`
+# scrubs any leftover __pycache__ from the pip install.
+RUN pip install --no-cache-dir click spacy \
+    && pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/es_core_news_md-3.8.0/es_core_news_md-3.8.0-py3-none-any.whl \
+    && find / -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
+
+# Source tree: backend (used for the cmd/build-db/* import paths in
+# case the binary is rebuilt at runtime), scripts, lyrics corpus,
+# CSV. Mounted as RO in compose for the actual source files but
+# baked into the image here so the very first `docker compose up`
+# works even before the bind mount is attached.
+COPY backend/ ./backend/
+COPY scripts/ ./scripts/
+COPY LetrasTXT/ ./LetrasTXT/
+COPY db_fonografia.csv ./db_fonografia.csv
+
+# Bring in the compiled Go binary from stage 1.
+COPY --from=go-builder /app/db-builder /usr/local/bin/db-builder
+
+# Entrypoint script: re-runs the build + classify steps every time
+# the container starts so a `docker compose up` against an
+# already-built image still produces a fresh DB.
+COPY backend/db-init-entrypoint.sh /app/db-init-entrypoint.sh
+RUN chmod +x /app/db-init-entrypoint.sh \
+    && mkdir -p /data
+
+ARG ADMIN_PASS=admin123
+ENV ADMIN_PASS=${ADMIN_PASS} \
+    DB_PATH=/data/letras.db
+
+CMD ["/app/db-init-entrypoint.sh"]

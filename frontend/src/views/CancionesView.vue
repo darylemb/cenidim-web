@@ -1,52 +1,68 @@
 <template>
   <div class="content-area">
-    <div class="page-header-flex">
-      <h2 class="page-title">Canciones</h2>
-      <div class="total-indicator">
-        <strong>{{ total }}</strong> canciones encontradas
+    <header class="canciones__masthead">
+      <div>
+        <span class="eyebrow">Catálogo</span>
+        <h1 class="canciones__title display">Canciones</h1>
       </div>
-    </div>
+      <div class="canciones__total">
+        <span class="canciones__total-num display mono">{{ total.toLocaleString() }}</span>
+        <span class="canciones__total-label">resultados</span>
+      </div>
+    </header>
 
-    <div class="filter-bar">
-      <label for="clasificacion-filter" class="filter-label">Clasificación de lengua:</label>
-      <select
-        id="clasificacion-filter"
-        v-model="localClasificacion"
-        class="clasificacion-select"
-        @change="onClasificacionChange"
-      >
-        <option value="">Todas las clasificaciones</option>
-        <option value="ESPAÑOL_ESTANDAR">Español Estándar</option>
-        <option value="ESPAÑOL_REGIONAL">Español Regional</option>
-        <option value="LENGUA_INDIGENA">Lengua Indígena</option>
-      </select>
+    <section class="canciones__controls" aria-label="Controles de tabla">
+      <label class="canciones__select-wrap">
+        <span class="canciones__select-label eyebrow">Búsqueda</span>
+        <input
+          v-model="localQuery"
+          type="search"
+          class="canciones__input"
+          placeholder="Palabra en título, álbum o letra"
+          @input="onQueryChange"
+        />
+      </label>
 
-      <label for="order-by-filter" class="filter-label">Ordenar por:</label>
-      <select
-        id="order-by-filter"
-        v-model="localOrderBy"
-        class="clasificacion-select"
-        @change="onOrderByChange"
-      >
-        <option value="id">ID</option>
-        <option value="clave">Clave</option>
-        <option value="title">Pista</option>
-        <option value="album">Álbum</option>
-        <option value="year">Año</option>
-        <option value="filename">Archivo</option>
-        <option value="clasificacion">Clasificación</option>
-      </select>
+      <label class="canciones__select-wrap">
+        <span class="canciones__select-label eyebrow">Clasificación</span>
+        <select
+          v-model="localClasificacion"
+          class="canciones__select"
+          @change="onClasificacionChange"
+        >
+          <option value="">Todas</option>
+          <option value="ESPAÑOL_ESTANDAR">Estándar</option>
+          <option value="ESPAÑOL_REGIONAL">Regional</option>
+          <option value="LENGUA_INDIGENA">Indígena</option>
+        </select>
+      </label>
 
-      <select v-model="localOrderDir" class="clasificacion-select" @change="onOrderDirChange">
-        <option value="asc">Ascendente</option>
-        <option value="desc">Descendente</option>
-      </select>
-    </div>
+      <label class="canciones__select-wrap">
+        <span class="canciones__select-label eyebrow">Ordenar por</span>
+        <select v-model="localOrderBy" class="canciones__select" @change="onOrderByChange">
+          <option value="id">ID</option>
+          <option value="clave">Clave</option>
+          <option value="title">Pista</option>
+          <option value="album">Álbum</option>
+          <option value="year">Año</option>
+          <option value="filename">Archivo</option>
+          <option value="clasificacion">Clasificación</option>
+        </select>
+      </label>
+
+      <label class="canciones__select-wrap">
+        <span class="canciones__select-label eyebrow">Dirección</span>
+        <select v-model="localOrderDir" class="canciones__select" @change="onOrderDirChange">
+          <option value="asc">Ascendente</option>
+          <option value="desc">Descendente</option>
+        </select>
+      </label>
+    </section>
 
     <div class="results-table-container">
       <div v-if="loading" class="loading-overlay">
         <div class="spinner"></div>
-        <p>Buscando en el archivo del CENIDIM...</p>
+        <p>Buscando en el archivo del CENIDIM…</p>
       </div>
       <div class="table-scroll-wrapper">
         <table :class="['results-table', 'results-table--wide', { loadingopacity: loading }]">
@@ -69,12 +85,13 @@
               <th>Observaciones</th>
               <th>Archivo</th>
               <th>Clasificación</th>
+              <th>Tema</th>
               <th>Acción</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="song in results" :key="song.id">
-              <td data-label="Clave">{{ song.fonograma_id }}</td>
+              <td data-label="Clave" class="mono">{{ song.fonograma_id }}</td>
               <td data-label="Pista" class="table-cell-truncate">
                 <span class="table-cell-text" :title="song.title">{{ song.title }}</span>
               </td>
@@ -118,11 +135,9 @@
                 }}</span>
               </td>
               <td data-label="País" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.pais_edicion">{{
-                  song.pais_edicion
-                }}</span>
+                <span class="table-cell-text" :title="song.pais_edicion">{{ song.pais_edicion }}</span>
               </td>
-              <td data-label="Año" class="table-cell-truncate">
+              <td data-label="Año" class="table-cell-truncate mono">
                 <span class="table-cell-text" :title="song.year">{{ song.year }}</span>
               </td>
               <td data-label="Pistas" class="table-cell-truncate cell-pistas">
@@ -133,7 +148,7 @@
                   song.observaciones
                 }}</span>
               </td>
-              <td data-label="Archivo" class="table-cell-truncate">
+              <td data-label="Archivo" class="table-cell-truncate mono">
                 <span class="table-cell-text" :title="song.filename">{{ song.filename }}</span>
               </td>
               <td data-label="Clasificación">
@@ -141,22 +156,22 @@
                   {{ labelText(song.clasificacion) }}
                 </span>
               </td>
+              <td data-label="Tema">
+                <ThemeBadge :theme="song.tema ?? ''" />
+              </td>
               <td data-label="Acción">
                 <button v-if="song.filename" class="action-btn" @click="openLyrics(song.id)">
                   Ver Letra
                 </button>
-                <span v-else>—</span>
+                <span v-else class="table-cell-muted">—</span>
               </td>
             </tr>
             <tr v-if="!loading && results.length === 0">
-              <td colspan="18" style="text-align: center; padding: 4rem">
-                <div class="no-results">
-                  <span style="font-size: 2rem; display: block; margin-bottom: 1rem">🔍</span>
-                  <p>No se encontraron resultados para su búsqueda.</p>
-                  <button class="btn-reset" style="margin-top: 1rem" @click="onReset">
-                    Mostrar todas
-                  </button>
-                </div>
+              <td colspan="19">
+                <EmptyState
+                  label="No se encontraron canciones para los criterios aplicados."
+                  description="Pruebe a relajar los criterios, o use la sección de filtros arriba."
+                />
               </td>
             </tr>
           </tbody>
@@ -210,19 +225,39 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * CancionesView is the catalog browser.
+ *
+ * The dashboard's filter set (year range, theme chips, album, free-text) is
+ * independent of this view. CancionesView manages its OWN local state
+ * (free-text query, classification, ordering, page, limit) via
+ * `useSearchStore`, with no coupling to `useFiltersStore`. This keeps
+ * the two views from contaminating each other.
+ *
+ * Data consistency note: the `tema` value shown by ThemeBadge comes
+ * directly from `songs.tema` — the same column the dashboard stats
+ * group by and the same column the word cloud filters by. After
+ * `scripts/classify_songs.py` runs, that column holds the literal
+ * "Tema: ..." value from each LetrasTXT/*.txt file (no inference).
+ */
 import { ref, computed, onMounted } from 'vue';
 import { useSearchStore } from '@/stores/search';
 import { apiService } from '@/services/api';
 import type { Song } from '@/types';
 import LyricModal from '@/components/LyricModal.vue';
+import ThemeBadge from '@/components/ThemeBadge.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import { storeToRefs } from 'pinia';
 
 const search = useSearchStore();
-const { results, total, page, limit, clasificacion, orderBy, orderDir, loading } =
-  storeToRefs(search);
+const { results, total, page, limit, loading } = storeToRefs(search);
 
+// Local view state — fully self-contained.
+const localQuery = ref('');
 const localClasificacion = ref('');
-const localOrderBy = ref('id');
+const localOrderBy = ref<'id' | 'clave' | 'title' | 'album' | 'year' | 'filename' | 'clasificacion'>(
+  'id',
+);
 const localOrderDir = ref<'asc' | 'desc'>('asc');
 const selectedSongId = ref<number | null>(null);
 const selectedSongData = ref<Song | null>(null);
@@ -246,116 +281,93 @@ const pageNumbers = computed(() => {
   return pages;
 });
 
+function runSearch() {
+  search.performSearch(
+    localQuery.value,
+    'all',
+    page.value,
+    limit.value,
+    localClasificacion.value,
+    localOrderBy.value,
+    localOrderDir.value,
+  );
+}
+
 onMounted(() => {
-  localClasificacion.value = clasificacion.value;
-  localOrderBy.value = orderBy.value;
-  localOrderDir.value = orderDir.value;
-  if (results.value.length === 0) {
-    search.performSearch('', 'all', 1, 20);
-  }
+  runSearch();
 });
 
-function onClasificacionChange() {
+function onQueryChange() {
   search.performSearch(
-    '',
+    localQuery.value,
     'all',
     1,
     limit.value,
     localClasificacion.value,
-    localOrderBy.value as
-      | 'id'
-      | 'clave'
-      | 'title'
-      | 'album'
-      | 'year'
-      | 'filename'
-      | 'clasificacion',
-    localOrderDir.value
+    localOrderBy.value,
+    localOrderDir.value,
+  );
+}
+
+function onClasificacionChange() {
+  search.performSearch(
+    localQuery.value,
+    'all',
+    1,
+    limit.value,
+    localClasificacion.value,
+    localOrderBy.value,
+    localOrderDir.value,
   );
 }
 
 function onOrderByChange() {
   search.performSearch(
-    '',
+    localQuery.value,
     'all',
     1,
     limit.value,
     localClasificacion.value,
-    localOrderBy.value as
-      | 'id'
-      | 'clave'
-      | 'title'
-      | 'album'
-      | 'year'
-      | 'filename'
-      | 'clasificacion',
-    localOrderDir.value
+    localOrderBy.value,
+    localOrderDir.value,
   );
 }
 
 function onOrderDirChange() {
   search.performSearch(
-    '',
+    localQuery.value,
     'all',
     1,
     limit.value,
     localClasificacion.value,
-    localOrderBy.value as
-      | 'id'
-      | 'clave'
-      | 'title'
-      | 'album'
-      | 'year'
-      | 'filename'
-      | 'clasificacion',
-    localOrderDir.value
+    localOrderBy.value,
+    localOrderDir.value,
   );
 }
 
 function onLimitChange(e: Event) {
   const newLimit = parseInt((e.target as HTMLSelectElement).value, 10);
   search.performSearch(
-    '',
+    localQuery.value,
     'all',
     1,
     newLimit,
     localClasificacion.value,
-    localOrderBy.value as
-      | 'id'
-      | 'clave'
-      | 'title'
-      | 'album'
-      | 'year'
-      | 'filename'
-      | 'clasificacion',
-    localOrderDir.value
+    localOrderBy.value,
+    localOrderDir.value,
   );
 }
 
 function changePage(newPage: number) {
   search.performSearch(
-    '',
+    localQuery.value,
     'all',
     newPage,
     limit.value,
     localClasificacion.value,
-    localOrderBy.value as
-      | 'id'
-      | 'clave'
-      | 'title'
-      | 'album'
-      | 'year'
-      | 'filename'
-      | 'clasificacion',
-    localOrderDir.value
+    localOrderBy.value,
+    localOrderDir.value,
   );
-}
-
-function onReset() {
-  localClasificacion.value = '';
-  localOrderBy.value = 'id';
-  localOrderDir.value = 'asc';
-  search.resetSearch();
 }
 
 async function openLyrics(songId: number) {
@@ -375,9 +387,9 @@ async function openLyrics(songId: number) {
 function labelText(clas: string): string {
   return (
     {
-      ESPAÑOL_ESTANDAR: 'Español Estándar',
-      ESPAÑOL_REGIONAL: 'Español Regional',
-      LENGUA_INDIGENA: 'Lengua Indígena',
+      ESPAÑOL_ESTANDAR: 'Estándar',
+      ESPAÑOL_REGIONAL: 'Regional',
+      LENGUA_INDIGENA: 'Indígena',
     }[clas] ?? clas
   );
 }
@@ -392,3 +404,120 @@ function badgeClass(clas: string): string {
   );
 }
 </script>
+
+<style scoped>
+.canciones__masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: var(--space-5);
+  padding: var(--space-5) 0 var(--space-6);
+  border-bottom: var(--hairline);
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.canciones__title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-weight: 400;
+  font-variation-settings: 'opsz' 144, 'SOFT' 30, 'WONK' 0;
+  color: var(--color-text);
+  margin: var(--space-1) 0 0;
+  line-height: 0.95;
+  letter-spacing: var(--tracking-tight);
+}
+
+.canciones__total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
+.canciones__total-num {
+  font-size: var(--font-size-3xl);
+  font-weight: 500;
+  color: var(--color-text);
+  line-height: 1;
+  font-variation-settings: 'opsz' 144;
+}
+
+.canciones__total-label {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.canciones__controls {
+  display: grid;
+  grid-template-columns: 2fr repeat(3, 1fr);
+  gap: var(--space-5);
+  padding: var(--space-5) 0;
+  margin-bottom: var(--space-5);
+  border-top: var(--hairline-soft);
+  border-bottom: var(--hairline-soft);
+}
+
+.canciones__select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.canciones__select-label {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.canciones__select,
+.canciones__input {
+  background: transparent;
+  border: none;
+  border-bottom: var(--hairline);
+  padding: var(--space-2) 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  cursor: pointer;
+  min-height: var(--tap-target-min);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%231a1612'%3E%3Cpath d='M4 6l4 4 4-4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0 center;
+  background-size: 14px;
+  transition: border-color var(--transition-fast);
+  width: 100%;
+}
+
+.canciones__input {
+  background-image: none;
+  cursor: text;
+}
+
+.canciones__select:hover,
+.canciones__input:hover {
+  border-bottom-color: var(--color-border-strong);
+}
+
+.canciones__select:focus,
+.canciones__input:focus {
+  outline: none;
+  border-bottom-color: var(--color-brand);
+  border-bottom-width: 2px;
+  padding-bottom: calc(var(--space-2) - 1px);
+}
+
+@media (max-width: 768px) {
+  .canciones__controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+.table-cell-muted {
+  color: var(--color-text-muted);
+}
+</style>

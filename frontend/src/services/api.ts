@@ -70,9 +70,10 @@ export const apiService = {
     }
   },
 
-  getTimeline: async (signal?: AbortSignal): Promise<TimelineData> => {
+  getTimeline: async (filterQuery = '', signal?: AbortSignal): Promise<TimelineData> => {
     try {
-      const response = await fetch(`${BASE_URL}/timeline`, { signal });
+      const url = filterQuery ? `${BASE_URL}/timeline?${filterQuery}` : `${BASE_URL}/timeline`;
+      const response = await fetch(url, { signal });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -84,9 +85,10 @@ export const apiService = {
     }
   },
 
-  getStats: async (signal?: AbortSignal): Promise<Stats> => {
+  getStats: async (filterQuery = '', signal?: AbortSignal): Promise<Stats> => {
     try {
-      const response = await fetch(`${BASE_URL}/stats`, {
+      const url = filterQuery ? `${BASE_URL}/stats?${filterQuery}` : `${BASE_URL}/stats`;
+      const response = await fetch(url, {
         headers: { ...authHeaders() },
         signal,
       });
@@ -101,9 +103,17 @@ export const apiService = {
     }
   },
 
-  getWordCloud: async (signal?: AbortSignal): Promise<{ words: {text: string; size: number}[]; totalWords: number }> => {
+  getWordCloud: async (
+    filterQuery: string = '',
+    signal?: AbortSignal
+  ): Promise<{
+    words: { text: string; size: number }[];
+    totalWords: number;
+    excludedStopWords?: number;
+  }> => {
     try {
-      const response = await fetch(`${BASE_URL}/word-cloud`, { signal });
+      const url = filterQuery ? `${BASE_URL}/word-cloud?${filterQuery}` : `${BASE_URL}/word-cloud`;
+      const response = await fetch(url, { signal });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

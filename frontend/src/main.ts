@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import App from './App.vue';
 import router from './router';
+import '@/assets/tokens.css';
 import '@/assets/main.css';
 
 ChartJS.register(

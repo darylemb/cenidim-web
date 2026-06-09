@@ -33,7 +33,11 @@ yarn-error.log*
 bin/
 
 docker-compose.yaml
-
+tests_results/
 .playwright-mcp/
 .opencode/
 .roo/
+
+.specify/
+.opencode/
+AGENTS.md

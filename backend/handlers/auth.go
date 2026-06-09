@@ -170,10 +170,25 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Google-only accounts have a sentinel password hash and must use the
+	// "Continuar con Google" flow instead of the password form.
+	if hash == googleLinkedSentinel {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Esta cuenta solo puede iniciar sesión con Google.",
+		})
+		return
+	}
+
 	if hashErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(input.Password)); hashErr != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
+
+	// Audit: record the sign-in method.
+	_, _ = database.DB.Exec(
+		`UPDATE users SET last_sign_in_method = ?, last_sign_in_at = ? WHERE id = ?`,
+		"password", time.Now().UTC().Format(time.RFC3339), id,
+	)
 
 	token, err := generateToken(id, username, role)
 	if err != nil {
@@ -220,3 +235,8 @@ func generateToken(userID int, username, role string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(middleware.JWTSecret())
 }
+
+// googleLinkedSentinel is the value stored in `users.password_hash` for
+// accounts that were created via Google sign-in. The password login route
+// short-circuits when it sees this value and returns a clear error.
+const googleLinkedSentinel = "GOOGLE_LINKED"

@@ -23,6 +23,7 @@ export interface Song {
   observaciones: string;
   filename: string;
   clasificacion: string;
+  tema?: string;
   lyrics?: string;
   created_at?: string;
 }
@@ -56,6 +57,8 @@ export interface Stats {
   total_albums: number;
   songs_by_year: Record<string, number>;
   songs_by_clasificacion: Record<string, number>;
+  songs_by_theme: Record<string, number>;
+  distinct_themes: number;
   recently_added: number;
   top_albums: AlbumCount[];
   avg_lyrics_length: number;

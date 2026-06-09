@@ -1,38 +1,73 @@
 <template>
-  <div class="word-cloud-wrapper">
-    <div class="word-cloud-container">
-      <h3 class="word-cloud-title">Palabras en las canciones</h3>
-      <div v-if="loading" class="word-cloud-loading">Cargando...</div>
-      <div v-else-if="error" class="word-cloud-error">{{ error }}</div>
-      <div v-else class="word-cloud-canvas" ref="canvasContainer">
-        <svg viewBox="0 0 700 450" class="word-cloud-svg" preserveAspectRatio="xMidYMid meet" aria-label="Nube de palabras frecuentes en las canciones">
-          <g v-for="(word, index) in cloudLayout" :key="index">
-            <text
-              :x="word.x"
-              :y="word.y"
-              :font-size="word.fontSize"
-              :fill="word.color"
-              text-anchor="middle"
-              dominant-baseline="middle"
-              class="word-cloud-text"
-              :style="{ fontWeight: word.weight }"
-            >
-              {{ word.text }}
-            </text>
-          </g>
-        </svg>
-      </div>
-      <div class="word-cloud-stats">
-        <span>{{ topWords.length }} palabras</span>
-        <span v-if="totalWords"> • {{ totalWords.toLocaleString() }} palabras totales</span>
-      </div>
+  <div class="word-cloud" ref="rootEl">
+    <div v-if="loading" class="word-cloud__state" aria-live="polite">
+      <div class="word-cloud__spinner" aria-hidden="true"></div>
+      <span>Cargando vocabulario…</span>
+    </div>
+    <div v-else-if="error" class="word-cloud__state word-cloud__state--error">
+      {{ error }}
+    </div>
+    <div v-else class="word-cloud__canvas" ref="canvasContainer">
+      <svg
+        :viewBox="`0 0 ${baseWidth} ${baseHeight}`"
+        :preserveAspectRatio="preserveAspect"
+        class="word-cloud__svg"
+        role="img"
+        aria-label="Nube de palabras frecuentes en las canciones"
+      >
+        <g v-for="(word, index) in cloudLayout" :key="index">
+          <text
+            :x="word.x"
+            :y="word.y"
+            :font-size="word.fontSize"
+            :fill="word.color"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            class="word-cloud__text"
+            :style="{ fontWeight: word.weight, fontFamily: word.fontFamily }"
+          >
+            {{ word.text }}
+          </text>
+        </g>
+      </svg>
+    </div>
+    <div v-if="!loading && !error" class="word-cloud__stats">
+      <span class="eyebrow">Vocabulario</span>
+      <span class="word-cloud__stats-value mono">{{ topWords.length }}</span>
+      <span>palabras únicas</span>
+      <span class="word-cloud__stats-sep" aria-hidden="true">·</span>
+      <span class="word-cloud__stats-value mono">{{ totalWords.toLocaleString() }}</span>
+      <span>apariciones totales</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+/**
+ * Responsive word cloud.
+ *
+ * The SVG viewBox tracks the canvas container's actual pixel size,
+ * re-packed on every resize (debounced). Font sizes scale with the
+ * container's shorter dimension so the cloud always fills the
+ * available space — no letterboxing, no shrinking.
+ *
+ * The packing algorithm distributes words across the full viewBox:
+ *   1. Top 6 hero words are seeded at 60° intervals on a ring at
+ *      0.28 × min(W,H) from center, so the biggest, most weighty
+ *      words claim distinct sectors.
+ *   2. The remaining 34 hero words and the medium/small words spiral
+ *      outward from the center (or from their sector anchor) with
+ *      a wide step (22 / 18 radial, 0.42 rad angular) so consecutive
+ *      words are placed meaningfully apart and the cloud fills the
+ *      whole canvas instead of clustering in the middle.
+ *
+ * Stop words are excluded. Metadata (Dura:, Tema:, Personajes:) is
+ * already stripped by the backend's cleanLyrics.
+ */
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { apiService } from '@/services/api';
+import { useFiltersStore } from '@/stores/filters';
+import { packWordCloud, type WordItem, type LayoutWord } from '@/utils/wordCloudLayout';
 
 const SPANISH_STOP_WORDS = new Set([
   'de', 'la', 'que', 'el', 'en', 'y', 'a', 'los', 'del', 'se', 'las', 'por', 'un', 'para', 'con',
@@ -70,134 +105,79 @@ const SPANISH_STOP_WORDS = new Set([
   'tenido', 'tenida', 'tenidos', 'tenidas', 'tened',
 ]);
 
-interface WordItem {
-  text: string;
-  size: number;
-}
-
-interface LayoutWord extends WordItem {
-  x: number;
-  y: number;
-  fontSize: number;
-  color: string;
-  weight: string;
-}
-
+const rootEl = ref<HTMLElement | null>(null);
+const canvasContainer = ref<HTMLElement | null>(null);
 const words = ref<WordItem[]>([]);
 const totalWords = ref<number>(0);
 const loading = ref(true);
 const error = ref<string | null>(null);
 
-let _wordCloudController: AbortController | null = null;
+const filters = useFiltersStore();
+let abortController: AbortController | null = null;
 
-const svgWidth = 700;
-const svgHeight = 450;
+// The container's actual pixel size. The SVG's viewBox tracks this so
+// the cloud always fills the available space without letterboxing.
+const containerSize = ref({ width: 1000, height: 500 });
+
+// Reference dimensions the algorithm was tuned for. Used to scale font
+// sizes and the tail band for smaller / larger viewBoxes.
+const REF_W = 1600;
+const REF_H = 900;
+
+// Aspect-ratio policy: when the container is much wider than 16:9, we
+// preserve the viewBox to match exactly and letterbox on the SVG side
+// (preserveAspectRatio="xMidYMid meet"). This keeps the layout stable
+// during browser zoom and high-DPI scaling.
+const preserveAspect = 'xMidYMid meet';
+
+const baseWidth = computed(() => Math.max(200, Math.round(containerSize.value.width)));
+const baseHeight = computed(() => Math.max(120, Math.round(containerSize.value.height)));
+
+// Scale factor for font sizes and grid spacing, derived from the
+// container's shorter dimension. Keeps the visual density the same
+// regardless of viewport size.
+const fontScale = computed(() =>
+  Math.max(0.45, Math.min(baseWidth.value / REF_W, baseHeight.value / REF_H)),
+);
 
 const palette = [
-  '#1e3a5f', '#2d5a87', '#3d7ab3', '#5a9bd4', '#7ab8e8',
-  '#9dd3f5', '#bce8fa', '#d6effc', '#c5a46c', '#751428',
-  '#2563eb', '#059669', '#dc2626', '#7c3aed', '#ea580c',
+  '#1a1612', '#751428', '#c5a46c', '#c97a4a', '#6b8068', '#2c4a6e',
+  '#9a2a2a', '#7c3aed', '#1d4ed8', '#047857', '#d97706', '#be185d',
+  '#4a4239', '#8a7f6e', '#a16207', '#3a3128',
 ];
 
+/**
+ * Tighter filter: keep words that are long enough and rely on the
+ * stop-word set to keep the noise out. We don't cap the candidate list
+ * — the backend already returns the top 500 by frequency.
+ */
 const topWords = computed(() => {
   return words.value
-    .filter(w => w.text.length >= 4 && !SPANISH_STOP_WORDS.has(w.text.toLowerCase()))
-    .sort((a, b) => b.size - a.size)
-    .slice(0, 100);
+    .filter((w) => w.text.length >= 2 && !SPANISH_STOP_WORDS.has(w.text.toLowerCase()))
+    .sort((a, b) => b.size - a.size);
 });
 
-interface Box {
-  cx: number;
-  cy: number;
-  w: number;
-  h: number;
-}
-
-function boxesOverlap(a: Box, b: Box, padding: number): boolean {
-  return !(
-    a.cx - a.w / 2 - padding > b.cx + b.w / 2 + padding ||
-    a.cx + a.w / 2 + padding < b.cx - b.w / 2 - padding ||
-    a.cy - a.h / 2 - padding > b.cy + b.h / 2 + padding ||
-    a.cy + a.h / 2 + padding < b.cy - b.h / 2 - padding
-  );
-}
-
+/**
+ * Layout pass — delegates to the pure `packWordCloud` utility.
+ * See `frontend/src/utils/wordCloudLayout.ts` for the algorithm.
+ */
 const cloudLayout = computed<LayoutWord[]>(() => {
-  if (topWords.value.length === 0) return [];
-
-  const sorted = [...topWords.value];
-  const maxSize = sorted[0]?.size || 1;
-  const minSize = sorted[sorted.length - 1]?.size || 1;
-
-  const placed: Box[] = [];
-  const result: LayoutWord[] = [];
-
-  const centerX = svgWidth / 2;
-  const centerY = svgHeight / 2;
-
-  for (let i = 0; i < sorted.length; i++) {
-    const word = sorted[i];
-    const normalizedSize = (word.size - minSize) / (maxSize - minSize + 1);
-    const fontSize = 10 + normalizedSize * 24;
-
-    let bestDist = Infinity;
-
-    for (let spiral = 0; spiral < 600; spiral++) {
-      const angle = spiral * 0.4;
-      const radius = 8 * Math.sqrt(spiral + 1);
-      const testX = centerX + radius * Math.cos(angle);
-      const testY = centerY + radius * Math.sin(angle) * 0.75;
-
-      const wordWidth = word.text.length * fontSize * 0.5;
-      const wordHeight = fontSize * 0.9;
-
-      const box: Box = {
-        cx: testX,
-        cy: testY,
-        w: wordWidth,
-        h: wordHeight,
-      };
-
-      let overlaps = false;
-      for (const p of placed) {
-        if (boxesOverlap(box, p, 2)) {
-          overlaps = true;
-          break;
-        }
-      }
-
-      if (!overlaps &&
-          testX - wordWidth / 2 > 8 && testX + wordWidth / 2 < svgWidth - 8 &&
-          testY - wordHeight / 2 > 15 && testY + wordHeight / 2 < svgHeight - 8) {
-
-        placed.push(box);
-        result.push({
-          ...word,
-          x: testX,
-          y: testY + fontSize * 0.35,
-          fontSize,
-          color: palette[i % palette.length],
-          weight: normalizedSize > 0.5 ? 'bold' : 'normal',
-        });
-        break;
-      }
-
-      const dist = Math.sqrt((testX - centerX) ** 2 + (testY - centerY) ** 2);
-      if (!overlaps && dist < bestDist) {
-        bestDist = dist;
-      }
-    }
-  }
-
-  return result;
+  return packWordCloud(topWords.value, baseWidth.value, baseHeight.value, {
+    palette,
+    fontScale: fontScale.value,
+  });
 });
 
 async function fetchWordCloud() {
-  _wordCloudController?.abort();
-  _wordCloudController = new AbortController();
+  abortController?.abort();
+  abortController = new AbortController();
   try {
     loading.value = true;
-    const data = await apiService.getWordCloud(_wordCloudController.signal);
+    error.value = null;
+    const data = await apiService.getWordCloud(
+      filters.queryString,
+      abortController.signal,
+    );
     words.value = data.words || [];
     totalWords.value = data.totalWords || 0;
   } catch (e) {
@@ -208,77 +188,159 @@ async function fetchWordCloud() {
   }
 }
 
-onMounted(() => {
+let resizeObserver: ResizeObserver | null = null;
+let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function handleResize() {
+  if (!canvasContainer.value) return;
+  const rect = canvasContainer.value.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  // Debounce so we don't re-pack hundreds of times during a window
+  // drag. The cloud re-packs at most every 120 ms.
+  if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+  resizeDebounceTimer = setTimeout(() => {
+    const next = { width: rect.width, height: rect.height };
+    if (
+      Math.abs(next.width - containerSize.value.width) > 1 ||
+      Math.abs(next.height - containerSize.value.height) > 1
+    ) {
+      containerSize.value = next;
+    }
+  }, 120);
+}
+
+onMounted(async () => {
+  await nextTick();
+  // Initial measurement from the actual DOM.
+  if (canvasContainer.value) {
+    const rect = canvasContainer.value.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      containerSize.value = { width: rect.width, height: rect.height };
+    }
+  }
   fetchWordCloud();
+  // ResizeObserver gives us pixel-accurate dimensions for any container
+  // size change (window resize, sidebar collapse, mobile rotate, etc.).
+  if (canvasContainer.value && 'ResizeObserver' in window) {
+    resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(canvasContainer.value);
+  }
+  // Window resize as a fallback (older browsers without RO, e.g. older Safari).
+  window.addEventListener('resize', handleResize, { passive: true });
 });
 
 onUnmounted(() => {
-  _wordCloudController?.abort();
+  abortController?.abort();
+  resizeObserver?.disconnect();
+  window.removeEventListener('resize', handleResize);
+  if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
 });
+
+// React to filter changes. The store debounces year and q so this
+// fires once per stable state.
+watch(
+  () => filters.queryString,
+  () => {
+    fetchWordCloud();
+  },
+);
 </script>
 
 <style scoped>
-.word-cloud-wrapper {
+.word-cloud {
   width: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-.word-cloud-container {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  width: 100%;
-}
-
-.word-cloud-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e3a5f;
-  margin: 0 0 12px 0;
-  text-align: center;
-}
-
-.word-cloud-loading,
-.word-cloud-error {
+.word-cloud__state {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 280px;
-  color: #666;
+  gap: var(--space-3);
+  padding: var(--space-9) var(--space-4);
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  min-height: 280px;
 }
 
-.word-cloud-error {
-  color: #dc3545;
+.word-cloud__state--error {
+  color: var(--color-danger);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--font-size-md);
 }
 
-.word-cloud-canvas {
+.word-cloud__spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-brand);
+  border-radius: 50%;
+  animation: word-cloud-spin 0.9s linear infinite;
+}
+
+@keyframes word-cloud-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* The canvas has no fixed height: the SVG inside fills 100% width
+   and gets a height derived from the viewBox via preserveAspectRatio.
+   Combined with the dynamic viewBox (= the container's pixel size),
+   the cloud is sized to whatever space the dashboard gives it. */
+.word-cloud__canvas {
   width: 100%;
-  min-height: 380px;
+  display: block;
 }
 
-.word-cloud-svg {
+.word-cloud__svg {
+  display: block;
   width: 100%;
   height: auto;
-  min-height: 380px;
+  /* No min-height: we want the SVG to shrink/grow with its parent.
+     A min-height would defeat the responsiveness the user asked for. */
 }
 
-.word-cloud-text {
+.word-cloud__text {
   cursor: default;
-  transition: opacity 0.2s;
+  transition: opacity var(--transition-fast);
+  user-select: none;
 }
 
-.word-cloud-text:hover {
-  opacity: 0.7;
+.word-cloud__text:hover {
+  opacity: 0.55;
 }
 
-.word-cloud-stats {
+.word-cloud__stats {
   display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 8px;
-  font-size: 11px;
-  color: #666;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  margin-top: var(--space-2);
+  border-top: var(--hairline-soft);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.word-cloud__stats .eyebrow {
+  margin-right: var(--space-1);
+}
+
+.word-cloud__stats-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.word-cloud__stats-sep {
+  color: var(--color-text-muted);
+  margin: 0 var(--space-2);
 }
 </style>

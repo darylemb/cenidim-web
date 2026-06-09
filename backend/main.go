@@ -49,7 +49,11 @@ func main() {
 	// Middleware: CORS
 	allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
-		allowedOrigins = "http://localhost,http://localhost:3000,http://localhost:8000"
+		// Defaults cover the common Vite/React/Vue dev ports plus the
+		// port the production build uses when fronted by nginx on a
+		// separate host. Override via CORS_ALLOWED_ORIGINS for any
+		// other deployment.
+		allowedOrigins = "http://localhost,http://localhost:3000,http://localhost:5173,http://localhost:8000"
 	}
 	origins := strings.Split(allowedOrigins, ",")
 	allowOrigins := make([]string, 0, len(origins))
@@ -89,6 +93,8 @@ func main() {
 			auth.POST("/login", handlers.Login)
 			auth.POST("/register", handlers.Register)
 			auth.GET("/me", middleware.RequireAuth(), handlers.Me)
+			auth.GET("/google/start", handlers.GoogleAuthStart)
+			auth.GET("/google/callback", handlers.GoogleAuthCallback)
 		}
 
 		// Admin endpoints (require authentication)
@@ -112,6 +118,7 @@ func main() {
 			admin.POST("/users", middleware.RequireRole("admin"), handlers.AdminCreateUser)
 			admin.PUT("/users/:id", middleware.RequireRole("admin"), handlers.AdminUpdateUser)
 			admin.DELETE("/users/:id", middleware.RequireRole("admin"), handlers.AdminDeleteUser)
+			admin.DELETE("/users/:id/identity", middleware.RequireRole("admin"), handlers.AdminUnlinkIdentity)
 		}
 
 		// Swagger documentation inside /api

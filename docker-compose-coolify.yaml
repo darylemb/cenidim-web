@@ -11,6 +11,14 @@ services:
     environment:
       - DB_PATH=/app/letras.db
       - GIN_MODE=release
+      # Google OAuth — see README "Google sign-in (production)".
+      # GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are loaded from
+      # Coolify's secret store; the redirect + frontend URLs are
+      # hard-coded here because they're tied to the public domain.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL:-https://cenidim.example.com/api/auth/google/callback}
+      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-https://cenidim.example.com}
     restart: unless-stopped
     healthcheck:
       test:

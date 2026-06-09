@@ -51,6 +51,17 @@ BATCH_COUNT=$(( (TOTAL + BATCH_SIZE - 1) / BATCH_SIZE ))
 echo "Iniciando revision de $TOTAL archivos en $BATCH_COUNT lotes."
 echo "Salida en: $OUT_DIR"
 
+echo "=== Lote 0: audit_design_tokens.sh (sin LLM) ==="
+audit_output="$OUT_DIR/batch_000_audit.log"
+if bash scripts/audit_design_tokens.sh frontend/src 0.05 > "$audit_output" 2>&1; then
+  echo "audit,ok,0,1,$audit_output" >> "$SUMMARY_CSV"
+  echo "  OK: design-token audit passed"
+else
+  audit_exit=$?
+  echo "audit,failed,$audit_exit,1,$audit_output" >> "$SUMMARY_CSV"
+  echo "  FAIL: design-token audit (see $audit_output)"
+fi
+
 for ((idx=0; idx<TOTAL; idx+=BATCH_SIZE)); do
   batch_num=$((idx / BATCH_SIZE + 1))
   padded_batch_num=$(printf "%03d" "$batch_num")
@@ -71,7 +82,7 @@ for ((idx=0; idx<TOTAL; idx+=BATCH_SIZE)); do
   fi
 
   set +e
-  opencode run /code-review "${BATCH[@]}" --agent review-orchestrator > "$output_file" 2>&1
+  opencode run /code-review "${BATCH[@]}" --agent reviewer > "$output_file" 2>&1
   exit_code=$?
   set -e
 
