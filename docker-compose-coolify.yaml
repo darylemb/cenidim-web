@@ -1,4 +1,32 @@
 services:
+  db-init:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.init
+      args:
+        - ADMIN_PASS
+    environment:
+      - DB_PATH=/data/letras.db
+    volumes:
+      - cenidim_db:/data
+    restart: "no"
+    # db-init is a one-shot seed: it runs the Go db-builder + spaCy
+    # classifier, then exits 0. We want compose to treat a clean
+    # exit as success so the backend can start. The healthcheck
+    # below is a no-op that always reports healthy — Coolify only
+    # checks restart policy + exit code for one-shot services, so
+    # the real signal is `depends_on: service_completed_successfully`
+    # on the backend.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "true"
+      interval: 5s
+      timeout: 1s
+      retries: 1
+    networks:
+      - app-internal
+
   backend:
     build:
       context: .
@@ -9,7 +37,10 @@ services:
     expose:
       - '8080'
     environment:
-      - DB_PATH=/app/letras.db
+      # /data is backed by the named volume below. db-init writes
+      # letras.db here on first boot; the backend reads from it
+      # thereafter.
+      - DB_PATH=/data/letras.db
       - GIN_MODE=release
       # Google OAuth — see README "Google sign-in (production)".
       # GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are loaded from
@@ -19,6 +50,8 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL:-https://cenidim.example.com/api/auth/google/callback}
       - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-https://cenidim.example.com}
+    volumes:
+      - cenidim_db:/data
     restart: unless-stopped
     healthcheck:
       test:
@@ -28,6 +61,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
     networks:
       - app-internal
 
@@ -61,3 +97,6 @@ networks:
     driver: bridge
   public-network:
     external: true
+
+volumes:
+  cenidim_db:
