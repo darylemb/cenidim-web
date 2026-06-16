@@ -238,11 +238,14 @@ func findOrCreateUser(ctx context.Context, claims *GoogleIDTokenClaims) (userID 
 		return userID, username, role, false, nil
 	}
 	// Auto-provision a viewer account. Username is the local-part of the
-	// email; if it collides we append a numeric suffix.
+	// email; if it collides we append a numeric suffix. We log the actual
+	// SQLite error on the first collision so the operator can tell the
+	// difference between a username clash and a real DB problem.
 	username = strings.SplitN(claims.Email, "@", 2)[0]
 	if username == "" {
 		username = "user"
 	}
+	var firstErr error
 	for i := 0; i < 50; i++ {
 		suffix := ""
 		if i > 0 {
@@ -258,6 +261,18 @@ func findOrCreateUser(ctx context.Context, claims *GoogleIDTokenClaims) (userID 
 			id, _ := res.LastInsertId()
 			return int(id), candidate, "viewer", true, nil
 		}
+		if firstErr == nil {
+			firstErr = ierr
+		}
+		// Re-check by email in case another request won the race and
+		// inserted this email between our SELECT and our INSERT.
+		row2 := database.DB.QueryRowContext(ctx, `SELECT id, username, role FROM users WHERE email = ?`, claims.Email)
+		if scanErr := row2.Scan(&userID, &username, &role); scanErr == nil {
+			return userID, username, role, false, nil
+		}
+	}
+	if firstErr != nil {
+		return 0, "", "", false, fmt.Errorf("auto-provision failed for %q: %w", claims.Email, firstErr)
 	}
 	return 0, "", "", false, errors.New("could not allocate a unique username")
 }
