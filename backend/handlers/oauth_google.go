@@ -340,7 +340,7 @@ func GoogleAuthCallback(c *gin.Context) {
 	env, err := LoadGoogleOAuthEnv()
 	if err != nil {
 		log.Printf("google callback: load env: %v", err)
-		redirectToFrontendError(c, "upstream")
+		redirectToFrontendErrorWithDetail(c, "upstream", err.Error())
 		return
 	}
 	state := c.Query("state")
@@ -374,13 +374,13 @@ func GoogleAuthCallback(c *gin.Context) {
 	client, err := NewGoogleOAuthClient(env)
 	if err != nil {
 		log.Printf("google callback: new client: %v", err)
-		redirectToFrontendError(c, "upstream")
+		redirectToFrontendErrorWithDetail(c, "upstream", err.Error())
 		return
 	}
 	tok, err := client.Exchange(c.Request.Context(), code)
 	if err != nil {
 		log.Printf("google callback: exchange: %v", err)
-		redirectToFrontendError(c, "upstream")
+		redirectToFrontendErrorWithDetail(c, "upstream", err.Error())
 		return
 	}
 	rawID, _ := tok.Extra("id_token").(string)
@@ -394,7 +394,7 @@ func GoogleAuthCallback(c *gin.Context) {
 		// in the log so the operator can debug without having to
 		// attach a debugger to a live process.
 		log.Printf("google callback: verify id_token: %v", err)
-		redirectToFrontendError(c, "upstream")
+		redirectToFrontendErrorWithDetail(c, "upstream", err.Error())
 		return
 	}
 	if !claims.EmailVerified {
@@ -404,12 +404,12 @@ func GoogleAuthCallback(c *gin.Context) {
 	userID, username, role, autoProvisioned, err := findOrCreateUser(c.Request.Context(), claims)
 	if err != nil {
 		log.Printf("google callback: find/create user: %v", err)
-		redirectToFrontendError(c, "upstream")
+		redirectToFrontendErrorWithDetail(c, "upstream", err.Error())
 		return
 	}
 	if err := linkIdentity(c.Request.Context(), userID, claims); err != nil {
 		log.Printf("google callback: link identity: %v", err)
-		redirectToFrontendError(c, "upstream")
+		redirectToFrontendErrorWithDetail(c, "upstream", err.Error())
 		return
 	}
 	// Update audit fields on the user.
@@ -443,5 +443,28 @@ func GoogleAuthCallback(c *gin.Context) {
 func redirectToFrontendError(c *gin.Context, code string) {
 	env, _ := LoadGoogleOAuthEnv()
 	target := frontendRedirectURL(env.FrontendURL, "google=err="+url.QueryEscape(code))
+	c.Redirect(http.StatusFound, target)
+}
+
+// redirectToFrontendErrorWithDetail is the temporary debug variant used
+// while troubleshooting live OAuth callback failures. It appends the
+// raw error message (truncated to 80 chars) to the redirect URL so the
+// operator can see the specific failure reason in the browser address
+// bar without needing access to backend logs.
+//
+// Enable with `GOOGLE_DEBUG=1` in the backend env. Once the root cause
+// is found, unset the var and the callback will go back to the generic
+// `?google=err=upstream` redirect.
+func redirectToFrontendErrorWithDetail(c *gin.Context, code, detail string) {
+	if os.Getenv("GOOGLE_DEBUG") != "1" {
+		redirectToFrontendError(c, code)
+		return
+	}
+	env, _ := LoadGoogleOAuthEnv()
+	// Truncate to 80 chars and URL-escape so the URL stays reasonable.
+	if len(detail) > 80 {
+		detail = detail[:80]
+	}
+	target := frontendRedirectURL(env.FrontendURL, "google=err="+url.QueryEscape(code)+"&detail="+url.QueryEscape(detail))
 	c.Redirect(http.StatusFound, target)
 }
