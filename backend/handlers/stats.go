@@ -12,15 +12,20 @@ import (
 
 // StatsResponse holds aggregate metrics for the dashboard
 type StatsResponse struct {
-	TotalSongs           int            `json:"total_songs"`
-	TotalAlbums          int            `json:"total_albums"`
+	TotalSongs  int `json:"total_songs"`
+	TotalAlbums int `json:"total_albums"`
+	// CatalogTotal is the size of the catalog before any dashboard filter
+	// is applied. The dashboard uses it to render "Mostrando X de Y" so
+	// the comparison stays meaningful even when the user narrows the
+	// dataset down.
+	CatalogTotal         int            `json:"catalog_total"`
 	SongsByYear          map[string]int `json:"songs_by_year"`
 	SongsByClasificacion map[string]int `json:"songs_by_clasificacion"`
 	SongsByTheme         map[string]int `json:"songs_by_theme"`
 	DistinctThemes       int            `json:"distinct_themes"`
 	RecentlyAdded        int            `json:"recently_added"`
 	TopAlbums            []AlbumCount   `json:"top_albums"`
-	AvgLyricsLength     float64        `json:"avg_lyrics_length"`
+	AvgLyricsLength      float64        `json:"avg_lyrics_length"`
 	SongsWithLyrics      int            `json:"songs_with_lyrics"`
 	SongsByOovLevel      map[string]int `json:"songs_by_oov_level"`
 	SongsByIndigena      map[string]int `json:"songs_by_indigena"`
@@ -81,6 +86,12 @@ func GetStats(c *gin.Context) {
 		return
 	}
 
+	// Catalog total is filter-independent so the front-end can render
+	// "Showing X of Y" without firing a second request.
+	if err := database.DB.QueryRow("SELECT COUNT(*) " + songFrom).Scan(&stats.CatalogTotal); err != nil {
+		stats.CatalogTotal = stats.TotalSongs
+	}
+
 	// Total albums in the filtered set.
 	countAlbums := `
 		SELECT COUNT(DISTINCT f.clave_fonograma) ` + songFrom + whereWrap(filterWhere)
@@ -131,7 +142,11 @@ func GetStats(c *gin.Context) {
 	}
 
 	// Recently added (last 30 days) — global, not filter-aware by design.
-	thirtyDaysAgo := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	// SQLite compares datetimes lexicographically, so we must format the
+	// cutoff as a full "YYYY-MM-DD HH:MM:SS" timestamp. A date-only
+	// format ("2006-01-02") silently truncates the comparison and would
+	// match every row created within the same calendar year.
+	thirtyDaysAgo := time.Now().AddDate(0, 0, -30).Format("2006-01-02 15:04:05")
 	if err := database.DB.QueryRow(
 		"SELECT COUNT(*) FROM songs WHERE created_at > ?", thirtyDaysAgo,
 	).Scan(&stats.RecentlyAdded); err != nil {
@@ -278,9 +293,9 @@ func whereAnd(prior, extra string) string {
 
 // WordCloudResponse holds word frequency data for the word cloud visualization
 type WordCloudResponse struct {
-	Words              []WordFreq `json:"words"`
-	TotalWords        int         `json:"totalWords"`
-	ExcludedStopWords  int         `json:"excludedStopWords"`
+	Words             []WordFreq `json:"words"`
+	TotalWords        int        `json:"totalWords"`
+	ExcludedStopWords int        `json:"excludedStopWords"`
 }
 
 // WordFreq represents a word and its frequency

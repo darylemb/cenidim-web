@@ -3,8 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -63,16 +62,6 @@ func clearGoogleEnv(t *testing.T) {
 	os.Unsetenv("FRONTEND_BASE_URL")
 }
 
-func makeIDToken(t *testing.T, claims map[string]interface{}) string {
-	t.Helper()
-	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"RS256","kid":"x"}`))
-	payload, err := json.Marshal(claims)
-	require.NoError(t, err)
-	pEnc := base64.RawURLEncoding.EncodeToString(payload)
-	sig := base64.RawURLEncoding.EncodeToString([]byte("sig"))
-	return header + "." + pEnc + "." + sig
-}
-
 func TestLoadGoogleOAuthEnv_MissingVars(t *testing.T) {
 	clearGoogleEnv(t)
 	_, err := LoadGoogleOAuthEnv()
@@ -83,7 +72,7 @@ func TestLoadGoogleOAuthEnv_AllPresent(t *testing.T) {
 	withGoogleEnv(t)
 	defer clearGoogleEnv(t)
 	env, err := LoadGoogleOAuthEnv()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "test-client-id", env.ClientID)
 }
 
@@ -111,6 +100,44 @@ func TestGoogleAuthStart_RedirectsAndSetsCookie(t *testing.T) {
 	for _, c := range cookies {
 		if strings.HasPrefix(c, "oauth_state=") {
 			found = true
+			// A plain HTTP request (no TLS, no proxy) must not carry
+			// the Secure flag — the browser would otherwise drop the
+			// cookie on the local dev loopback.
+			assert.NotContains(t, c, "Secure",
+				"plain HTTP requests must not get a Secure cookie")
+		}
+	}
+	assert.True(t, found, "oauth_state cookie must be set")
+}
+
+// TestGoogleAuthStart_SecureBehindProxy confirms that when the request
+// arrives over HTTP but carries `X-Forwarded-Proto: https` (the standard
+// signal a reverse proxy injects to indicate the original request was
+// HTTPS), the state cookie still gets the Secure flag.
+func TestGoogleAuthStart_SecureBehindProxy(t *testing.T) {
+	withGoogleEnv(t)
+	defer clearGoogleEnv(t)
+	gin.SetMode(gin.TestMode)
+	setupOAuthTestDB(t)
+	defer database.DB.Close()
+
+	r := gin.New()
+	r.GET("/api/auth/google/start", GoogleAuthStart)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/auth/google/start", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusFound, w.Code)
+	cookies := w.Header()["Set-Cookie"]
+	require.NotEmpty(t, cookies)
+	found := false
+	for _, c := range cookies {
+		if strings.HasPrefix(c, "oauth_state=") {
+			found = true
+			assert.Contains(t, c, "Secure",
+				"X-Forwarded-Proto=https must mark the cookie Secure")
 		}
 	}
 	assert.True(t, found, "oauth_state cookie must be set")
@@ -181,7 +208,7 @@ func TestFindOrCreateUser_MatchesExisting(t *testing.T) {
 	uid, username, role, auto, err := findOrCreateUser(
 		context.Background(), &GoogleIDTokenClaims{Email: "jane@example.com", Sub: "google-1"},
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "jane", username)
 	assert.Equal(t, "editor", role)
 	assert.False(t, auto)
@@ -194,7 +221,7 @@ func TestFindOrCreateUser_ProvisionsViewer(t *testing.T) {
 	uid, username, role, auto, err := findOrCreateUser(
 		context.Background(), &GoogleIDTokenClaims{Email: "newuser@example.com", Sub: "google-2"},
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, auto)
 	assert.Equal(t, "newuser", username)
 	assert.Equal(t, "viewer", role)
@@ -213,8 +240,8 @@ func TestLinkIdentity_Idempotent(t *testing.T) {
 		context.Background(), &GoogleIDTokenClaims{Email: "x@example.com", Sub: "google-3"},
 	)
 	claims := &GoogleIDTokenClaims{Email: "x@example.com", Sub: "google-3"}
-	assert.NoError(t, linkIdentity(context.Background(), uid, claims))
-	assert.NoError(t, linkIdentity(context.Background(), uid, claims), "re-linking must be a no-op")
+	require.NoError(t, linkIdentity(context.Background(), uid, claims))
+	require.NoError(t, linkIdentity(context.Background(), uid, claims), "re-linking must be a no-op")
 	var n int
 	require.NoError(t, database.DB.QueryRow(`SELECT COUNT(*) FROM user_identities WHERE user_id = ?`, uid).Scan(&n))
 	assert.Equal(t, 1, n)
@@ -228,33 +255,45 @@ func TestUnlinkIdentity(t *testing.T) {
 	)
 	_ = linkIdentity(context.Background(), uid, &GoogleIDTokenClaims{Email: "y@example.com", Sub: "google-4"})
 	found, err := unlinkIdentity(context.Background(), uid)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, found)
 	found2, err := unlinkIdentity(context.Background(), uid)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.False(t, found2)
+}
+
+// stubVerifier returns canned claims without checking signatures, so the
+// happy-path test does not need a real Google-issued JWT.
+type stubVerifier struct {
+	claims *GoogleIDTokenClaims
+	err    error
+}
+
+func (s stubVerifier) Verify(_ context.Context, _ string) (*GoogleIDTokenClaims, error) {
+	return s.claims, s.err
 }
 
 func TestVerifyIDToken_RejectsBadJWT(t *testing.T) {
 	env, _ := LoadGoogleOAuthEnv()
 	env.ClientID = "aud"
-	client, _ := NewGoogleOAuthClient(env)
-	_, err := client.VerifyIDToken(nil, "not-a-jwt")
+	stub := stubVerifier{err: errors.New("bad jwt")}
+	client := NewGoogleOAuthClientWithVerifier(env, stub)
+	_, err := client.VerifyIDToken(context.Background(), "not-a-jwt")
 	assert.Error(t, err)
 }
 
 func TestVerifyIDToken_AcceptsValidClaims(t *testing.T) {
 	env, _ := LoadGoogleOAuthEnv()
 	env.ClientID = "aud"
-	client, _ := NewGoogleOAuthClient(env)
-	tok := makeIDToken(t, map[string]interface{}{
-		"sub":            "google-5",
-		"email":          "z@example.com",
-		"email_verified": true,
-		"aud":            "aud",
-	})
-	claims, err := client.VerifyIDToken(nil, tok)
-	assert.NoError(t, err)
+	stub := stubVerifier{claims: &GoogleIDTokenClaims{
+		Sub:           "google-5",
+		Email:         "z@example.com",
+		EmailVerified: true,
+		Aud:           "aud",
+	}}
+	client := NewGoogleOAuthClientWithVerifier(env, stub)
+	claims, err := client.VerifyIDToken(context.Background(), "any-token")
+	require.NoError(t, err)
 	assert.Equal(t, "google-5", claims.Sub)
 	assert.True(t, claims.EmailVerified)
 }

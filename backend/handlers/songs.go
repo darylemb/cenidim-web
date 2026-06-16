@@ -277,7 +277,13 @@ func GetSong(c *gin.Context) {
 // @Description shared filter parameters: theme, year_from, year_to,
 // @Description clasificacion, album, q. Songs without a year (s/d) are
 // @Description grouped under the literal key "s/d" in the response; when a
-// @Description year range is supplied, the s/d bucket is omitted.
+// @Description year range is supplied the s/d bucket is omitted.
+// @Description
+// @Description The `limit` query parameter caps the number of songs returned
+// @Description PER YEAR (not the whole response) so a large catalog does not
+// @Description cause some years to disappear entirely. Default 100, max 500.
+// @Description The `truncated` field is true when at least one year had more
+// @Description songs in the catalog than fit inside its per-year cap.
 // @Tags songs
 // @Accept  json
 // @Produce  json
@@ -287,15 +293,16 @@ func GetSong(c *gin.Context) {
 // @Param clasificacion query string false "Comma-separated classification list"
 // @Param album         query string false "Exact album match"
 // @Param q             query string false "Free-text search across title, lyrics, and album"
+// @Param limit         query int    false "Max songs per year (default 100, max 500)"
 // @Success 200 {object} map[string][]models.Song
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /timeline [get]
 func GetTimeline(c *gin.Context) {
-	limitStr := c.DefaultQuery("limit", "1000")
-	limit := 1000
-	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 5000 {
-		limit = l
+	limitStr := c.DefaultQuery("limit", "100")
+	perYearLimit := 100
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 500 {
+		perYearLimit = l
 	}
 
 	fp := ParseFilterParams(c)
@@ -316,25 +323,76 @@ func GetTimeline(c *gin.Context) {
 	}
 	whereCond, whereArgs := fp.ApplySongFilters(priorWhere)
 
-	query := `
-		SELECT s.id, s.fonograma_id, s.title, COALESCE(s.filename,''),
-		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
-		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
-		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
-		       COALESCE(s.clasificacion,''), COALESCE(s.tema,'')
-		FROM songs s
-		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
-	` + whereWrap(whereCond) + `
-		LIMIT ?
-	`
-	args := append(whereArgs, limit)
-
-	countQuery := `SELECT COUNT(*) FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma ` + whereWrap(whereCond)
-	var total int
-	if err := database.DB.QueryRow(countQuery, whereArgs...).Scan(&total); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error counting timeline data"})
+	// Count the distinct years in the filtered set first. We use this to
+	// drive the per-year LIMIT and to surface the truncated flag below.
+	yearRows, err := database.DB.Query(
+		`SELECT COALESCE(f.anio, ''), COUNT(*) FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma `+
+			whereWrap(whereCond)+
+			` GROUP BY f.anio`,
+		whereArgs...,
+	)
+	if err != nil {
+		log.Printf("error counting years: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error counting timeline years"})
 		return
 	}
+	yearTotals := make(map[string]int)
+	for yearRows.Next() {
+		var y string
+		var n int
+		if scanErr := yearRows.Scan(&y, &n); scanErr == nil {
+			yearTotals[y] = n
+		}
+	}
+	_ = yearRows.Close()
+
+	distinctYears := len(yearTotals)
+	if distinctYears == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"years":     []string{},
+			"timeline":  map[string][]models.Song{},
+			"total":     0,
+			"truncated": false,
+		})
+		return
+	}
+	totalCatalog := 0
+	for _, n := range yearTotals {
+		totalCatalog += n
+	}
+
+	// We need up to perYearLimit songs per year. ModernC/sqlite supports
+	// window functions, so we partition by year and rank songs by id to
+	// pick the first perYearLimit of each bucket. The outer SELECT then
+	// orders everything for the response.
+	query := `
+		WITH ranked AS (
+			SELECT s.id, s.fonograma_id, s.title, s.filename,
+			       f.titulo, f.subtitulo, f.interprete_principal, f.interpretes_invitados,
+			       f.interprete_participante, f.soporte_fisico, f.editora, f.numero_catalogo,
+			       f.ciudad_edicion, f.pais_edicion, f.anio, f.pistas, f.observaciones,
+			       s.clasificacion, s.tema,
+			       ROW_NUMBER() OVER (
+			           PARTITION BY COALESCE(f.anio, '')
+			           ORDER BY s.id ASC
+			       ) AS rn
+			FROM songs s
+			JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
+	` + whereWrap(whereCond) + `
+		)
+		SELECT id, fonograma_id, title, COALESCE(filename, ''),
+		       COALESCE(titulo, ''), COALESCE(subtitulo, ''), COALESCE(interprete_principal, ''), COALESCE(interpretes_invitados, ''),
+		       COALESCE(interprete_participante, ''), COALESCE(soporte_fisico, ''), COALESCE(editora, ''), COALESCE(numero_catalogo, ''),
+		       COALESCE(ciudad_edicion, ''), COALESCE(pais_edicion, ''), COALESCE(anio, ''), COALESCE(pistas, ''), COALESCE(observaciones, ''),
+		       COALESCE(clasificacion, ''), COALESCE(tema, '')
+		FROM ranked
+		WHERE rn <= ?
+		ORDER BY
+		    CASE WHEN CAST(anio AS INTEGER) = 0 THEN 1 ELSE 0 END,
+		    CAST(anio AS INTEGER) ASC,
+		    id ASC
+	`
+	args := append(whereArgs, perYearLimit)
 
 	rows, err := database.DB.Query(query, args...)
 	if err != nil {
@@ -381,9 +439,10 @@ func GetTimeline(c *gin.Context) {
 			seenKeys[key] = true
 		}
 
-		timeline[key] = append(timeline[key], s)
-		if len(timeline[key]) > 100 {
-			continue
+		// SQL already capped each year at perYearLimit, so this append
+		// is just a defensive bounds check in case the CTE ever changes.
+		if len(timeline[key]) < perYearLimit {
+			timeline[key] = append(timeline[key], s)
 		}
 	}
 
@@ -399,10 +458,18 @@ func GetTimeline(c *gin.Context) {
 		sortedKeys[i] = yg.Key
 	}
 
+	truncated := false
+	for year, n := range yearTotals {
+		if len(timeline[year]) < n {
+			truncated = true
+			break
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"years":    sortedKeys,
-		"timeline": timeline,
-		"total":    total,
-		"truncated": total > limit,
+		"years":     sortedKeys,
+		"timeline":  timeline,
+		"total":     totalCatalog,
+		"truncated": truncated,
 	})
 }

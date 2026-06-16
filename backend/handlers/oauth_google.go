@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/idtoken"
 )
 
 const (
@@ -80,7 +80,9 @@ type GoogleIDTokenClaims struct {
 }
 
 // NewGoogleOAuthClient returns a configured client or an error if env vars
-// are missing.
+// are missing. The verifier performs full JWKS-based signature verification
+// against Google's public certs (RS256/ES256), audience check, and issuer
+// check. Use NewGoogleOAuthClientWithVerifier in tests to inject a stub.
 func NewGoogleOAuthClient(env GoogleOAuthEnv) (*GoogleOAuthClient, error) {
 	cfg := &oauth2.Config{
 		ClientID:     env.ClientID,
@@ -92,8 +94,26 @@ func NewGoogleOAuthClient(env GoogleOAuthEnv) (*GoogleOAuthClient, error) {
 	return &GoogleOAuthClient{
 		env:      env,
 		config:   cfg,
-		verifier: defaultIDTokenVerifier{aud: env.ClientID},
+		verifier: newGoogleIDTokenVerifier(env.ClientID),
 	}, nil
+}
+
+// NewGoogleOAuthClientWithVerifier is the test-only constructor that lets
+// callers swap the production JWKS verifier for a stub. Production code must
+// use NewGoogleOAuthClient.
+func NewGoogleOAuthClientWithVerifier(env GoogleOAuthEnv, v idTokenVerifier) *GoogleOAuthClient {
+	cfg := &oauth2.Config{
+		ClientID:     env.ClientID,
+		ClientSecret: env.ClientSecret,
+		RedirectURL:  env.RedirectURL,
+		Scopes:       []string{"openid", "email", "profile"},
+		Endpoint:     google.Endpoint,
+	}
+	return &GoogleOAuthClient{
+		env:      env,
+		config:   cfg,
+		verifier: v,
+	}
 }
 
 // AuthCodeURL builds the Google consent URL with a server-generated state.
@@ -121,44 +141,81 @@ func RandomState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// defaultIDTokenVerifier verifies the ID token against Google's JWKS. It is
-// the production implementation of idTokenVerifier. Tests can substitute their
-// own implementation via NewGoogleOAuthClientWithVerifier.
-type defaultIDTokenVerifier struct {
-	aud string
+// googleIDTokenVerifier validates Google-issued ID tokens using the official
+// google.golang.org/api/idtoken library. It checks the RSA/ECDSA signature
+// against Google's JWKS, the `aud` claim, the `exp` claim, and the `iss`
+// claim. Without the signature check, an attacker holding the OAuth `code`
+// (or anyone able to intercept the redirect over HTTP) could forge a token
+// claiming any email — including an admin's — and the backend would happily
+// accept it. Do not replace this with a payload-only parser.
+type googleIDTokenVerifier struct {
+	aud       string
+	validator *idtoken.Validator
 }
 
-func (v defaultIDTokenVerifier) Verify(_ context.Context, raw string) (*GoogleIDTokenClaims, error) {
+func newGoogleIDTokenVerifier(aud string) *googleIDTokenVerifier {
+	v, err := idtoken.NewValidator(context.Background())
+	if err != nil {
+		// Without a validator we cannot verify signatures. We intentionally
+		// fall back to a rejecting stub rather than silently skipping the
+		// check — that would be a worse failure mode (forged tokens).
+		return &googleIDTokenVerifier{aud: aud, validator: nil}
+	}
+	return &googleIDTokenVerifier{aud: aud, validator: v}
+}
+
+// validGoogleIssuers is the small set of `iss` values Google emits for
+// user-facing OAuth. idtoken.Validate does not enforce `iss`, so we do it
+// here to keep the backend from accepting tokens minted by, e.g., a
+// non-Google IdP that happens to use the same audience.
+var validGoogleIssuers = map[string]bool{
+	"https://accounts.google.com": true,
+	"accounts.google.com":         true,
+}
+
+func (v *googleIDTokenVerifier) Verify(ctx context.Context, raw string) (*GoogleIDTokenClaims, error) {
 	if raw == "" {
 		return nil, errors.New("empty id_token")
 	}
-	// We split the JWT to read the payload and verify the audience. Full
-	// signature verification against the JWKS is implemented by
-	// google.oidcVerifier in production; here we make a minimal structural
-	// check so the test surface is small and the runtime dependency on
-	// golang.org/x/oauth2/jwt is intentional.
-	parts := strings.Split(raw, ".")
-	if len(parts) != 3 {
-		return nil, errors.New("id_token is not a JWT")
+	if v.validator == nil {
+		return nil, errors.New("idtoken validator unavailable")
 	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	payload, err := v.validator.Validate(ctx, raw, v.aud)
 	if err != nil {
-		return nil, fmt.Errorf("decode payload: %w", err)
+		return nil, fmt.Errorf("validate id_token: %w", err)
 	}
-	var c GoogleIDTokenClaims
-	if err := json.Unmarshal(payload, &c); err != nil {
-		return nil, fmt.Errorf("parse claims: %w", err)
+	if !validGoogleIssuers[payload.Issuer] {
+		return nil, fmt.Errorf("unexpected issuer %q", payload.Issuer)
 	}
-	if c.Aud != "" && v.aud != "" && c.Aud != v.aud {
-		// Some IdPs include a list; be defensive.
-		if !strings.Contains(c.Aud, v.aud) {
-			return nil, errors.New("audience mismatch")
-		}
-	}
-	if c.Sub == "" {
+	if payload.Subject == "" {
 		return nil, errors.New("missing sub claim")
 	}
-	return &c, nil
+	c := &GoogleIDTokenClaims{
+		Sub:   payload.Subject,
+		Aud:   payload.Audience,
+		Email: stringClaim(payload.Claims, "email"),
+		Name:  stringClaim(payload.Claims, "name"),
+	}
+	if v, ok := payload.Claims["email_verified"].(bool); ok {
+		c.EmailVerified = v
+	}
+	if v, ok := payload.Claims["given_name"].(string); ok {
+		c.GivenName = v
+	}
+	if v, ok := payload.Claims["family_name"].(string); ok {
+		c.FamilyName = v
+	}
+	if v, ok := payload.Claims["picture"].(string); ok {
+		c.Picture = v
+	}
+	return c, nil
+}
+
+func stringClaim(claims map[string]interface{}, key string) string {
+	if v, ok := claims[key].(string); ok {
+		return v
+	}
+	return ""
 }
 
 // frontendRedirectURL joins the configured frontend URL with a query string.
@@ -254,8 +311,12 @@ func GoogleAuthStart(c *gin.Context) {
 		return
 	}
 	// State is stored in a short-lived, HttpOnly, SameSite=Lax cookie. The
-	// Secure flag is set automatically when the request is HTTPS; for HTTP
-	// (local dev) we leave it off.
+	// Secure flag is set automatically when the request is HTTPS — we
+	// honor both the direct `c.Request.TLS != nil` case (rare; only when
+	// the Go server is exposed on the public interface) and the common
+	// reverse-proxy case via the standard `X-Forwarded-Proto` header so
+	// production deployments behind Cloudflare, Nginx, or Coolify all
+	// get the flag set correctly.
 	cookie := &http.Cookie{
 		Name:     oauthStateCookie,
 		Value:    state,
@@ -264,7 +325,7 @@ func GoogleAuthStart(c *gin.Context) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	}
-	if c.Request.TLS != nil {
+	if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
 		cookie.Secure = true
 	}
 	http.SetCookie(c.Writer, cookie)

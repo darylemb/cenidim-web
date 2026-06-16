@@ -30,15 +30,27 @@
       <form class="auth-form" @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="username">Usuario</label>
-          <input id="username" v-model="username" type="text" required />
+          <input
+            id="username"
+            v-model="username"
+            type="text"
+            required
+            :autocomplete="mode === 'login' ? 'username' : 'username'"
+          />
         </div>
         <div v-if="mode === 'register'" class="form-group">
           <label for="email">Correo</label>
-          <input id="email" v-model="email" type="email" required />
+          <input id="email" v-model="email" type="email" required autocomplete="email" />
         </div>
         <div class="form-group">
           <label for="password">Contraseña</label>
-          <input id="password" v-model="password" type="password" required />
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            required
+            :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
+          />
         </div>
         <button type="submit" class="auth-submit" :disabled="loading">
           {{ loading ? 'Cargando...' : mode === 'login' ? 'Acceder' : 'Crear Cuenta' }}
@@ -101,13 +113,26 @@ onMounted(async () => {
     }
   }
 
-  // Probe the Google start endpoint to see if it's configured.
+  // Probe the Google start endpoint to see if it's configured. A
+  // properly configured endpoint replies with a 302 to Google's consent
+  // screen — the browser masks that to status 0 + type 'opaqueredirect'
+  // when `redirect: 'manual'`. Anything else (4xx/5xx) means OAuth
+  // env vars are missing or the route is misconfigured, so the button
+  // should fall back to its disabled state.
   try {
     const ctl = new AbortController()
     const timer = setTimeout(() => ctl.abort(), 1500)
-    const res = await fetch('/api/auth/google/start', { method: 'HEAD', redirect: 'manual', signal: ctl.signal })
+    const res = await fetch('/api/auth/google/start', {
+      method: 'GET',
+      redirect: 'manual',
+      signal: ctl.signal,
+    })
     clearTimeout(timer)
-    if (res.status >= 500) googleUnavailable.value = true
+    // opaqueredirect → status 0; configured backend also returns 302
+    // when the browser is configured to follow it, which is harmless.
+    if (res.type !== 'opaqueredirect' && res.status >= 400) {
+      googleUnavailable.value = true
+    }
   } catch {
     googleUnavailable.value = true
   }

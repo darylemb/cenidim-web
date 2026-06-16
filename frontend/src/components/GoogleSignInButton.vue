@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -9,6 +9,17 @@ const props = withDefaults(
 )
 
 const isUnavailable = ref(props.unavailable)
+
+// The parent toggles `unavailable` after an async probe of the Google
+// start endpoint. Without this watcher, the local ref would stay at its
+// initial value (false) and the button would never flip to its disabled
+// state when the probe completes.
+watch(
+  () => props.unavailable,
+  (val) => {
+    isUnavailable.value = val
+  },
+)
 
 onMounted(() => {
   // The Google Identity Services script is loaded on the login page only.

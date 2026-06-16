@@ -329,3 +329,76 @@ func TestGetStatsRejectsLongQuery(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
+
+// TestGetStatsRecentlyAdded_OnlyLast30Days is a regression test for the
+// "recently_added counts every song" bug: a date-only cutoff ("2006-01-02")
+// compared to a "DATETIME" column silently matches every row created in
+// the same calendar year. The fix is to format the cutoff with a full
+// timestamp before binding it to the query.
+func TestGetStatsRecentlyAdded_OnlyLast30Days(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupTestDBForStats(t)
+	defer func() { _ = database.DB.Close() }()
+
+	// Move the seeded songs into the distant past so they would not be
+	// counted as "recently added" if the date comparison works correctly.
+	_, err := database.DB.Exec(`UPDATE songs SET created_at = '2020-01-01 12:00:00'`)
+	require.NoError(t, err)
+
+	// Insert one song with a fresh created_at to represent a recent add.
+	_, err = database.DB.Exec(
+		`INSERT INTO fonogramas (clave_fonograma, titulo) VALUES (99, 'Fresh Album')`,
+	)
+	require.NoError(t, err)
+	_, err = database.DB.Exec(
+		`INSERT INTO songs (fonograma_id, title, created_at) VALUES (99, 'Fresh Song', datetime('now'))`,
+	)
+	require.NoError(t, err)
+
+	r := gin.New()
+	r.GET("/stats", GetStats)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/stats", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var stats StatsResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &stats))
+
+	assert.Equal(t, 1, stats.RecentlyAdded,
+		"only the song inserted with datetime('now') should count as recently added")
+	assert.Equal(t, 6, stats.TotalSongs, "all six songs still count in the catalog total")
+}
+
+// TestGetStatsCatalogTotal_FilterIndependent ensures the dashboard can
+// render "Mostrando X de Y" without firing a second request: total_songs
+// follows the filter, catalog_total does not.
+func TestGetStatsCatalogTotal_FilterIndependent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupTestDBForStats(t)
+	defer func() { _ = database.DB.Close() }()
+
+	r := gin.New()
+	r.GET("/stats", GetStats)
+
+	// No filter: total_songs and catalog_total should agree.
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/stats", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	var unfiltered StatsResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &unfiltered))
+	assert.Equal(t, 5, unfiltered.TotalSongs)
+	assert.Equal(t, 5, unfiltered.CatalogTotal)
+
+	// Theme filter narrows the song set; catalog_total stays at 5.
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("GET", "/stats?theme=AMOR", nil)
+	r.ServeHTTP(w2, req2)
+	require.Equal(t, http.StatusOK, w2.Code)
+	var filtered StatsResponse
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &filtered))
+	assert.Equal(t, 2, filtered.TotalSongs, "theme=AMOR narrows to two songs")
+	assert.Equal(t, 5, filtered.CatalogTotal, "catalog_total must remain filter-independent")
+}

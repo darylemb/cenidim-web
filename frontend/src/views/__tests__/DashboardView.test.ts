@@ -9,6 +9,7 @@ vi.mock('@/services/api', () => ({
     getStats: vi.fn().mockResolvedValue({
       total_songs: 100,
       total_albums: 10,
+      catalog_total: 100,
       recently_added: 5,
       songs_with_lyrics: 80,
       avg_lyrics_length: 1200,

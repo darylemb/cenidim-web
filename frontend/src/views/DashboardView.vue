@@ -12,7 +12,7 @@
       <div v-if="!loading && !isEmptyResult && stats" class="dashboard__masthead-meta">
         <div class="meta-block">
           <span class="meta-block__label eyebrow">Catálogo</span>
-          <span class="meta-block__value display mono">{{ stats.total_songs.toLocaleString() }}</span>
+          <span class="meta-block__value display mono">{{ (stats.catalog_total ?? stats.total_songs).toLocaleString() }}</span>
           <span class="meta-block__hint">canciones indexadas</span>
         </div>
         <div class="meta-block">
@@ -44,7 +44,7 @@
     <template v-else>
       <p v-if="!filters.isEmpty" class="dashboard__summary">
         Mostrando <strong>{{ stats?.total_songs ?? 0 }}</strong> de
-        <strong>{{ stats?.total_songs ?? 0 }}</strong> canciones que coinciden con los filtros activos.
+        <strong>{{ stats?.catalog_total ?? stats?.total_songs ?? 0 }}</strong> canciones que coinciden con los filtros activos.
       </p>
 
       <!-- KPI strip -->

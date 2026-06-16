@@ -55,6 +55,7 @@ export interface User {
 export interface Stats {
   total_songs: number;
   total_albums: number;
+  catalog_total: number;
   songs_by_year: Record<string, number>;
   songs_by_clasificacion: Record<string, number>;
   songs_by_theme: Record<string, number>;
