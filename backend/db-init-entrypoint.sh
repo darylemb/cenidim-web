@@ -20,9 +20,18 @@ python /app/scripts/classify_songs.py --db "${DB_PATH}"
 # Sanity check: the file exists and is non-empty. docker-compose uses
 # the container's exit code to decide whether the backend can start.
 if [ ! -s "${DB_PATH}" ]; then
-  echo "[db-init] ERROR: ${DB_PATH} is empty" >&2
-  exit 1
+    echo "[db-init] ERROR: ${DB_PATH} is empty" >&2
+    exit 1
 fi
+
+# Make the regenerated DB writable by every user in the container.
+# The backend image runs as `nonroot` (security), but the volume
+# itself is created by this root-owned init container so the file
+# inherits root:root ownership by default — nonroot can then
+# SELECT but gets "attempt to write a readonly database" on any
+# INSERT. `chmod 666` lets the nonroot backend write to the file
+# while still requiring it to know the DB path.
+chmod 666 "${DB_PATH}"
 
 # Print a compact summary in pure Go (no sqlite3 CLI needed). We call
 # the db-builder in `summary` mode via a small one-shot Go program
