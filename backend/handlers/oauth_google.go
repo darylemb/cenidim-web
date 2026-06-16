@@ -291,14 +291,16 @@ func unlinkIdentity(ctx context.Context, userID int) (bool, error) {
 
 // GoogleAuthStart is the Gin handler that redirects the user to Google's
 // consent screen. It is mounted on the public `/api/auth/google/start` route.
+//
+// No rate limiter here: this endpoint only does a 302 to Google, which
+// has its own protections. Rate limiting it would just block legitimate
+// retries when a user clicks the button a few times trying to recover
+// from a network blip. The real attack surface is the callback, which
+// is guarded by the state cookie (CSRF) and JWKS signature verification.
 func GoogleAuthStart(c *gin.Context) {
 	env, err := LoadGoogleOAuthEnv()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Google sign-in is not configured"})
-		return
-	}
-	if isRateLimited("google-start:" + getClientIP(c)) {
-		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests"})
 		return
 	}
 	client, err := NewGoogleOAuthClient(env)
