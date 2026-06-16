@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -336,6 +337,7 @@ func GoogleAuthStart(c *gin.Context) {
 func GoogleAuthCallback(c *gin.Context) {
 	env, err := LoadGoogleOAuthEnv()
 	if err != nil {
+		log.Printf("google callback: load env: %v", err)
 		redirectToFrontendError(c, "upstream")
 		return
 	}
@@ -369,17 +371,27 @@ func GoogleAuthCallback(c *gin.Context) {
 	}
 	client, err := NewGoogleOAuthClient(env)
 	if err != nil {
+		log.Printf("google callback: new client: %v", err)
 		redirectToFrontendError(c, "upstream")
 		return
 	}
 	tok, err := client.Exchange(c.Request.Context(), code)
 	if err != nil {
+		log.Printf("google callback: exchange: %v", err)
 		redirectToFrontendError(c, "upstream")
 		return
 	}
 	rawID, _ := tok.Extra("id_token").(string)
 	claims, err := client.VerifyIDToken(c.Request.Context(), rawID)
 	if err != nil {
+		// The new JWKS verifier is the most likely point of failure
+		// here: the container might not be able to reach
+		// https://www.googleapis.com/oauth2/v3/certs, the audience
+		// might not match GOOGLE_CLIENT_ID, the iss might be wrong,
+		// or the token might be expired. Surface the specific reason
+		// in the log so the operator can debug without having to
+		// attach a debugger to a live process.
+		log.Printf("google callback: verify id_token: %v", err)
 		redirectToFrontendError(c, "upstream")
 		return
 	}
@@ -389,10 +401,12 @@ func GoogleAuthCallback(c *gin.Context) {
 	}
 	userID, username, role, autoProvisioned, err := findOrCreateUser(c.Request.Context(), claims)
 	if err != nil {
+		log.Printf("google callback: find/create user: %v", err)
 		redirectToFrontendError(c, "upstream")
 		return
 	}
 	if err := linkIdentity(c.Request.Context(), userID, claims); err != nil {
+		log.Printf("google callback: link identity: %v", err)
 		redirectToFrontendError(c, "upstream")
 		return
 	}
