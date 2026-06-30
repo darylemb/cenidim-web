@@ -263,10 +263,15 @@ func isAdminEmail(email string) bool {
 }
 
 // frontendRedirectURL joins the configured frontend URL with a query string.
+// OAuth callback data is consumed by AuthPage, so we redirect to `/login`
+// when the configured URL is the site root.
 func frontendRedirectURL(frontend, query string) string {
 	u, err := url.Parse(frontend)
 	if err != nil {
 		return frontend + "?" + query
+	}
+	if u.Path == "" || u.Path == "/" {
+		u.Path = "/login"
 	}
 	u.RawQuery = query
 	return u.String()

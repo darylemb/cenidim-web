@@ -77,6 +77,16 @@ func TestLoadGoogleOAuthEnv_AllPresent(t *testing.T) {
 	assert.Equal(t, "test-client-id", env.ClientID)
 }
 
+func TestFrontendRedirectURL_RootGoesToLogin(t *testing.T) {
+	got := frontendRedirectURL("https://cenidim.darylemb.dev", "google=ok")
+	assert.Equal(t, "https://cenidim.darylemb.dev/login?google=ok", got)
+}
+
+func TestFrontendRedirectURL_KeepsExplicitPath(t *testing.T) {
+	got := frontendRedirectURL("https://cenidim.darylemb.dev/login", "google=ok")
+	assert.Equal(t, "https://cenidim.darylemb.dev/login?google=ok", got)
+}
+
 func TestGoogleAuthStart_RedirectsAndSetsCookie(t *testing.T) {
 	withGoogleEnv(t)
 	defer clearGoogleEnv(t)
