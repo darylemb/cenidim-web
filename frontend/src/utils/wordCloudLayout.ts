@@ -112,6 +112,9 @@ export function boxesOverlap(a: Box, b: Box, padding: number): boolean {
  * at evenly-spaced angles so the biggest words claim distinct
  * sectors. The remaining words spiral outward from the center with
  * a wide step so the layout fills the canvas instead of clustering.
+ *
+ * Font sizes follow a single eased curve (no hero/non-hero jump), so
+ * visual hierarchy is progressive instead of abrupt.
  */
 export function packWordCloud(
   words: WordItem[],
@@ -157,11 +160,13 @@ export function packWordCloud(
     const normalizedSize = (word.size - minSize) / (maxSize - minSize + 1);
     const isHero = i < opts.heroLimit;
 
-    const fontSize = isHero
-      ? (minDim * opts.minFontSize +
-          normalizedSize * minDim * (opts.maxFontSize - opts.minFontSize)) *
-        opts.fontScale
-      : (minDim * 0.006 + normalizedSize * minDim * 0.024) * opts.fontScale;
+    // Single continuous scale: low frequencies are gently compressed,
+    // high frequencies expand smoothly. This avoids a visible "step"
+    // between hero and non-hero buckets.
+    const easedSize = Math.pow(Math.max(0, Math.min(1, normalizedSize)), 0.72);
+    const minPx = minDim * 0.020;
+    const maxPx = minDim * 0.118;
+    const fontSize = (minPx + easedSize * (maxPx - minPx)) * opts.fontScale;
 
     const padding = fontSize * opts.paddingFactor;
     const wordWidth = word.text.length * fontSize * opts.charWidthFactor;
@@ -215,7 +220,7 @@ export function packWordCloud(
           y: testY,
           fontSize,
           color: opts.palette[i % opts.palette.length],
-          weight: normalizedSize > 0.6 ? 600 : 400,
+          weight: normalizedSize > 0.74 ? 600 : normalizedSize > 0.46 ? 500 : 400,
           fontFamily: isHero && normalizedSize > 0.45 ? opts.heroFontFamily : opts.bodyFontFamily,
         });
         placedHere = true;
