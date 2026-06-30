@@ -278,6 +278,23 @@ func TestLinkIdentity_Idempotent(t *testing.T) {
 	assert.Equal(t, 1, n)
 }
 
+func TestLinkIdentity_CreatesTableWhenMissing(t *testing.T) {
+	setupOAuthTestDB(t)
+	defer database.DB.Close()
+	_, err := database.DB.Exec(`DROP TABLE IF EXISTS user_identities`)
+	require.NoError(t, err)
+
+	uid, _, _, _, _ := findOrCreateUser(
+		context.Background(), &GoogleIDTokenClaims{Email: "heal@example.com", Sub: "google-heal"},
+	)
+	claims := &GoogleIDTokenClaims{Email: "heal@example.com", Sub: "google-heal"}
+	require.NoError(t, linkIdentity(context.Background(), uid, claims))
+
+	var n int
+	require.NoError(t, database.DB.QueryRow(`SELECT COUNT(*) FROM user_identities WHERE user_id = ?`, uid).Scan(&n))
+	assert.Equal(t, 1, n)
+}
+
 func TestUnlinkIdentity(t *testing.T) {
 	setupOAuthTestDB(t)
 	defer database.DB.Close()

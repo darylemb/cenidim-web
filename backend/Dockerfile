@@ -81,6 +81,7 @@ WORKDIR /app
 
 COPY --from=api-builder /app/main .
 COPY --from=api-builder /app/healthcheck .
+COPY --from=api-builder /app/backend/database/migrations ./database/migrations
 COPY --from=classifier --chown=nonroot:nonroot /app/letras.db /data/
 
 USER nonroot:nonroot

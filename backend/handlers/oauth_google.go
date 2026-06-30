@@ -219,6 +219,30 @@ func stringClaim(claims map[string]interface{}, key string) string {
 	return ""
 }
 
+// ensureUserIdentitiesTable guarantees the OAuth identity-link table exists.
+// This is a runtime safety net for legacy DB files created before migration
+// 004 was introduced or deployments where migration files were not present
+// inside the container image.
+func ensureUserIdentitiesTable(ctx context.Context) error {
+	_, err := database.DB.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS user_identities (
+			id              INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id         INTEGER NOT NULL,
+			provider        TEXT    NOT NULL,
+			subject         TEXT    NOT NULL,
+			email_at_link   TEXT    NOT NULL,
+			linked_at       TEXT    NOT NULL,
+			UNIQUE (provider, subject),
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = database.DB.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_user_identities_user_id ON user_identities(user_id)`)
+	return err
+}
+
 // isAdminEmail returns true when `email` appears in ADMIN_EMAILS.
 // Format: comma-separated list, e.g. "admin@cenidim.mx,foo@bar.com".
 func isAdminEmail(email string) bool {
@@ -303,6 +327,9 @@ func findOrCreateUser(ctx context.Context, claims *GoogleIDTokenClaims) (userID 
 
 // linkIdentity persists a user_identities row for this Google sign-in.
 func linkIdentity(ctx context.Context, userID int, claims *GoogleIDTokenClaims) error {
+	if err := ensureUserIdentitiesTable(ctx); err != nil {
+		return err
+	}
 	_, err := database.DB.ExecContext(ctx, `
 		INSERT INTO user_identities (user_id, provider, subject, email_at_link, linked_at)
 		VALUES (?, ?, ?, ?, ?)
@@ -317,6 +344,9 @@ func linkIdentity(ctx context.Context, userID int, claims *GoogleIDTokenClaims) 
 // unlinkIdentity removes the Google identity from a user. Returns
 // (found, error). When found is false, the user has no linked identity.
 func unlinkIdentity(ctx context.Context, userID int) (bool, error) {
+	if err := ensureUserIdentitiesTable(ctx); err != nil {
+		return false, err
+	}
 	res, err := database.DB.ExecContext(ctx, `DELETE FROM user_identities WHERE user_id = ? AND provider = ?`, userID, "google")
 	if err != nil {
 		return false, err
