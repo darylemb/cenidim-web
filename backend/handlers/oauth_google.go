@@ -219,6 +219,25 @@ func stringClaim(claims map[string]interface{}, key string) string {
 	return ""
 }
 
+// isAdminEmail returns true when `email` appears in ADMIN_EMAILS.
+// Format: comma-separated list, e.g. "admin@cenidim.mx,foo@bar.com".
+func isAdminEmail(email string) bool {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return false
+	}
+	raw := strings.TrimSpace(os.Getenv("ADMIN_EMAILS"))
+	if raw == "" {
+		return false
+	}
+	for _, candidate := range strings.Split(raw, ",") {
+		if strings.ToLower(strings.TrimSpace(candidate)) == email {
+			return true
+		}
+	}
+	return false
+}
+
 // frontendRedirectURL joins the configured frontend URL with a query string.
 func frontendRedirectURL(frontend, query string) string {
 	u, err := url.Parse(frontend)
@@ -230,17 +249,22 @@ func frontendRedirectURL(frontend, query string) string {
 }
 
 // findOrCreateUser looks up a user by verified email. When no match exists,
-// it creates a new viewer account. The bool return is true when a new user
-// was auto-provisioned.
+// it auto-provisions an account. Default role is viewer unless the email is
+// listed in ADMIN_EMAILS.
+// The bool return is true when a new user was auto-provisioned.
 func findOrCreateUser(ctx context.Context, claims *GoogleIDTokenClaims) (userID int, username, role string, autoProvisioned bool, err error) {
 	row := database.DB.QueryRowContext(ctx, `SELECT id, username, role FROM users WHERE email = ?`, claims.Email)
 	if err := row.Scan(&userID, &username, &role); err == nil {
 		return userID, username, role, false, nil
 	}
-	// Auto-provision a viewer account. Username is the local-part of the
+	// Auto-provision account. Username is the local-part of the
 	// email; if it collides we append a numeric suffix. We log the actual
 	// SQLite error on the first collision so the operator can tell the
 	// difference between a username clash and a real DB problem.
+	defaultRole := "viewer"
+	if isAdminEmail(claims.Email) {
+		defaultRole = "admin"
+	}
 	username = strings.SplitN(claims.Email, "@", 2)[0]
 	if username == "" {
 		username = "user"
@@ -255,11 +279,11 @@ func findOrCreateUser(ctx context.Context, claims *GoogleIDTokenClaims) (userID 
 		res, ierr := database.DB.ExecContext(
 			ctx,
 			`INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)`,
-			candidate, claims.Email, "GOOGLE_LINKED", "viewer",
+			candidate, claims.Email, "GOOGLE_LINKED", defaultRole,
 		)
 		if ierr == nil {
 			id, _ := res.LastInsertId()
-			return int(id), candidate, "viewer", true, nil
+			return int(id), candidate, defaultRole, true, nil
 		}
 		if firstErr == nil {
 			firstErr = ierr
@@ -421,6 +445,16 @@ func GoogleAuthCallback(c *gin.Context) {
 		log.Printf("google callback: find/create user: %v", err)
 		redirectToFrontendErrorWithDetail(c, "upstream", err.Error())
 		return
+	}
+	// Keep admin role in sync with ADMIN_EMAILS for existing accounts that
+	// were created before the allowlist was configured.
+	if isAdminEmail(claims.Email) && role != "admin" {
+		if _, err := database.DB.ExecContext(c.Request.Context(), `UPDATE users SET role = ? WHERE id = ?`, "admin", userID); err != nil {
+			log.Printf("google callback: promote admin: %v", err)
+			redirectToFrontendErrorWithDetail(c, "upstream", err.Error())
+			return
+		}
+		role = "admin"
 	}
 	if err := linkIdentity(c.Request.Context(), userID, claims); err != nil {
 		log.Printf("google callback: link identity: %v", err)

@@ -105,9 +105,10 @@ onMounted(async () => {
           role: (role as 'viewer' | 'editor' | 'admin') ?? 'viewer',
         }
       }
+      const finalRole = auth.user?.role ?? ((role as 'viewer' | 'editor' | 'admin') ?? 'viewer')
       // Strip the fragment so it is not re-sent on reload.
-      router.replace({ name: 'auth', query: {}, hash: '' })
-      router.push({ name: 'timeline' })
+      router.replace({ name: 'login', query: {}, hash: '' })
+      router.push({ name: finalRole === 'admin' ? 'admin' : 'timeline' })
     } else {
       googleError.value = 'Google no devolvió un token. Intenta de nuevo.'
     }
@@ -164,7 +165,7 @@ async function handleSubmit() {
     } else {
       await auth.register(username.value, email.value, password.value)
     }
-    router.push({ name: 'timeline' })
+    router.push({ name: auth.user?.role === 'admin' ? 'admin' : 'timeline' })
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Error desconocido'
   } finally {

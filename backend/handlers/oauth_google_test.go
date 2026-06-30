@@ -60,6 +60,7 @@ func clearGoogleEnv(t *testing.T) {
 	os.Unsetenv("GOOGLE_CLIENT_SECRET")
 	os.Unsetenv("GOOGLE_REDIRECT_URL")
 	os.Unsetenv("FRONTEND_BASE_URL")
+	os.Unsetenv("ADMIN_EMAILS")
 }
 
 func TestLoadGoogleOAuthEnv_MissingVars(t *testing.T) {
@@ -218,6 +219,7 @@ func TestFindOrCreateUser_MatchesExisting(t *testing.T) {
 func TestFindOrCreateUser_ProvisionsViewer(t *testing.T) {
 	setupOAuthTestDB(t)
 	defer database.DB.Close()
+	os.Unsetenv("ADMIN_EMAILS")
 	uid, username, role, auto, err := findOrCreateUser(
 		context.Background(), &GoogleIDTokenClaims{Email: "newuser@example.com", Sub: "google-2"},
 	)
@@ -231,6 +233,35 @@ func TestFindOrCreateUser_ProvisionsViewer(t *testing.T) {
 	var hash string
 	require.NoError(t, database.DB.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, uid).Scan(&hash))
 	assert.Equal(t, "GOOGLE_LINKED", hash)
+}
+
+func TestFindOrCreateUser_ProvisionsAdminWhenAllowlisted(t *testing.T) {
+	setupOAuthTestDB(t)
+	defer database.DB.Close()
+	os.Setenv("ADMIN_EMAILS", "owner@example.com,admin@cenidim.mx")
+	defer os.Unsetenv("ADMIN_EMAILS")
+
+	uid, username, role, auto, err := findOrCreateUser(
+		context.Background(), &GoogleIDTokenClaims{Email: "owner@example.com", Sub: "google-owner"},
+	)
+	require.NoError(t, err)
+	assert.True(t, auto)
+	assert.Equal(t, "owner", username)
+	assert.Equal(t, "admin", role)
+	assert.NotZero(t, uid)
+}
+
+func TestFindOrCreateUser_AllowlistIsCaseInsensitive(t *testing.T) {
+	setupOAuthTestDB(t)
+	defer database.DB.Close()
+	os.Setenv("ADMIN_EMAILS", "OWNER@EXAMPLE.COM")
+	defer os.Unsetenv("ADMIN_EMAILS")
+
+	_, _, role, _, err := findOrCreateUser(
+		context.Background(), &GoogleIDTokenClaims{Email: "owner@example.com", Sub: "google-owner-2"},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "admin", role)
 }
 
 func TestLinkIdentity_Idempotent(t *testing.T) {
