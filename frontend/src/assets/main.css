@@ -4,18 +4,26 @@
   --cenidim-rojo-oscuro: #5a0f1d;
   --cenidim-dorado: #c5a46c;
 
-  /* Modern Palette */
-  --bg-main: #ffffff;
-  --bg-soft: #f8fafc;
-  --bg-hover: #f1f5f9;
-  --glass: rgba(255, 255, 255, 0.7);
+  /* Legacy aliases — these are mapped to the canonical tokens defined
+     in tokens.css. New code should use the --color-* names directly.
+     The aliases let the older selectors below keep working without a
+     massive rewrite. */
+  --bg-main: var(--color-bg, #ffffff);
+  --bg-soft: var(--color-bg-soft, #f3ede0);
+  --bg-hover: var(--color-bg-hover, #ebe2cf);
+  --bg-disabled: var(--color-bg-soft, #f3ede0);
+  --glass: var(--color-surface, rgba(255, 255, 255, 0.7));
 
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-primary: var(--color-text, #1a1612);
+  --text-secondary: var(--color-text-secondary, #4a4239);
+  --text-muted: var(--color-text-muted, #8a7f6e);
 
-  --border-light: #e2e8f0;
-  --accent: var(--cenidim-rojo);
+  --accent: var(--color-accent, #751428);
+  --color-primary: var(--color-accent, #751428);
+  --border-light: var(--color-border, #d8cdb4);
+  --border-strong: var(--color-border-strong, #a8997d);
+
+  --font-family: var(--font-body, 'Outfit', system-ui, sans-serif);
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -23,7 +31,7 @@
   --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 
   /* Fonts */
-  --font-family: 'Inter', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-family: var(--font-body, 'Outfit', system-ui, sans-serif);
 
   /* Transitions */
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -51,6 +59,25 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent);
+  color: white;
+  padding: 0.5rem 1rem;
+  z-index: 1000;
+  transition: top 0.2s;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid var(--cenidim-dorado);
 }
 
 .combined-header {

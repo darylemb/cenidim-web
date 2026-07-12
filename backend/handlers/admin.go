@@ -37,7 +37,7 @@ func AdminListFonogramas(c *gin.Context) {
 		       ciudad_edicion, pais_edicion, anio, pistas, observaciones
 		FROM fonogramas ORDER BY clave_fonograma LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	defer func() { _ = rows.Close() }()
@@ -80,7 +80,7 @@ func AdminGetFonograma(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	c.JSON(http.StatusOK, f)
@@ -89,7 +89,7 @@ func AdminGetFonograma(c *gin.Context) {
 func AdminCreateFonograma(c *gin.Context) {
 	var f models.Fonograma
 	if err := c.ShouldBindJSON(&f); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
 	}
 	_, err := database.DB.Exec(`
@@ -129,7 +129,7 @@ func AdminUpdateFonograma(c *gin.Context) {
 		f.InterpreteParticipante, f.SoporteFisico, f.Editora, f.NumeroCatalogo,
 		f.CiudadEdicion, f.PaisEdicion, f.Anio, f.Pistas, f.Observaciones, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	n, _ := res.RowsAffected()
@@ -154,7 +154,7 @@ func AdminDeleteFonograma(c *gin.Context) {
 	}
 	res, err := database.DB.Exec("DELETE FROM fonogramas WHERE clave_fonograma = ?", id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	n, _ := res.RowsAffected()
@@ -200,7 +200,7 @@ func AdminListSongs(c *gin.Context) {
 		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma`+where+
 		` ORDER BY s.id LIMIT ? OFFSET ?`, queryArgs...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	defer func() { _ = rows.Close() }()
@@ -240,7 +240,7 @@ func AdminUpdateSong(c *gin.Context) {
 		`UPDATE songs SET title=?, lyrics=? WHERE id=?`,
 		input.Title, input.Lyrics, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	n, _ := res.RowsAffected()
@@ -259,7 +259,7 @@ func AdminDeleteSong(c *gin.Context) {
 	}
 	res, err := database.DB.Exec("DELETE FROM songs WHERE id = ?", id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	n, _ := res.RowsAffected()
@@ -277,14 +277,14 @@ func AdminCreateSong(c *gin.Context) {
 		Lyrics      string `json:"lyrics"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
 	}
 	res, err := database.DB.Exec(
 		`INSERT INTO songs (fonograma_id, title, lyrics) VALUES (?,?,?)`,
 		input.FonogramaID, input.Title, input.Lyrics)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	id, _ := res.LastInsertId()
@@ -297,7 +297,7 @@ func AdminListUsers(c *gin.Context) {
 	rows, err := database.DB.Query(
 		`SELECT id, username, email, role, created_at FROM users ORDER BY id`)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	defer func() { _ = rows.Close() }()
@@ -317,9 +317,15 @@ func AdminListUsers(c *gin.Context) {
 }
 
 func AdminCreateUser(c *gin.Context) {
+	callerRole, _ := c.Get("role")
+	if callerRole != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can create users"})
+		return
+	}
+
 	var input models.UserInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
 	}
 	role := input.Role
@@ -373,7 +379,7 @@ func AdminUpdateUser(c *gin.Context) {
 		}
 		if _, execErr := database.DB.Exec(
 			`UPDATE users SET password_hash=? WHERE id=?`, string(hash), id); execErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating password"})
 			return
 		}
 	}
@@ -423,7 +429,7 @@ func AdminDeleteUser(c *gin.Context) {
 
 	res, err := database.DB.Exec("DELETE FROM users WHERE id = ?", id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	n, _ := res.RowsAffected()
@@ -432,4 +438,40 @@ func AdminDeleteUser(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted"})
+}
+
+// AdminUnlinkIdentity godoc
+// @Summary Unlink a Google identity from a user
+// @Description Removes the user_identities row(s) for the given user so that
+// @Description future Google sign-ins with that Google account will not
+// @Description match this user.
+// @Tags admin
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /admin/users/{id}/identity [delete]
+func AdminUnlinkIdentity(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+	found, err := unlinkIdentity(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "identity_not_linked"})
+		return
+	}
+	_, _ = database.DB.Exec(
+		`UPDATE users SET last_sign_in_method = NULL, last_sign_in_at = NULL WHERE id = ?`,
+		id,
+	)
+	c.Status(http.StatusNoContent)
 }

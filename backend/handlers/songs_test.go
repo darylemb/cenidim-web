@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -33,13 +34,14 @@ func setupTestDB(t *testing.T) {
 		interpretes_invitados   TEXT,
 		interprete_participante TEXT,
 		soporte_fisico          TEXT,
-		editora                 TEXT,
+		editora                TEXT,
 		numero_catalogo         TEXT,
 		ciudad_edicion          TEXT,
 		pais_edicion            TEXT,
 		anio                    TEXT,
 		pistas                  TEXT,
-		observaciones           TEXT
+		observaciones           TEXT,
+		version                 INTEGER DEFAULT 0
 	);
 	CREATE TABLE songs (
 		id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,7 +49,13 @@ func setupTestDB(t *testing.T) {
 		title        TEXT NOT NULL,
 		filename     TEXT,
 		lyrics       TEXT,
+		version      INTEGER DEFAULT 0,
 		clasificacion TEXT,
+		tema         TEXT,
+		autor        TEXT,
+		compositor   TEXT,
+		duracion     TEXT,
+		personajes   TEXT,
 		FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
 	);
 	CREATE TABLE users (
@@ -56,7 +64,8 @@ func setupTestDB(t *testing.T) {
 		email         TEXT UNIQUE NOT NULL,
 		password_hash TEXT NOT NULL,
 		role          TEXT NOT NULL DEFAULT 'viewer',
-		created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+		created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+		version       INTEGER DEFAULT 0
 	);`
 	if _, err = db.Exec(schema); err != nil {
 		t.Fatalf("Failed to create schema: %v", err)
@@ -196,4 +205,53 @@ func TestSearchSongsPagination(t *testing.T) {
 	require.Equal(t, http.StatusOK, wDefaultLimit.Code)
 	require.Equal(t, http.StatusOK, wLimitZero.Code)
 	assert.Equal(t, wDefaultLimit.Body.Bytes(), wLimitZero.Body.Bytes())
+}
+
+// TestGetTimelineCoversAllYears is a regression test for the
+// "LIMIT 1000 hides most years" bug. The seed only has 3 songs in one
+// year, so we add a few more years and confirm the response still lists
+// every year (and per-year cap is respected).
+func TestGetTimelineCoversAllYears(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupTestDB(t)
+	defer func() { _ = database.DB.Close() }()
+
+	// Add a second fonograma/year and three more songs so the catalog
+	// spans two distinct years and the per-year cap kicks in for the
+	// second year when we set a tight limit.
+	_, err := database.DB.Exec(
+		`INSERT INTO fonogramas (clave_fonograma, titulo, anio) VALUES (2, 'Album Dos', '1970')`,
+	)
+	require.NoError(t, err)
+	for i, title := range []string{"A", "B", "C", "D", "E"} {
+		_, err = database.DB.Exec(
+			`INSERT INTO songs (title, fonograma_id) VALUES (?, 2)`,
+			fmt.Sprintf("Song %s", title),
+		)
+		require.NoError(t, err, "seed song %d", i)
+	}
+
+	r := gin.New()
+	r.GET("/timeline", GetTimeline)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/timeline?limit=2", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Years     []string         `json:"years"`
+		Timeline  map[string][]any `json:"timeline"`
+		Total     int              `json:"total"`
+		Truncated bool             `json:"truncated"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+
+	// Both years must be present, even though 1970 alone has 5 songs and
+	// the per-year cap is 2.
+	assert.ElementsMatch(t, []string{"1968", "1970"}, resp.Years)
+	assert.LessOrEqual(t, len(resp.Timeline["1968"]), 2, "1968 respects the per-year cap")
+	assert.Len(t, resp.Timeline["1970"], 2, "1970 is capped at the per-year limit")
+	assert.Equal(t, 8, resp.Total)
+	assert.True(t, resp.Truncated, "truncated must be true when a year is capped")
 }

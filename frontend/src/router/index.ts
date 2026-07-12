@@ -33,12 +33,23 @@ const router = createRouter({
   ],
 });
 
-router.beforeEach((to) => {
-  if (to.meta.requiresAuth) {
-    const auth = useAuthStore();
-    if (!auth.authLoading && !auth.isAuthenticated) {
-      return { name: 'login' };
+router.beforeEach(async (to) => {
+  if (!to.meta.requiresAuth) return;
+  const auth = useAuthStore();
+  // restoreSession() resolves once /auth/me has been probed (or the
+  // request failed and the token was cleared). If we hit a `requiresAuth`
+  // route while that probe is still in flight — the typical "F5 on a
+  // logged-in session" path — the guard must wait instead of
+  // short-circuiting to /login.
+  if (auth.authLoading) {
+    try {
+      await auth.restoreSession();
+    } catch {
+      // restoreSession swallows the network error; nothing to do here.
     }
+  }
+  if (!auth.isAuthenticated) {
+    return { name: 'login' };
   }
 });
 

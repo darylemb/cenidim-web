@@ -1,0 +1,189 @@
+/*
+ * Design tokens — cenidim-web
+ * Aesthetic: "Editorial Mexican Modernism"
+ * Inspired by Mexican cultural publications: vino, mostaza, papel crema, tinta.
+ * Display: Fraunces (variable serif, soft/wonk axes, opsz 9-144)
+ * Body: Outfit (geometric sans)
+ * Mono: JetBrains Mono (metadata, file names, year numbers)
+ *
+ * Single source of truth: every component MUST consume these custom properties.
+ * Audit script: scripts/audit_design_tokens.sh enforces <2% hard-coded drift.
+ */
+
+:root {
+  /* ── Brand ─────────────────────────────────────────── */
+  --color-brand: #751428;          /* Vino: patrimonio, CENIDIM */
+  --color-brand-dark: #5a0f1d;
+  --color-brand-light: #c5a46c;    /* Mostaza: oro, archivo */
+
+  /* ── Surfaces ──────────────────────────────────────── */
+  --color-bg: #faf7f0;            /* Papel crema: cálido, no blanco clínico */
+  --color-bg-soft: #f3ede0;       /* Crema profunda para cards */
+  --color-bg-hover: #ebe2cf;      /* Hover en crema */
+  --color-surface: rgba(250, 247, 240, 0.85);
+  --color-ink: #1a1612;           /* Tinta: warm black, no slate */
+
+  /* ── Text ──────────────────────────────────────────── */
+  --color-text: var(--color-ink);
+  --color-text-secondary: #4a4239;
+  --color-text-muted: #8a7f6e;
+  --color-text-inverse: #faf7f0;
+
+  /* ── Borders ───────────────────────────────────────── */
+  --color-border: #d8cdb4;
+  --color-border-strong: #a8997d;
+  --color-rule: #1a1612;          /* Hairline rules: full tinta */
+
+  /* ── Semantic ──────────────────────────────────────── */
+  --color-accent: var(--color-brand);
+  --color-success: #6b8068;       /* Sage: orgánico */
+  --color-warning: #c97a4a;       /* Terracota: cálido */
+  --color-danger: #9a2a2a;        /* Granada: derivado del brand */
+  --color-info: #2c4a6e;          /* Azul tinta */
+
+  /* ── Theme palette ───────────────────────────────────
+   * Canonical themes — must match scripts/classify_songs.py TEMA_KEYWORDS.
+   * These are the categories the classifier assigns to songs after
+   * reducing the free-text "Tema: ..." lines at the end of LetrasTXT/*.txt.
+   * Keep aligned with backend/handlers/stats.go and the frontend's
+   * DashboardFilters.vue and ThemeBadge.vue.
+   */
+  --theme-color-amor: #be185d;
+  --theme-color-despecho: #9a2a2a;
+  --theme-color-fiesta: #d97706;
+  --theme-color-navidad: #047857;
+  --theme-color-animales: #2c4a6e;
+  --theme-color-naturaleza: #6b8068;
+  --theme-color-religioso: #7c3aed;
+  --theme-color-patriotico: #1d4ed8;
+  --theme-color-drogas: #b91c1c;
+  --theme-color-politica: #1f2937;
+  --theme-color-general: #8a7f6e;
+  --theme-color-default: #8a7f6e;
+
+  /* ── Typography ────────────────────────────────────── */
+  --font-display: 'Fraunces', 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  /* Font size scale (1.250 — major third) */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.4rem;
+  --font-size-2xl: 1.75rem;
+  --font-size-3xl: 2.25rem;
+  --font-size-4xl: 3rem;
+  --font-size-display: 4.5rem;
+
+  /* Line height */
+  --line-height-tight: 1.1;
+  --line-height-snug: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-loose: 1.7;
+
+  /* Letter spacing */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.06em;
+  --tracking-wider: 0.12em;
+
+  /* ── Spacing (4-pt scale, generous) ────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 2.5rem;
+  --space-8: 3rem;
+  --space-9: 4rem;
+  --space-10: 5rem;
+  --space-12: 6rem;
+
+  /* ── Radii ─────────────────────────────────────────── */
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-pill: 9999px;
+
+  /* ── Shadows (warm, not cold) ──────────────────────── */
+  --shadow-sm: 0 1px 2px 0 rgb(26 22 18 / 0.04);
+  --shadow-md: 0 4px 12px -2px rgb(26 22 18 / 0.08), 0 2px 4px -2px rgb(26 22 18 / 0.04);
+  --shadow-lg: 0 20px 40px -8px rgb(26 22 18 / 0.12), 0 8px 16px -6px rgb(26 22 18 / 0.06);
+  --shadow-inset: inset 0 0 0 1px var(--color-border);
+
+  /* ── Motion ────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --transition-fast: 150ms var(--ease-out);
+  --transition-base: 280ms var(--ease-out);
+  --transition-slow: 480ms var(--ease-out);
+
+  /* ── Layout ────────────────────────────────────────── */
+  --container-max: 1440px;
+  --tap-target-min: 44px;
+  --hairline: 1px solid var(--color-rule);
+  --hairline-soft: 1px solid var(--color-border);
+}
+
+/* ── Dark mode: deep wine + ink ─────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1a1612;
+    --color-bg-soft: #25201a;
+    --color-bg-hover: #322a22;
+    --color-surface: rgba(26, 22, 18, 0.85);
+
+    --color-text: #f3ede0;
+    --color-text-secondary: #c5b89c;
+    --color-text-muted: #8a7f6e;
+
+    --color-border: #3a3128;
+    --color-border-strong: #5a4a3a;
+    --color-rule: #c5b89c;
+  }
+}
+
+/* ── Utility: tap target ─────────────────────────────── */
+.tap-target {
+  min-width: var(--tap-target-min);
+  min-height: var(--tap-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Focus: warm ring, not cold blue ─────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Display utility: editorial headings ─────────────── */
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--line-height-tight);
+  font-variation-settings: 'opsz' 144, 'SOFT' 30, 'WONK' 0;
+  font-feature-settings: 'kern', 'liga', 'dlig';
+}
+
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}

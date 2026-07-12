@@ -22,26 +22,30 @@ import (
 
 var articles = []string{"el ", "la ", "los ", "las ", "un ", "una ", "unos ", "unas "}
 
+var (
+	parenRe       = regexp.MustCompile(`\s*\(.*?\)`)
+	bracketRe     = regexp.MustCompile(`\s*\[.*?\]`)
+	nonAlnumRe    = regexp.MustCompile(`[^\w\s]`)
+	spaceRe       = regexp.MustCompile(`\s+`)
+	trackRe       = regexp.MustCompile(`\d+\.\s+`)
+	trailingParen = regexp.MustCompile(`\s*\([^)]*\)\s*$`)
+)
+
 func normalize(s string) string {
-	// Remove content in parentheses (metadata)
-	s = regexp.MustCompile(`\s*\(.*?\)`).ReplaceAllString(s, "")
-	// Remove content in brackets
-	s = regexp.MustCompile(`\s*\[.*?\]`).ReplaceAllString(s, "")
+	s = parenRe.ReplaceAllString(s, "")
+	s = bracketRe.ReplaceAllString(s, "")
 
 	s = strings.ToLower(s)
-	// Remove diacritics
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	s, _, _ = transform.String(t, s)
 
-	// Remove articles
 	for _, a := range articles {
 		s = strings.TrimPrefix(s, a)
 		s = strings.ReplaceAll(s, " "+a, " ")
 	}
 
-	// Remove non-alphanumeric
-	s = regexp.MustCompile(`[^\w\s]`).ReplaceAllString(s, "")
-	return strings.TrimSpace(regexp.MustCompile(`\s+`).ReplaceAllString(s, " "))
+	s = nonAlnumRe.ReplaceAllString(s, "")
+	return strings.TrimSpace(spaceRe.ReplaceAllString(s, " "))
 }
 
 func findLyricsFile(root, targetTitle string) (string, error) {
@@ -143,30 +147,22 @@ func minInt(a, b int) int {
 // extractSongTitles parses the Pistas column text and returns individual song titles.
 // Format example: "Lado 1: 1. Song title (composer), 2. Another song; Lado 2: ..."
 func extractSongTitles(pistas string) []string {
-	// Find all numbered track positions: digits followed by ". "
-	trackRe := regexp.MustCompile(`\d+\.\s+`)
 	idxPairs := trackRe.FindAllStringIndex(pistas, -1)
 	if len(idxPairs) == 0 {
 		return nil
 	}
 
-	// Trailing composer/metadata stripper: last parenthetical
-	trailingParen := regexp.MustCompile(`\s*\([^)]*\)\s*$`)
-
 	var titles []string
 	for i, idx := range idxPairs {
-		start := idx[1] // after "N. "
+		start := idx[1]
 		var raw string
 		if i+1 < len(idxPairs) {
-			// end is just before the next track number marker
-			// Walk back over the preceding ", " or "; "
 			end := idxPairs[i+1][0]
 			raw = strings.TrimRight(pistas[start:end], " ,;")
 		} else {
 			raw = strings.TrimRight(pistas[start:], " ,;")
 		}
 
-		// Strip trailing parenthetical (composer credit)
 		raw = trailingParen.ReplaceAllString(raw, "")
 		raw = strings.TrimSpace(raw)
 		if raw != "" {
@@ -176,15 +172,20 @@ func extractSongTitles(pistas string) []string {
 	return titles
 }
 
-func loadLyrics(letrasRoot, trackTitle string) (lyrics, filename string) {
+// loadLyrics returns (lyrics, filename, metadata) for `trackTitle`. The
+// metadata block (autor, compositor, duracion, personajes) is parsed
+// from the lyrics file tail and stripped from the lyrics body so it
+// does not pollute the word cloud. The first non-blank line is
+// dropped when it matches the title.
+func loadLyrics(letrasRoot, trackTitle string) (lyrics, filename string, metadata SongMetadata) {
 	found, _ := findLyricsFile(letrasRoot, trackTitle)
 	if found == "" {
-		return "", ""
+		return "", "", SongMetadata{}
 	}
 	content, err := os.ReadFile(found)
 	if err != nil {
 		log.Printf("⚠️ Error reading lyrics for %s: %v", trackTitle, err)
-		return "", ""
+		return "", "", SongMetadata{}
 	}
 	lyricsText := string(content)
 	filename = filepath.Base(found)
@@ -197,15 +198,100 @@ func loadLyrics(letrasRoot, trackTitle string) (lyrics, filename string) {
 			lyricsText = ""
 		}
 	}
-	return strings.TrimSpace(lyricsText), filename
+	m := extractSongMetadata(lyricsText)
+	return strings.TrimSpace(m.CleanLyrics), filename, m
 }
+
+// SongMetadata holds the structured values parsed from the bottom of
+// each lyrics file (Dura:, Tema:, Personajes:, Autor: + initials
+// fallback). It also carries the lyrics body with those markers
+// stripped, ready to be inserted into songs.lyrics.
+type SongMetadata struct {
+	Autor       string
+	Compositor  string
+	Duracion    string
+	Personajes  string
+	Tema        string
+	CleanLyrics string
+}
+
+var reDura       = regexp.MustCompile(`(?im)^Dura:\s*(.+?)\s*$`)
+var rePersonajes = regexp.MustCompile(`(?im)^Personajes:\s*(.+?)\s*$`)
+var reTema       = regexp.MustCompile(`(?im)^Tema:\s*(.+?)\s*$`)
+var reAutor      = regexp.MustCompile(`(?im)^Autor:\s*(.+?)\s*$`)
+var reCompositor = regexp.MustCompile(`(?im)^Compositor:\s*(.+?)\s*$`)
+var reInitials   = regexp.MustCompile(`(?m)^[A-Z](?:\.[A-Z]){1,4}\.?$`)
+var reTemaSegment = regexp.MustCompile(`[,;]`)
+
+func extractSongMetadata(lyricsText string) SongMetadata {
+	m := SongMetadata{CleanLyrics: lyricsText}
+	if strings.TrimSpace(lyricsText) == "" {
+		return m
+	}
+	// Identify the metadata block at the *bottom* of the file. The
+	// marker that always opens the closing block is Dura:, with Tema:,
+	// Personajes: and (rarely) Compositor: following it. Earlier
+	// occurrences (e.g. an "Autor:" attribution line right under
+	// the title) are NOT metadata — they stay in the lyrics body.
+	// We also drop a final author-initials line (e.g. "M.G.A.") that
+	// appears after Personajes: when the file has no explicit Autor:.
+	cutIdx := strings.LastIndex(lyricsText, "\nDura:")
+	if cutIdx < 0 {
+		cutIdx = strings.LastIndex(lyricsText, "\nTema:")
+	}
+	if cutIdx >= 0 {
+		head := lyricsText[:cutIdx]
+		tail := lyricsText[cutIdx:]
+		m.CleanLyrics = strings.TrimSpace(head)
+
+		if ms := reDura.FindStringSubmatch(tail); len(ms) > 1 {
+			m.Duracion = strings.TrimSpace(ms[1])
+		}
+		if ms := rePersonajes.FindStringSubmatch(tail); len(ms) > 1 {
+			m.Personajes = strings.TrimSpace(ms[1])
+		}
+		if ms := reTema.FindStringSubmatch(tail); len(ms) > 1 {
+			// The Tema: line can hold one or many comma-separated
+			// themes: "Familia, Eternidad/ Temporalidad." We persist
+			// the FIRST one as the canonical tema for the dashboard
+			// (the raw value will be normalized by the canonicalTema
+			// helper in handlers/stats.go and folded into a single
+			// chip per concept). classify_songs.py also reads Tema:
+			// back from the raw .txt if it needs the full list.
+			raw := strings.TrimSpace(ms[1])
+			// Strip "(Subtema: ...)" parenthetical and trailing period
+			raw = reTemaParen.ReplaceAllString(raw, "")
+			raw = reTemaSegment.Split(raw, 2)[0]
+			raw = strings.TrimSpace(strings.TrimRight(raw, "."))
+			m.Tema = strings.TrimSpace(raw)
+		}
+		// Explicit Autor: in the metadata block wins; otherwise we
+		// fall back to author initials on the last non-empty line of
+		// the file.
+		if ms := reAutor.FindStringSubmatch(tail); len(ms) > 1 {
+			m.Autor = strings.TrimSpace(ms[1])
+		} else if init := reInitials.FindString(tail); init != "" {
+			m.Autor = init
+		}
+		if ms := reCompositor.FindStringSubmatch(tail); len(ms) > 1 {
+			m.Compositor = strings.TrimSpace(ms[1])
+		}
+	}
+	return m
+}
+
+var reTemaParen = regexp.MustCompile(`\s*\([^)]*\)`)
 
 func main() {
 	csvPath := flag.String("csv", "../db_fonografia.csv", "Path to db_fonografia.csv")
 	dbPath := flag.String("db", "letras.db", "Path to the SQLite database file")
 	letrasDir := flag.String("letras", "../LetrasTXT", "Path to LetrasTXT directory")
-	adminPass := flag.String("admin-pass", "admin123", "Initial admin user password")
+	adminPass := flag.String("admin-pass", "", "Initial admin user password (required)")
 	flag.Parse()
+
+	if *adminPass == "" {
+		log.Fatal("❌ --admin-pass is required")
+	}
 
 	log.Printf("🚀 Parsing %s and building database at %s...", *csvPath, *dbPath)
 
@@ -237,7 +323,8 @@ func main() {
 			pais_edicion       TEXT,
 			anio               TEXT,
 			pistas             TEXT,
-			observaciones      TEXT
+			observaciones      TEXT,
+			version            INTEGER DEFAULT 0
 		);
 		CREATE TABLE songs (
 			id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -247,7 +334,13 @@ func main() {
 			lyrics         TEXT,
 			clasificacion  TEXT,
 			tema           TEXT,
+			autor          TEXT,
+			compositor     TEXT,
+			duracion       TEXT,
+			personajes     TEXT,
+			temas_raw      TEXT,
 			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+			version        INTEGER DEFAULT 0,
 			FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
 		);
 		CREATE TABLE users (
@@ -256,7 +349,8 @@ func main() {
 			email         TEXT UNIQUE NOT NULL,
 			password_hash TEXT NOT NULL,
 			role          TEXT NOT NULL DEFAULT 'viewer',
-			created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+			created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+			version       INTEGER DEFAULT 0
 		);
 	`)
 	if err != nil {
@@ -349,14 +443,14 @@ func main() {
 		// Extract individual songs from Pistas and link lyrics
 		songTitles := extractSongTitles(pistas)
 		for _, trackTitle := range songTitles {
-			lyricsText, filename := loadLyrics(*letrasDir, trackTitle)
+			lyricsText, filename, md := loadLyrics(*letrasDir, trackTitle)
 			if filename != "" {
 				log.Printf("🔍 Matched: '%s' -> %s", trackTitle, filename)
 			}
 			_, err = tx.Exec(`
-				INSERT INTO songs (fonograma_id, title, filename, lyrics)
-				VALUES (?, ?, ?, ?)`,
-				clave, trackTitle, filename, lyricsText,
+				INSERT INTO songs (fonograma_id, title, filename, lyrics, autor, compositor, duracion, personajes, tema)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				clave, trackTitle, filename, lyricsText, md.Autor, md.Compositor, md.Duracion, md.Personajes, md.Tema,
 			)
 			if err != nil {
 				log.Printf("⚠️ Error inserting song '%s': %v", trackTitle, err)
@@ -384,5 +478,5 @@ func main() {
 
 	log.Printf("✅ Database built successfully in '%s'!", *dbPath)
 	log.Printf("📊 Summary: %d Fonogramas, %d Songs inserted.", fonogramaCount, songCount)
-	log.Printf("👤 Default admin user: admin / %s", *adminPass)
+	log.Printf("👤 Admin user created: admin")
 }

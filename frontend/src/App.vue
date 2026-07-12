@@ -1,5 +1,6 @@
 <template>
   <div class="app-container">
+    <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
     <DefaultLayout>
       <RouterView />
     </DefaultLayout>

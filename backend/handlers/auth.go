@@ -3,6 +3,8 @@ package handlers
 import (
 	"database/sql"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/daryl/cenidim-go-api/database"
@@ -15,6 +17,68 @@ import (
 
 const tokenTTL = 24 * time.Hour
 
+type rateLimitEntry struct {
+	count    int
+	lastSeen time.Time
+}
+
+var (
+	loginAttempts    = make(map[string]*rateLimitEntry)
+	loginAttemptsMtx sync.Mutex
+	loginMaxAttempts = 5
+	loginWindow      = 5 * time.Minute
+)
+
+func getClientIP(c *gin.Context) string {
+	if xff := c.GetHeader("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
+	}
+	return c.ClientIP()
+}
+
+func isRateLimited(key string) bool {
+	loginAttemptsMtx.Lock()
+	defer loginAttemptsMtx.Unlock()
+
+	entry, exists := loginAttempts[key]
+	if !exists {
+		loginAttempts[key] = &rateLimitEntry{count: 1, lastSeen: time.Now()}
+		return false
+	}
+
+	if time.Since(entry.lastSeen) > loginWindow {
+		entry.count = 1
+		entry.lastSeen = time.Now()
+		return false
+	}
+
+	entry.count++
+	entry.lastSeen = time.Now()
+
+	return entry.count > loginMaxAttempts
+}
+
+func cleanupLoginAttempts() {
+	loginAttemptsMtx.Lock()
+	defer loginAttemptsMtx.Unlock()
+
+	for key, entry := range loginAttempts {
+		if time.Since(entry.lastSeen) > loginWindow {
+			delete(loginAttempts, key)
+		}
+	}
+}
+
+func init() {
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		for range ticker.C {
+			cleanupLoginAttempts()
+		}
+	}()
+}
+
 // Register godoc
 // @Summary Register a new user
 // @Tags auth
@@ -26,9 +90,14 @@ const tokenTTL = 24 * time.Hour
 // @Failure 409 {object} map[string]string
 // @Router /auth/register [post]
 func Register(c *gin.Context) {
+	if isRateLimited(getClientIP(c)) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests, please try again later"})
+		return
+	}
+
 	var input models.UserInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
 	}
 
@@ -74,9 +143,14 @@ func Register(c *gin.Context) {
 // @Failure 401 {object} map[string]string
 // @Router /auth/login [post]
 func Login(c *gin.Context) {
+	if isRateLimited(getClientIP(c)) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests, please try again later"})
+		return
+	}
+
 	var input models.LoginInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
 	}
 
@@ -96,10 +170,25 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Google-only accounts have a sentinel password hash and must use the
+	// "Continuar con Google" flow instead of the password form.
+	if hash == googleLinkedSentinel {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Esta cuenta solo puede iniciar sesión con Google.",
+		})
+		return
+	}
+
 	if hashErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(input.Password)); hashErr != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
+
+	// Audit: record the sign-in method.
+	_, _ = database.DB.Exec(
+		`UPDATE users SET last_sign_in_method = ?, last_sign_in_at = ? WHERE id = ?`,
+		"password", time.Now().UTC().Format(time.RFC3339), id,
+	)
 
 	token, err := generateToken(id, username, role)
 	if err != nil {
@@ -146,3 +235,8 @@ func generateToken(userID int, username, role string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(middleware.JWTSecret())
 }
+
+// googleLinkedSentinel is the value stored in `users.password_hash` for
+// accounts that were created via Google sign-in. The password login route
+// short-circuits when it sees this value and returns a clear error.
+const googleLinkedSentinel = "GOOGLE_LINKED"

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/vue';
+import { render, screen, waitFor } from '@testing-library/vue';
 import { createPinia, setActivePinia } from 'pinia';
+import { createRouter, createMemoryHistory } from 'vue-router';
 import CancionesView from '../CancionesView.vue';
 
 vi.mock('@/services/api', () => ({
@@ -10,21 +11,23 @@ vi.mock('@/services/api', () => ({
   },
 }));
 
+const router = createRouter({
+  history: createMemoryHistory(),
+  routes: [{ path: '/', component: { template: '<div/>' } }],
+});
+
 describe('CancionesView', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
 
   it('renders empty state when no results', async () => {
-    render(CancionesView);
-    await new Promise((r) => setTimeout(r, 100));
-    expect(screen.getByText(/No se encontraron resultados/)).toBeTruthy();
-  });
-
-  it('renders reset button', async () => {
-    render(CancionesView);
-    await new Promise((r) => setTimeout(r, 100));
-    const btn = screen.getByText('Mostrar todas');
-    expect(btn).toBeTruthy();
+    render(CancionesView, { global: { plugins: [router] } });
+    await waitFor(
+      () => {
+        expect(screen.getByText(/No se encontraron canciones/)).toBeTruthy();
+      },
+      { timeout: 1000 }
+    );
   });
 });

@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/daryl/cenidim-go-api/database"
 	"github.com/gin-gonic/gin"
@@ -10,13 +13,20 @@ import (
 
 // StatsResponse holds aggregate metrics for the dashboard
 type StatsResponse struct {
-	TotalSongs           int            `json:"total_songs"`
-	TotalAlbums          int            `json:"total_albums"`
+	TotalSongs  int `json:"total_songs"`
+	TotalAlbums int `json:"total_albums"`
+	// CatalogTotal is the size of the catalog before any dashboard filter
+	// is applied. The dashboard uses it to render "Mostrando X de Y" so
+	// the comparison stays meaningful even when the user narrows the
+	// dataset down.
+	CatalogTotal         int            `json:"catalog_total"`
 	SongsByYear          map[string]int `json:"songs_by_year"`
 	SongsByClasificacion map[string]int `json:"songs_by_clasificacion"`
+	SongsByTheme         map[string]int `json:"songs_by_theme"`
+	DistinctThemes       int            `json:"distinct_themes"`
 	RecentlyAdded        int            `json:"recently_added"`
 	TopAlbums            []AlbumCount   `json:"top_albums"`
-	AvgLyricsLength     float64        `json:"avg_lyrics_length"`
+	AvgLyricsLength      float64        `json:"avg_lyrics_length"`
 	SongsWithLyrics      int            `json:"songs_with_lyrics"`
 	SongsByOovLevel      map[string]int `json:"songs_by_oov_level"`
 	SongsByIndigena      map[string]int `json:"songs_by_indigena"`
@@ -30,44 +40,107 @@ type AlbumCount struct {
 	Count int    `json:"count"`
 }
 
+// canonicalTema normalizes a raw `Tema:` value to a stable form so that
+// human capitalization variants ("Vida/ muerte", "Vida/ Muerte") and
+// stray whitespace ("Equilibrio / Desequilibrio") collapse under one
+// chip in the dashboard. Single-word themes get Title Case; binomial
+// themes ("A/B") preserve the "/" and Title Case each segment. The
+// caller is expected to feed a pre-trimmed, lowercased key — the
+// SQL aggregation already does `LOWER(TRIM(...))` so this routine is
+// the display-side canonicalizer.
+func canonicalTema(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	parts := strings.Split(s, "/")
+	for i, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		// Title-case a single character, then lowercase the rest.
+		runes := []rune(p)
+		runes[0] = unicode.ToUpper(runes[0])
+		for j := 1; j < len(runes); j++ {
+			runes[j] = unicode.ToLower(runes[j])
+		}
+		parts[i] = string(runes)
+	}
+	out := strings.Join(parts, "/")
+	// Collapse internal whitespace (defensive, in case the SQL key has
+	// tabs or double spaces around the slash).
+	return spaceCollapseRegex.ReplaceAllString(out, " ")
+}
+
+var spaceCollapseRegex = regexp.MustCompile(`\s+`)
+
 // GetStats godoc
 // @Summary Get database statistics
-// @Description Returns aggregate metrics for the dashboard
+// @Description Returns aggregate metrics for the dashboard. Honors the
+// @Description shared filter query parameters: theme, year_from, year_to,
+// @Description clasificacion, album, q.
 // @Tags stats
 // @Accept json
 // @Produce json
+// @Param theme         query string false "Comma-separated theme list; use __none__ for unclassified"
+// @Param year_from     query int    false "Inclusive lower bound on year"
+// @Param year_to       query int    false "Inclusive upper bound on year"
+// @Param clasificacion query string false "Comma-separated classification list"
+// @Param album         query string false "Exact album match"
+// @Param q             query string false "Free-text search across title, lyrics, and album"
 // @Success 200 {object} StatsResponse
+// @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /stats [get]
 func GetStats(c *gin.Context) {
+	fp := ParseFilterParams(c)
+	if msg := fp.ValidateYearRange(); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+	if msg := fp.ValidateQueryLength(256); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+
 	stats := StatsResponse{
 		SongsByYear:          make(map[string]int),
 		SongsByClasificacion: make(map[string]int),
+		SongsByTheme:         make(map[string]int),
 		TopAlbums:            []AlbumCount{},
 		SongsByOovLevel:      make(map[string]int),
 		SongsByIndigena:      make(map[string]int),
 	}
 
-	// Total songs
-	if err := database.DB.QueryRow("SELECT COUNT(*) FROM songs").Scan(&stats.TotalSongs); err != nil {
+	songFrom := "FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma"
+	filterWhere, filterArgs := fp.ApplySongFilters("")
+
+	countSongs := "SELECT COUNT(*) " + songFrom + whereWrap(filterWhere)
+	if err := database.DB.QueryRow(countSongs, filterArgs...).Scan(&stats.TotalSongs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching total songs"})
 		return
 	}
 
-	// Total albums
-	if err := database.DB.QueryRow("SELECT COUNT(*) FROM fonogramas").Scan(&stats.TotalAlbums); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching total albums"})
-		return
+	// Catalog total is filter-independent so the front-end can render
+	// "Showing X of Y" without firing a second request.
+	if err := database.DB.QueryRow("SELECT COUNT(*) " + songFrom).Scan(&stats.CatalogTotal); err != nil {
+		stats.CatalogTotal = stats.TotalSongs
 	}
 
-	// Songs by year (excluding "s/d" and empty years)
+	// Total albums in the filtered set.
+	countAlbums := `
+		SELECT COUNT(DISTINCT f.clave_fonograma) ` + songFrom + whereWrap(filterWhere)
+	if err := database.DB.QueryRow(countAlbums, filterArgs...).Scan(&stats.TotalAlbums); err != nil {
+		stats.TotalAlbums = 0
+	}
+
+	// Songs by year (excluding "s/d" and empty years, applying the shared filter)
 	yearRows, yearErr := database.DB.Query(`
 		SELECT COALESCE(f.anio, 'Unknown'), COUNT(*)
-		FROM songs s
-		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
-		WHERE f.anio IS NOT NULL AND f.anio != '' AND f.anio != 's/d'
+		`+songFrom+whereWrap(whereAnd(filterWhere, "f.anio IS NOT NULL AND f.anio != '' AND f.anio != 's/d'"))+`
 		GROUP BY f.anio
-		ORDER BY f.anio`)
+		ORDER BY f.anio`, filterArgs...)
 	if yearErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching songs by year"})
 		return
@@ -85,11 +158,11 @@ func GetStats(c *gin.Context) {
 		}
 	}
 
-	// Songs by clasificacion
+	// Songs by clasificacion (filtered)
 	clasRows, clasErr := database.DB.Query(`
-		SELECT COALESCE(s.clasificacion, 'ESPAÑOL_ESTANDAR'), COUNT(*) 
-		FROM songs s 
-		GROUP BY s.clasificacion`)
+		SELECT COALESCE(s.clasificacion, 'ESPAÑOL_ESTANDAR'), COUNT(*)
+		`+songFrom+whereWrap(filterWhere)+`
+		GROUP BY s.clasificacion`, filterArgs...)
 	if clasErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching songs by clasificacion"})
 		return
@@ -104,22 +177,25 @@ func GetStats(c *gin.Context) {
 		}
 	}
 
-	// Recently added (last 30 days)
-	thirtyDaysAgo := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	// Recently added (last 30 days) — global, not filter-aware by design.
+	// SQLite compares datetimes lexicographically, so we must format the
+	// cutoff as a full "YYYY-MM-DD HH:MM:SS" timestamp. A date-only
+	// format ("2006-01-02") silently truncates the comparison and would
+	// match every row created within the same calendar year.
+	thirtyDaysAgo := time.Now().AddDate(0, 0, -30).Format("2006-01-02 15:04:05")
 	if err := database.DB.QueryRow(
 		"SELECT COUNT(*) FROM songs WHERE created_at > ?", thirtyDaysAgo,
 	).Scan(&stats.RecentlyAdded); err != nil {
 		stats.RecentlyAdded = 0
 	}
 
-	// Top albums by song count
+	// Top albums by song count (filtered)
 	topRows, topErr := database.DB.Query(`
 		SELECT f.titulo, f.anio, COUNT(*) as song_count
-		FROM songs s
-		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
+		`+songFrom+whereWrap(filterWhere)+`
 		GROUP BY f.clave_fonograma
 		ORDER BY song_count DESC
-		LIMIT 10`)
+		LIMIT 10`, filterArgs...)
 	if topErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching top albums"})
 		return
@@ -133,21 +209,22 @@ func GetStats(c *gin.Context) {
 		}
 	}
 
-	// Songs with lyrics count
+	// Songs with lyrics count (filtered)
 	if err := database.DB.QueryRow(
-		"SELECT COUNT(*) FROM songs WHERE lyrics IS NOT NULL AND lyrics != ''",
+		"SELECT COUNT(*) "+songFrom+whereWrap(whereAnd(filterWhere, "s.lyrics IS NOT NULL AND s.lyrics != ''")),
+		filterArgs...,
 	).Scan(&stats.SongsWithLyrics); err != nil {
 		stats.SongsWithLyrics = 0
 	}
 
-	// Average lyrics length
-	if err := database.DB.QueryRow(
-		"SELECT AVG(LENGTH(lyrics)) FROM songs WHERE lyrics IS NOT NULL AND lyrics != ''",
-	).Scan(&stats.AvgLyricsLength); err != nil {
-		stats.AvgLyricsLength = 0
-	}
+	// Average lyrics length (filtered)
+	_ = database.DB.QueryRow(
+		"SELECT AVG(LENGTH(s.lyrics)) "+songFrom+whereWrap(whereAnd(filterWhere, "s.lyrics IS NOT NULL AND s.lyrics != ''")),
+		filterArgs...,
+	).Scan(&stats.AvgLyricsLength)
 
-	// Songs by OOV level (from song_stats table)
+	// Songs by OOV level (filtered). song_stats has no fonograma join, so we
+	// sub-select distinct song_ids matching the filter.
 	oovRows, oovErr := database.DB.Query(`
 		SELECT
 			CASE
@@ -157,7 +234,8 @@ func GetStats(c *gin.Context) {
 			END as oov_level,
 			COUNT(*) as count
 		FROM song_stats
-		GROUP BY oov_level`)
+		WHERE song_id IN (SELECT s.id `+songFrom+whereWrap(filterWhere)+`)
+		GROUP BY oov_level`, filterArgs...)
 	if oovErr == nil {
 		defer func() { _ = oovRows.Close() }()
 		for oovRows.Next() {
@@ -169,13 +247,14 @@ func GetStats(c *gin.Context) {
 		}
 	}
 
-	// Songs by indigena presence (from song_stats table)
+	// Songs by indigena presence (filtered)
 	indRows, indErr := database.DB.Query(`
 		SELECT
 			CASE WHEN contiene_indigena = 1 THEN 'CON_INDIGENA' ELSE 'SIN_INDIGENA' END,
 			COUNT(*) as count
 		FROM song_stats
-		GROUP BY contiene_indigena`)
+		WHERE song_id IN (SELECT s.id `+songFrom+whereWrap(filterWhere)+`)
+		GROUP BY contiene_indigena`, filterArgs...)
 	if indErr == nil {
 		defer func() { _ = indRows.Close() }()
 		for indRows.Next() {
@@ -187,23 +266,80 @@ func GetStats(c *gin.Context) {
 		}
 	}
 
-	// Songs without year (s/d or empty/null)
-	if err := database.DB.QueryRow(`
-		SELECT COUNT(*) FROM songs s
-		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
-		WHERE f.anio IS NULL OR f.anio = '' OR f.anio = 's/d'
-	`).Scan(&stats.SongsWithoutYear); err != nil {
+	// Songs without year (s/d or empty/null) — filter-aware.
+	if err := database.DB.QueryRow(
+		"SELECT COUNT(*) "+songFrom+whereWrap(whereAnd(filterWhere, "(f.anio IS NULL OR f.anio = '' OR f.anio = 's/d')")),
+		filterArgs...,
+	).Scan(&stats.SongsWithoutYear); err != nil {
 		stats.SongsWithoutYear = 0
+	}
+
+	// Songs by theme (counts). We deliberately skip the empty string
+	// bucket — "Sin tema" / unclassified songs are not part of the
+	// thematic category dashboard. The dashboard filter chip list is
+	// derived from this same aggregate.
+	//
+	// Theme normalization: the raw `Tema:` values are written by hand
+	// and end up with case variations ("Vida/ muerte" vs "Vida/ Muerte")
+	// and occasional typos. We group by lower(trim(tema)) and re-emit
+	// the canonical Title-Case form (canonicalTema) so the front never
+	// shows two chips for the same concept. Existing rows that have not
+	// been re-processed by classify_songs.py still get folded under
+	// the same bucket by the LOWER() grouping.
+	themeQuery := `
+		SELECT LOWER(TRIM(COALESCE(s.tema, ''))) AS tema_key, COUNT(*)
+		` + songFrom + whereWrap(whereAnd(filterWhere, "s.tema IS NOT NULL AND s.tema != ''")) + `
+		GROUP BY LOWER(TRIM(COALESCE(s.tema, '')))
+		ORDER BY COUNT(*) DESC
+	`
+	themeRows, themeErr := database.DB.Query(themeQuery, filterArgs...)
+	if themeErr == nil {
+		defer func() { _ = themeRows.Close() }()
+		for themeRows.Next() {
+			var t string
+			var cnt int
+			if err := themeRows.Scan(&t, &cnt); err == nil {
+				if t != "" {
+					stats.SongsByTheme[canonicalTema(t)] = cnt
+				}
+			}
+		}
+		stats.DistinctThemes = len(stats.SongsByTheme)
 	}
 
 	c.JSON(http.StatusOK, stats)
 }
 
+// whereWrap joins a non-empty filter expression into a WHERE clause. Returns
+// the empty string when no filter is active so the query remains a bare FROM.
+func whereWrap(cond string) string {
+	if cond == "" {
+		return ""
+	}
+	return " WHERE " + cond
+}
+
+// whereAnd concatenates a prior filter condition and a free-form predicate
+// with an AND. Empty inputs are skipped so a one-sided condition does not
+// produce " AND foo" (a syntax error).
+func whereAnd(prior, extra string) string {
+	switch {
+	case prior == "" && extra == "":
+		return ""
+	case prior == "":
+		return extra
+	case extra == "":
+		return prior
+	default:
+		return prior + " AND " + extra
+	}
+}
+
 // WordCloudResponse holds word frequency data for the word cloud visualization
 type WordCloudResponse struct {
-	Words              []WordFreq `json:"words"`
-	TotalWords        int         `json:"totalWords"`
-	ExcludedStopWords  int         `json:"excludedStopWords"`
+	Words             []WordFreq `json:"words"`
+	TotalWords        int        `json:"totalWords"`
+	ExcludedStopWords int        `json:"excludedStopWords"`
 }
 
 // WordFreq represents a word and its frequency
@@ -236,43 +372,86 @@ var spanishStopWords = map[string]bool{
 
 // GetWordCloud godoc
 // @Summary Get word frequency data for word cloud
-// @Description Returns word frequencies from song lyrics excluding stop words
+// @Description Returns word frequencies from song lyrics excluding stop
+// @Description words. Honors the shared filter query parameters so the
+// @Description word cloud stays in sync with the dashboard charts:
+// @Description theme, year_from, year_to, clasificacion, album, q.
 // @Tags stats
 // @Produce json
+// @Param theme         query string false "Comma-separated theme list; use __none__ for unclassified"
+// @Param year_from     query int    false "Inclusive lower bound on year"
+// @Param year_to       query int    false "Inclusive upper bound on year"
+// @Param clasificacion query string false "Comma-separated classification list"
+// @Param album         query string false "Exact album match"
+// @Param q             query string false "Free-text search across title, lyrics, and album"
 // @Success 200 {object} WordCloudResponse
+// @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /word-cloud [get]
 func GetWordCloud(c *gin.Context) {
-	wordCounts := make(map[string]int)
-	totalWords := 0
-	excludedCount := 0
+	fp := ParseFilterParams(c)
+	if msg := fp.ValidateYearRange(); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+	if msg := fp.ValidateQueryLength(256); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
 
-	// Get all lyrics
-	rows, err := database.DB.Query("SELECT lyrics FROM songs WHERE lyrics IS NOT NULL AND lyrics != ''")
+	songFrom := "FROM songs s JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma"
+	filterWhere, filterArgs := fp.ApplySongFilters("")
+
+	// Cap on the number of songs scanned to keep the query fast even when
+	// the catalog grows. We raise this to 8000 so a future catalog
+	// expansion doesn't truncate the vocabulary the user sees in the
+	// cloud.
+	const maxSongs = 8000
+	rows, err := database.DB.Query(
+		"SELECT s.lyrics "+songFrom+whereWrap(filterWhere)+" LIMIT ?",
+		append(filterArgs, maxSongs)...,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching lyrics"})
 		return
 	}
 	defer func() { _ = rows.Close() }()
 
+	wordCounts := make(map[string]int)
+	totalWords := 0
+	excludedCount := 0
+
 	for rows.Next() {
 		var letra string
 		if err := rows.Scan(&letra); err == nil {
-			words := extractWords(letra)
+			words := extractWords(cleanLyrics(letra))
 			for _, word := range words {
-				wordLower := word
+				// Case-fold BEFORE counting so "Mamá" and "mamá"
+				// collapse into a single bucket. This is the only
+				// place in the word-cloud path where case folding
+				// can happen (the front-end stop-word set already
+				// compares lowercased). Without this the cloud
+				// shows duplicate chips.
+				key := strings.ToLower(word)
+				if len(key) < 2 {
+					continue
+				}
 				totalWords++
-				if spanishStopWords[wordLower] {
+				if spanishStopWords[key] {
 					excludedCount++
 					continue
 				}
-				wordCounts[wordLower]++
+				wordCounts[key]++
 			}
 		}
 	}
 
-	// Convert to sorted slice and limit to top 100
-wordFreqs := make([]WordFreq, 0, len(wordCounts))
+	// Convert to sorted slice and limit to top 500. The user wants a
+	// dense cloud with the most frequent words from every song in the
+	// filtered subset. The frontend placement algorithm picks which
+	// of these actually render inside the viewBox.
+	const topN = 500
+	wordFreqs := make([]WordFreq, 0, len(wordCounts))
 	for word, count := range wordCounts {
 		wordFreqs = append(wordFreqs, WordFreq{Text: word, Size: count})
 	}
@@ -286,12 +465,13 @@ wordFreqs := make([]WordFreq, 0, len(wordCounts))
 		}
 	}
 
-	// Limit to top 100 words
-	if len(wordFreqs) > 100 {
-		wordFreqs = wordFreqs[:100]
+	if len(wordFreqs) > topN {
+		wordFreqs = wordFreqs[:topN]
 	}
 
-	// Scale sizes for visualization (min 10, max 100)
+	// Scale sizes for visualization (min 10, max 100). The frontend
+	// uses these as percentages of the SVG viewBox; the larger numbers
+	// help the most-frequent words dominate visually.
 	maxSize := 0
 	if len(wordFreqs) > 0 {
 		maxSize = wordFreqs[0].Size
@@ -304,9 +484,38 @@ wordFreqs := make([]WordFreq, 0, len(wordCounts))
 
 	c.JSON(http.StatusOK, WordCloudResponse{
 		Words:             wordFreqs,
-		TotalWords:       totalWords,
+		TotalWords:        totalWords,
 		ExcludedStopWords: excludedCount,
 	})
+}
+
+// cleanLyrics removes metadata markers and short parentheticals from raw lyrics text.
+// This replicates the preprocessing in scripts/classify_songs.py.
+func cleanLyrics(text string) string {
+	// Cut at metadata markers (these appear at end of lyrics files)
+	if idx := strings.Index(text, "Personajes:"); idx != -1 {
+		text = text[:idx]
+	}
+	if idx := strings.Index(text, "Tema:"); idx != -1 {
+		text = text[:idx]
+	}
+	if idx := strings.Index(text, "Dura:"); idx != -1 {
+		text = text[:idx]
+	}
+
+	// Remove short parentheticals (content in parens shorter than 19 chars is metadata noise)
+	// e.g. "(F. Gabilondo S.)" is metadata, but meaningful lyrics in parens are kept
+	re := regexp.MustCompile(`\(.{0,18}\)`)
+	text = re.ReplaceAllString(text, "")
+
+	// Remove | and - used as separators in lyrics files
+	text = strings.ReplaceAll(text, "|", "")
+	text = strings.ReplaceAll(text, "-", "")
+
+	// Collapse whitespace
+	spaceRe := regexp.MustCompile(`\s+`)
+	text = spaceRe.ReplaceAllString(text, " ")
+	return strings.TrimSpace(text)
 }
 
 // extractWords splits text into words

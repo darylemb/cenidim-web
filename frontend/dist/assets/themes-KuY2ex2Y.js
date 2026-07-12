@@ -1,0 +1,2 @@
+const c=["#751428","#c5a46c","#6b8068","#c97a4a","#2c4a6e","#9a2a2a","#7c3aed","#1d4ed8","#047857","#d97706","#be185d","#a16207"];function n(e){if(!e)return"#8a7f6e";const r=e.toLowerCase().replace(/[^a-z0-9]+/g,"-");let a=0;for(let t=0;t<r.length;t++)a=a*31+r.charCodeAt(t)>>>0;return c[a%c.length]}function o(e){return e?e.toLowerCase().replace(/[^a-z0-9]+/g,"-"):"unclassified"}export{n as s,o as t};
+//# sourceMappingURL=themes-KuY2ex2Y.js.map

@@ -1,22 +1,57 @@
 services:
+  # db-init regenerates letras.db from CSV + LetrasTXT + the classifier.
+  # It runs once per `docker compose up` and exits. The backend waits
+  # for it via depends_on + condition: service_completed_successfully
+  # so the API never serves a stale DB.
+  db-init:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.init
+      args:
+        - ADMIN_PASS=admin123
+    environment:
+      - ADMIN_PASS=admin123
+    volumes:
+      - ./backend/data:/data
+      - ./LetrasTXT:/app/LetrasTXT:ro
+      - ./db_fonografia.csv:/app/db_fonografia.csv:ro
+    restart: "no"
+
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
       args:
-        - ADMIN_PASS
+        - ADMIN_PASS=admin123
     ports:
-      - "8000:8080" # Map host 8000 to internal Go 8080
+      - "8000:8080"
     environment:
-      - DB_PATH=/app/letras.db
+      # Core
+      - DB_PATH=/data/letras.db
       - JWT_SECRET=cenidim-dev-secret-2024
       - GIN_MODE=release
+
+      # Google OAuth — fill these in to enable "Continuar con Google" on
+      # the login page. When any of the three required vars is empty,
+      # the backend boots in non-OAuth mode: password login still works
+      # and the Google button shows "temporalmente no disponible". See
+      # the README section "Google sign-in (local development)" for the
+      # full step-by-step.
+      - GOOGLE_CLIENT_ID=
+      - GOOGLE_CLIENT_SECRET=
+      - GOOGLE_REDIRECT_URL=http://localhost:8000/api/auth/google/callback
+      - FRONTEND_BASE_URL=http://localhost
+    volumes:
+      - ./backend/data:/data
     healthcheck:
       test: ["CMD", "./healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
 
   frontend:
     build:

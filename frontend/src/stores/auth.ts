@@ -45,6 +45,16 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
   }
 
+  // Refresh re-fetches the current user from /auth/me using the JWT in
+  // localStorage. Used by the Google callback to populate the user object
+  // after the token has been set in localStorage by the AuthPage.
+  async function refresh() {
+    const u = await apiService.getMe();
+    if (u) {
+      user.value = u;
+    }
+  }
+
   return {
     user,
     authLoading,
@@ -56,5 +66,6 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
+    refresh,
   };
 });

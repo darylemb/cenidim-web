@@ -15,6 +15,7 @@ type Fonograma struct {
 	Anio                   string `json:"anio,omitempty"`
 	Pistas                 string `json:"pistas,omitempty"`
 	Observaciones          string `json:"observaciones,omitempty"`
+	Version                int    `json:"version"`
 }
 
 type Song struct {
@@ -22,6 +23,7 @@ type Song struct {
 	FonogramaID int    `json:"fonograma_id"`
 	Title       string `json:"title"`
 	Filename    string `json:"filename"`
+	Version     int    `json:"version"`
 
 	// All fonograma columns (joined)
 	Album                  string `json:"album"`
@@ -39,6 +41,14 @@ type Song struct {
 	Observaciones          string `json:"observaciones,omitempty"`
 	Clasificacion          string `json:"clasificacion,omitempty"`
 	Tema                   string `json:"tema,omitempty"`
+
+	// Song-level metadata parsed from the lyrics file tail by
+	// cmd/build-db. Surfaces structural info that used to live only
+	// inside the lyrics body (Dura:, Personajes:, author initials).
+	Autor                  string `json:"autor,omitempty"`
+	Compositor             string `json:"compositor,omitempty"`
+	Duracion               string `json:"duracion,omitempty"`
+	Personajes             string `json:"personajes,omitempty"`
 }
 
 type SongDetail struct {
