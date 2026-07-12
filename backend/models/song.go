@@ -41,6 +41,14 @@ type Song struct {
 	Observaciones          string `json:"observaciones,omitempty"`
 	Clasificacion          string `json:"clasificacion,omitempty"`
 	Tema                   string `json:"tema,omitempty"`
+
+	// Song-level metadata parsed from the lyrics file tail by
+	// cmd/build-db. Surfaces structural info that used to live only
+	// inside the lyrics body (Dura:, Personajes:, author initials).
+	Autor                  string `json:"autor,omitempty"`
+	Compositor             string `json:"compositor,omitempty"`
+	Duracion               string `json:"duracion,omitempty"`
+	Personajes             string `json:"personajes,omitempty"`
 }
 
 type SongDetail struct {

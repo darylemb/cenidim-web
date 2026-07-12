@@ -127,3 +127,62 @@ func TestExtractSongTitles(t *testing.T) {
 		assert.Equal(t, []string{"Mi Canción"}, titles)
 	})
 }
+
+// ─── extractSongMetadata ───────────────────────────────────────────────
+
+func TestExtractSongMetadata_ClosingBlock(t *testing.T) {
+	// Real-world shape of a Letras/*.txt footer: closing Dura/Tema/
+	// Personajes block followed by either an Autor: line or initials
+	// like "M.G.A." on the very last line.
+	body := "Apúntate la negra, María…\ncuando te vayas a bailar.\n\n" +
+		"Dura: 2:08\n" +
+		"Tema: Familia, Eternidad/ Temporalidad.\n" +
+		"Personajes: Conejo.\n" +
+		"\n" +
+		"M.G.A.\n"
+
+	m := extractSongMetadata(body)
+	assert.Equal(t, "2:08", m.Duracion)
+	assert.Equal(t, "Conejo.", m.Personajes)
+	assert.Equal(t, "M.G.A.", m.Autor, "fallback to initials line")
+	assert.Contains(t, m.CleanLyrics, "Apúntate la negra")
+	assert.NotContains(t, m.CleanLyrics, "Dura:")
+	assert.NotContains(t, m.CleanLyrics, "M.G.A.")
+}
+
+func TestExtractSongMetadata_ExplicitAutor(t *testing.T) {
+	// SON DE LA CIUDAD-style: explicit Autor: in the closing block,
+	// no initials line.
+	body := "Apúntate la negra, María…\n\n" +
+		"Dura: 4:00\n" +
+		"Tema: Juventud/ Vejez, Eternidad/ Temporalidad.\n" +
+		"Personajes: La niña y el gusano\n"
+	m := extractSongMetadata(body)
+	assert.Equal(t, "4:00", m.Duracion)
+	assert.Empty(t, m.Autor, "no explicit Autor: in the closing block means empty autor")
+}
+
+func TestExtractSongMetadata_IgnoresEarlyAutorHeader(t *testing.T) {
+	// "Autor:" near the top is a header attribution, not metadata. Only
+	// the last metadata block (Dura:/Tema:) is considered.
+	body := "EL GUSANITO MEDIDOR\n\n" +
+		"Autor: Gilda y Valentín Rincón\n\n" +
+		"Apúntate la negra…\n\n" +
+		"Dura: 4:00\n" +
+		"Tema: Naturaleza/ Cultura-Civilización.\n" +
+		"Personajes: Niños\n"
+	m := extractSongMetadata(body)
+	assert.Equal(t, "4:00", m.Duracion)
+	// Early Autor: stays inside the lyrics body — it's just the
+	// author attribution the lyrics file prints under the title.
+	assert.Contains(t, m.CleanLyrics, "Gilda y Valentín Rincón",
+		"early Autor: is content, not metadata")
+}
+
+func TestExtractSongMetadata_NoMarkers(t *testing.T) {
+	m := extractSongMetadata("verse\nchorus\n")
+	assert.Contains(t, m.CleanLyrics, "verse")
+	assert.Contains(t, m.CleanLyrics, "chorus")
+	assert.Empty(t, m.Autor)
+	assert.Empty(t, m.Duracion)
+}

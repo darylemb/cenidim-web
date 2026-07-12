@@ -172,15 +172,20 @@ func extractSongTitles(pistas string) []string {
 	return titles
 }
 
-func loadLyrics(letrasRoot, trackTitle string) (lyrics, filename string) {
+// loadLyrics returns (lyrics, filename, metadata) for `trackTitle`. The
+// metadata block (autor, compositor, duracion, personajes) is parsed
+// from the lyrics file tail and stripped from the lyrics body so it
+// does not pollute the word cloud. The first non-blank line is
+// dropped when it matches the title.
+func loadLyrics(letrasRoot, trackTitle string) (lyrics, filename string, metadata SongMetadata) {
 	found, _ := findLyricsFile(letrasRoot, trackTitle)
 	if found == "" {
-		return "", ""
+		return "", "", SongMetadata{}
 	}
 	content, err := os.ReadFile(found)
 	if err != nil {
 		log.Printf("⚠️ Error reading lyrics for %s: %v", trackTitle, err)
-		return "", ""
+		return "", "", SongMetadata{}
 	}
 	lyricsText := string(content)
 	filename = filepath.Base(found)
@@ -193,7 +198,68 @@ func loadLyrics(letrasRoot, trackTitle string) (lyrics, filename string) {
 			lyricsText = ""
 		}
 	}
-	return strings.TrimSpace(lyricsText), filename
+	m := extractSongMetadata(lyricsText)
+	return strings.TrimSpace(m.CleanLyrics), filename, m
+}
+
+// SongMetadata holds the structured values parsed from the bottom of
+// each lyrics file (Dura:, Tema:, Personajes:, Autor: + initials
+// fallback). It also carries the lyrics body with those markers
+// stripped, ready to be inserted into songs.lyrics.
+type SongMetadata struct {
+	Autor       string
+	Compositor  string
+	Duracion    string
+	Personajes  string
+	CleanLyrics string
+}
+
+var reDura       = regexp.MustCompile(`(?im)^Dura:\s*(.+?)\s*$`)
+var rePersonajes = regexp.MustCompile(`(?im)^Personajes:\s*(.+?)\s*$`)
+var reAutor      = regexp.MustCompile(`(?im)^Autor:\s*(.+?)\s*$`)
+var reCompositor = regexp.MustCompile(`(?im)^Compositor:\s*(.+?)\s*$`)
+var reInitials   = regexp.MustCompile(`(?m)^[A-Z](?:\.[A-Z]){1,4}\.?$`)
+
+func extractSongMetadata(lyricsText string) SongMetadata {
+	m := SongMetadata{CleanLyrics: lyricsText}
+	if strings.TrimSpace(lyricsText) == "" {
+		return m
+	}
+	// Identify the metadata block at the *bottom* of the file. The
+	// marker that always opens the closing block is Dura:, with Tema:,
+	// Personajes: and (rarely) Compositor: following it. Earlier
+	// occurrences (e.g. an "Autor:" attribution line right under
+	// the title) are NOT metadata — they stay in the lyrics body.
+	// We also drop a final author-initials line (e.g. "M.G.A.") that
+	// appears after Personajes: when the file has no explicit Autor:.
+	cutIdx := strings.LastIndex(lyricsText, "\nDura:")
+	if cutIdx < 0 {
+		cutIdx = strings.LastIndex(lyricsText, "\nTema:")
+	}
+	if cutIdx >= 0 {
+		head := lyricsText[:cutIdx]
+		tail := lyricsText[cutIdx:]
+		m.CleanLyrics = strings.TrimSpace(head)
+
+		if ms := reDura.FindStringSubmatch(tail); len(ms) > 1 {
+			m.Duracion = strings.TrimSpace(ms[1])
+		}
+		if ms := rePersonajes.FindStringSubmatch(tail); len(ms) > 1 {
+			m.Personajes = strings.TrimSpace(ms[1])
+		}
+		// Explicit Autor: in the metadata block wins; otherwise we
+		// fall back to author initials on the last non-empty line of
+		// the file.
+		if ms := reAutor.FindStringSubmatch(tail); len(ms) > 1 {
+			m.Autor = strings.TrimSpace(ms[1])
+		} else if init := reInitials.FindString(tail); init != "" {
+			m.Autor = init
+		}
+		if ms := reCompositor.FindStringSubmatch(tail); len(ms) > 1 {
+			m.Compositor = strings.TrimSpace(ms[1])
+		}
+	}
+	return m
 }
 
 func main() {
@@ -222,7 +288,7 @@ func main() {
 	}
 	defer func() { _ = db.Close() }()
 
-_, err = db.Exec(`
+	_, err = db.Exec(`
 		CREATE TABLE fonogramas (
 			clave_fonograma    INTEGER PRIMARY KEY,
 			titulo             TEXT NOT NULL,
@@ -248,6 +314,10 @@ _, err = db.Exec(`
 			lyrics         TEXT,
 			clasificacion  TEXT,
 			tema           TEXT,
+			autor          TEXT,
+			compositor     TEXT,
+			duracion       TEXT,
+			personajes     TEXT,
 			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
 			version        INTEGER DEFAULT 0,
 			FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
@@ -352,14 +422,14 @@ _, err = db.Exec(`
 		// Extract individual songs from Pistas and link lyrics
 		songTitles := extractSongTitles(pistas)
 		for _, trackTitle := range songTitles {
-			lyricsText, filename := loadLyrics(*letrasDir, trackTitle)
+			lyricsText, filename, md := loadLyrics(*letrasDir, trackTitle)
 			if filename != "" {
 				log.Printf("🔍 Matched: '%s' -> %s", trackTitle, filename)
 			}
 			_, err = tx.Exec(`
-				INSERT INTO songs (fonograma_id, title, filename, lyrics)
-				VALUES (?, ?, ?, ?)`,
-				clave, trackTitle, filename, lyricsText,
+				INSERT INTO songs (fonograma_id, title, filename, lyrics, autor, compositor, duracion, personajes)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				clave, trackTitle, filename, lyricsText, md.Autor, md.Compositor, md.Duracion, md.Personajes,
 			)
 			if err != nil {
 				log.Printf("⚠️ Error inserting song '%s': %v", trackTitle, err)

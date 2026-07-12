@@ -96,7 +96,8 @@ func SearchSongs(c *gin.Context) {
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
 		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
-		       COALESCE(s.clasificacion,''), COALESCE(s.tema,'')
+		       COALESCE(s.clasificacion,''), COALESCE(s.tema,''),
+		       COALESCE(s.autor,''), COALESCE(s.duracion,''), COALESCE(s.personajes,'')
 		FROM songs s
 		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
 	`
@@ -203,6 +204,7 @@ func SearchSongs(c *gin.Context) {
 			&s.InterpreteParticipante, &s.SoporteFisico, &s.Editora, &s.NumeroCatalogo,
 			&s.CiudadEdicion, &s.PaisEdicion, &s.Year, &s.Pistas, &s.Observaciones,
 			&s.Clasificacion, &s.Tema,
+			&s.Autor, &s.Duracion, &s.Personajes,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading results"})
 			return
@@ -245,7 +247,8 @@ func GetSong(c *gin.Context) {
 		       f.titulo, COALESCE(f.subtitulo,''), COALESCE(f.interprete_principal,''), COALESCE(f.interpretes_invitados,''),
 		       COALESCE(f.interprete_participante,''), COALESCE(f.soporte_fisico,''), COALESCE(f.editora,''), COALESCE(f.numero_catalogo,''),
 		       COALESCE(f.ciudad_edicion,''), COALESCE(f.pais_edicion,''), COALESCE(f.anio,''), COALESCE(f.pistas,''), COALESCE(f.observaciones,''),
-		       COALESCE(s.clasificacion,''), COALESCE(s.lyrics,'')
+		       COALESCE(s.clasificacion,''), COALESCE(s.lyrics,''),
+		       COALESCE(s.autor,''), COALESCE(s.compositor,''), COALESCE(s.duracion,''), COALESCE(s.personajes,'')
 		FROM songs s
 		JOIN fonogramas f ON s.fonograma_id = f.clave_fonograma
 		WHERE s.id = ?
@@ -258,6 +261,7 @@ func GetSong(c *gin.Context) {
 		&s.InterpreteParticipante, &s.SoporteFisico, &s.Editora, &s.NumeroCatalogo,
 		&s.CiudadEdicion, &s.PaisEdicion, &s.Year, &s.Pistas, &s.Observaciones,
 		&s.Clasificacion, &s.Lyrics,
+		&s.Autor, &s.Compositor, &s.Duracion, &s.Personajes,
 	)
 
 	if err == sql.ErrNoRows {

@@ -64,6 +64,10 @@ RE_TEMA = re.compile(
     re.DOTALL | re.MULTILINE,
 )
 RE_FIRST = re.compile(r'[,;]')
+RE_DURA_LINE = re.compile(r'(?im)^Dura:\s*(.+?)\s*$')
+RE_PERSONAJES_LINE = re.compile(r'(?im)^Personajes:\s*(.+?)\s*$')
+RE_AUTOR_LINE = re.compile(r'(?im)^Autor:\s*(.+?)\s*$')
+RE_INITIALS = re.compile(r'(?m)^[A-Z](?:\.[A-Z]){1,4}\.?$')
 
 
 def extract_raw_theme(texto: str) -> str:
@@ -95,6 +99,57 @@ def extract_all_themes(texto: str) -> list[str]:
     parts = [p.strip().rstrip('.').strip() for p in raw.split(',')]
     parts = [re.sub(r'\s+', ' ', p) for p in parts if p]
     return parts
+
+
+def extract_metadata(texto: str) -> dict:
+    """Extrae los campos estructurados al pie del archivo de letra.
+
+    Devuelve un dict con 'autor', 'duracion', 'personajes' y 'clean_lyrics'.
+    Busca los markers (Dura:, Tema:, Personajes:, Autor:) en el ÚLTIMO bloque
+    (que es el bloque de cierre); un 'Autor:' temprano bajo el título es un
+    atribución y se queda en el cuerpo de la letra.
+    """
+    out = {"autor": "", "compositor": "", "duracion": "", "personajes": "", "clean_lyrics": texto}
+    if not texto.strip():
+        return out
+
+    cut = texto.rfind("\nDura:")
+    if cut < 0:
+        cut = texto.rfind("\nTema:")
+    if cut < 0:
+        return out
+
+    head = texto[:cut]
+    tail = texto[cut:]
+    out["clean_lyrics"] = head.strip()
+
+    m = RE_DURA_LINE.search(tail)
+    if m:
+        out["duracion"] = m.group(1).strip()
+    m = RE_PERSONAJES_LINE.search(tail)
+    if m:
+        out["personajes"] = m.group(1).strip()
+    m = RE_AUTOR_LINE.search(tail)
+    if m:
+        out["autor"] = m.group(1).strip()
+    elif not out["autor"]:
+        init = RE_INITIALS.search(tail)
+        if init:
+            out["autor"] = init.group(0)
+    return out
+
+
+def canonical_tema(t: str) -> str:
+    """Title-Case each slash-delimited segment; preserves '/'."""
+    parts = [_title_token(p) for p in t.split("/")]
+    return "/".join([p for p in parts if p])
+
+
+def _title_token(s: str) -> str:
+    s = re.sub(r"\s+", " ", s.strip())
+    if not s:
+        return ""
+    return s[0].upper() + s[1:].lower()
 
 
 def preprocess_text(texto_raw, song_title=""):
@@ -200,36 +255,67 @@ def main():
         # Temas crudos: lista completa separada por '||' (no aparece en los
         # 'Tema:' originales), preserva el orden original.
         "ALTER TABLE songs ADD COLUMN temas_raw TEXT",
+        "ALTER TABLE songs ADD COLUMN autor TEXT",
+        "ALTER TABLE songs ADD COLUMN compositor TEXT",
+        "ALTER TABLE songs ADD COLUMN duracion TEXT",
+        "ALTER TABLE songs ADD COLUMN personajes TEXT",
     ]:
         try:
             cur.execute(ddl)
         except sqlite3.OperationalError:
             pass
 
-    print(f"Procesando {total} canciones con letra (Tema literal + clasificación OOV)...")
+    print(f"Procesando {total} canciones con letra (Tema literal + clasificación OOV + metadatos)...")
 
     stats_clasificacion = {"ESPAÑOL_ESTANDAR": 0, "ESPAÑOL_REGIONAL": 0, "LENGUA_INDIGENA": 0}
     stats_tema = Counter()
     sin_tema = 0
 
     for i, (song_id, song_title, lyrics) in enumerate(rows, 1):
-        resultado = clasificacion_oov(lyrics, song_title)
-        categoria = resultado["categoria"]
-        stats_clasificacion[categoria] += 1
+        # Recolectamos los metadatos estructurales que vienen al pie del
+        # .txt. Como db-builder ya recortó el lyrics antes de guardarlo,
+        # si la columna existe y tiene datos los respetamos; si no, lo
+        # recalculamos a partir del lyrics crudo almacenado.
+        metadata = extract_metadata(lyrics)
 
         # Tema: literal, no inferido. Se preserva la forma en que aparece
         # en el .txt (después de limpiar "(Subtema: ...)" y cortar en la
-        # primera coma).
+        # primera coma). Se canonicaliza a Title Case por segmento.
         tema = extract_raw_theme(lyrics)
+        tema_canon = canonical_tema(tema) if tema else ""
         temas_todos = extract_all_themes(lyrics)
+
+        # La clasificación OOV se recalcula SIEMPRE sobre el cuerpo limpio,
+        # no sobre el bloque de metadatos. Así, si db-builder no había
+        # limpiado la letra, esta corrida lo arregla retroactivamente.
+        cuerpo_limpio = metadata["clean_lyrics"] or lyrics
+        resultado = clasificacion_oov(cuerpo_limpio, song_title)
+        categoria = resultado["categoria"]
+        stats_clasificacion[categoria] += 1
+
         if not tema:
             sin_tema += 1
         else:
             stats_tema[tema] += 1
 
         cur.execute(
-            "UPDATE songs SET clasificacion = ?, tema = ?, temas_raw = ? WHERE id = ?",
-            (categoria, tema, '||'.join(temas_todos), song_id),
+            """
+            UPDATE songs
+            SET clasificacion = ?, tema = ?, temas_raw = ?,
+                autor = COALESCE(NULLIF(?, ''), autor),
+                compositor = COALESCE(NULLIF(?, ''), compositor),
+                duracion = COALESCE(NULLIF(?, ''), duracion),
+                personajes = COALESCE(NULLIF(?, ''), personajes),
+                lyrics = CASE WHEN ? != '' THEN ? ELSE lyrics END
+            WHERE id = ?
+            """,
+            (
+                categoria, tema_canon, '||'.join(temas_todos),
+                metadata["autor"], metadata["compositor"],
+                metadata["duracion"], metadata["personajes"],
+                cuerpo_limpio, cuerpo_limpio,
+                song_id,
+            ),
         )
 
         cur.execute(
