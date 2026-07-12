@@ -265,11 +265,9 @@ def main():
         except sqlite3.OperationalError:
             pass
 
-    print(f"Procesando {total} canciones con letra (Tema literal + clasificación OOV + metadatos)...")
+    print(f"Procesando {total} canciones con letra (clasificación OOV + metadatos)...")
 
     stats_clasificacion = {"ESPAÑOL_ESTANDAR": 0, "ESPAÑOL_REGIONAL": 0, "LENGUA_INDIGENA": 0}
-    stats_tema = Counter()
-    sin_tema = 0
 
     for i, (song_id, song_title, lyrics) in enumerate(rows, 1):
         # Recolectamos los metadatos estructurales que vienen al pie del
@@ -278,12 +276,12 @@ def main():
         # recalculamos a partir del lyrics crudo almacenado.
         metadata = extract_metadata(lyrics)
 
-        # Tema: literal, no inferido. Se preserva la forma en que aparece
-        # en el .txt (después de limpiar "(Subtema: ...)" y cortar en la
-        # primera coma). Se canonicaliza a Title Case por segmento.
-        tema = extract_raw_theme(lyrics)
-        tema_canon = canonical_tema(tema) if tema else ""
-        temas_todos = extract_all_themes(lyrics)
+        # Tema: ya extraído por cmd/build-db/main.go. classify_songs.py
+        # no debe pisarlo porque corre sobre la versión limpia de la
+        # letra (sin el bloque Tema:/Personajes:/Dura:/Autor que
+        # db-builder ya retiró), donde los extractores por regex
+        # devolverían '' y machacarían el dato.
+        temas_todos = []
 
         # La clasificación OOV se recalcula SIEMPRE sobre el cuerpo limpio,
         # no sobre el bloque de metadatos. Así, si db-builder no había
@@ -293,15 +291,10 @@ def main():
         categoria = resultado["categoria"]
         stats_clasificacion[categoria] += 1
 
-        if not tema:
-            sin_tema += 1
-        else:
-            stats_tema[tema] += 1
-
         cur.execute(
             """
             UPDATE songs
-            SET clasificacion = ?, tema = ?, temas_raw = ?,
+            SET clasificacion = ?,
                 autor = COALESCE(NULLIF(?, ''), autor),
                 compositor = COALESCE(NULLIF(?, ''), compositor),
                 duracion = COALESCE(NULLIF(?, ''), duracion),
@@ -310,7 +303,7 @@ def main():
             WHERE id = ?
             """,
             (
-                categoria, tema_canon, '||'.join(temas_todos),
+                categoria,
                 metadata["autor"], metadata["compositor"],
                 metadata["duracion"], metadata["personajes"],
                 cuerpo_limpio, cuerpo_limpio,
@@ -332,10 +325,18 @@ def main():
     for cat, count in stats_clasificacion.items():
         print(f"  {cat}: {count}")
 
-    print(f"\nCanciones sin 'Tema:': {sin_tema}")
-    print(f"Canciones con 'Tema:' clasificado: {sum(stats_tema.values())}")
-    print(f"\nTop 30 temas (literales, normalizados):")
-    for tema, count in stats_tema.most_common(30):
+    # Tema es propiedad exclusiva de db-builder; classify_songs.py
+    # no lo toca, así que esta sección sólo resume la distribución
+    # ya persistida en la DB.
+    tema_counts = Counter(
+        row[0] for row in cur.execute(
+            "SELECT tema FROM songs WHERE tema IS NOT NULL AND tema != ''"
+        )
+    )
+    print(f"\nCanciones con 'Tema:' clasificado: {sum(tema_counts.values())}")
+    print(f"Temas distintos: {len(tema_counts)}")
+    print(f"Top 30 temas (literales, normalizados):")
+    for tema, count in tema_counts.most_common(30):
         print(f"  {count:3d}  {tema}")
 
 
