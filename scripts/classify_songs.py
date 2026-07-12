@@ -318,16 +318,12 @@ def main():
         if i % 50 == 0 or i == total:
             print(f"  {i}/{total} procesadas...", flush=True)
 
-    con.commit()
-    con.close()
-
     print("\nClasificación por tipo de español:")
     for cat, count in stats_clasificacion.items():
         print(f"  {cat}: {count}")
 
-    # Tema es propiedad exclusiva de db-builder; classify_songs.py
-    # no lo toca, así que esta sección sólo resume la distribución
-    # ya persistida en la DB.
+    # Read the tema distribution BEFORE closing the connection so
+    # the summary report can show it.
     tema_counts = Counter(
         row[0] for row in cur.execute(
             "SELECT tema FROM songs WHERE tema IS NOT NULL AND tema != ''"
@@ -338,6 +334,9 @@ def main():
     print(f"Top 30 temas (literales, normalizados):")
     for tema, count in tema_counts.most_common(30):
         print(f"  {count:3d}  {tema}")
+
+    con.commit()
+    con.close()
 
 
 if __name__ == "__main__":
