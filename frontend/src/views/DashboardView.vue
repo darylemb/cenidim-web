@@ -47,37 +47,49 @@
         <strong>{{ stats?.catalog_total ?? stats?.total_songs ?? 0 }}</strong> canciones que coinciden con los filtros activos.
       </p>
 
-      <!-- KPI strip -->
+      <!-- KPI strip.
+           Each card carries a label, the value, and a hint that
+           answers "what does this number mean?" — reviewer feedback
+           (01/jul/2026) pointed out that the previous mix of
+           constant vs filter-dependent KPIs in the same strip was
+           confusing. We now label every constant KPI with a "catálogo
+           completo" tag and every filtered KPI with a "filtro actual"
+           tag. -->
       <section class="dashboard__kpis" aria-label="Indicadores clave">
         <article class="kpi">
           <span class="kpi__label">Total canciones</span>
           <span class="kpi__value display mono">{{ stats?.total_songs ?? 0 }}</span>
-          <span class="kpi__hint">Letras disponibles para análisis</span>
+          <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · {{ stats?.catalog_total ?? '–' }} en catálogo</span>
+          <span class="kpi__hint" v-else>Con letra en catálogo</span>
         </article>
         <article class="kpi">
           <span class="kpi__label">Álbumes</span>
           <span class="kpi__value display mono">{{ stats?.total_albums ?? 0 }}</span>
-          <span class="kpi__hint">Colecciones indexadas</span>
+          <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · colección única por disco</span>
+          <span class="kpi__hint" v-else>Colección única por disco</span>
         </article>
         <article class="kpi">
           <span class="kpi__label">Agregadas recientemente</span>
           <span class="kpi__value display mono kpi__value--accent">+{{ stats?.recently_added ?? 0 }}</span>
-          <span class="kpi__hint">Últimos 30 días</span>
+          <span class="kpi__hint">Catálogo completo · últimos 30 días</span>
         </article>
         <article class="kpi">
           <span class="kpi__label">Con letra</span>
           <span class="kpi__value display mono">{{ stats?.songs_with_lyrics ?? 0 }}</span>
-          <span class="kpi__hint">de {{ stats?.total_songs ?? 0 }} totales</span>
+          <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · de {{ stats?.total_songs ?? 0 }} visibles</span>
+          <span class="kpi__hint" v-else>En {{ stats?.catalog_total ?? '–' }} indexadas</span>
         </article>
         <article class="kpi">
-          <span class="kpi__label">Promedio caracteres</span>
-          <span class="kpi__value display mono">~{{ avgLyricsChars }}</span>
-          <span class="kpi__hint">Longitud media de letra</span>
+          <span class="kpi__label">Años distintos</span>
+          <span class="kpi__value display mono">{{ Object.keys(stats?.songs_by_year ?? {}).filter(y => y !== 's/d').length }}</span>
+          <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · rango temporal activo</span>
+          <span class="kpi__hint" v-else>Catálogo completo</span>
         </article>
         <article class="kpi">
           <span class="kpi__label">Temas distintos</span>
           <span class="kpi__value display mono">{{ stats?.distinct_themes ?? 0 }}</span>
-          <span class="kpi__hint">Categorías cubiertas</span>
+          <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · en {{ stats?.total_songs ?? 0 }} canciones</span>
+          <span class="kpi__hint" v-else>En catálogo completo</span>
         </article>
         <article v-if="(stats?.songs_without_year ?? 0) > 0" class="kpi kpi--warning">
           <span class="kpi__label">Sin año</span>
@@ -98,18 +110,12 @@
         </div>
       </section>
 
-      <!-- 2-col chart grid -->
+      <!-- 2-col chart grid.
+           Previously this row started with a "Top 10 por álbum" bar
+           chart. Reviewer feedback (01/jul/2026) marked it as not
+           relevant for the research analysis so it has been removed
+           (commit ux: dashboard KPI strip + chart labels clarified). -->
       <section class="dashboard__grid">
-        <article class="chart-card" aria-label="Distribución por álbum">
-          <header class="chart-header">
-            <span class="eyebrow">Top 10</span>
-            <h2 class="chart-header__title display">Por álbum</h2>
-          </header>
-          <div class="chart-canvas" role="img" aria-label="Gráfico de canciones por álbum">
-            <Bar :data="albumChartData" :options="albumChartOptions" />
-          </div>
-        </article>
-
         <article class="chart-card" aria-label="Clasificación de español">
           <header class="chart-header">
             <span class="eyebrow">Tipología lingüística</span>
@@ -223,12 +229,9 @@ watch(
   },
 );
 
-const avgLyricsChars = computed(() => {
-  const val = stats.value?.avg_lyrics_length ?? 0;
-  return val > 0 ? Math.round(val).toLocaleString() : '0';
-});
-
 const isEmptyResult = computed(() => (stats.value?.total_songs ?? 0) === 0);
+
+const hasActiveFilters = computed(() => !filters.isEmpty);
 
 const hasClasificacionData = computed(
   () => Object.keys(stats.value?.songs_by_clasificacion ?? {}).length > 0,
@@ -240,51 +243,10 @@ const hasOovData = computed(
   () => Object.keys(stats.value?.songs_by_oov_level ?? {}).length > 0,
 );
 
-const albumColors = [
-  'rgba(117, 20, 40, 0.85)',
-  'rgba(197, 164, 108, 0.85)',
-  'rgba(44, 74, 110, 0.85)',
-  'rgba(107, 128, 104, 0.85)',
-  'rgba(201, 122, 74, 0.85)',
-  'rgba(154, 42, 42, 0.85)',
-  'rgba(124, 58, 237, 0.85)',
-  'rgba(217, 119, 6, 0.85)',
-  'rgba(29, 78, 216, 0.85)',
-  'rgba(5, 150, 105, 0.85)',
-];
+// albumColors palette was tied to the Top 10 album chart and was
+// removed together with it (reviewer feedback 01/jul/2026).
 
-// ── Album Bar Chart ──────────────────────────────────────────
-const albumChartData = computed(() => {
-  const top = stats.value?.top_albums ?? [];
-  return {
-    labels: top.map((a) => (a.album.length > 28 ? a.album.substring(0, 25) + '…' : a.album)),
-    datasets: [
-      {
-        label: 'Canciones',
-        data: top.map((a) => a.count),
-        backgroundColor: top.map((_, i) => albumColors[i % albumColors.length]),
-        borderColor: top.map((_, i) => albumColors[i % albumColors.length].replace('0.85', '1')),
-        borderWidth: 2,
-        borderRadius: 2,
-      },
-    ],
-  };
-});
-
-const albumChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: { duration: 1000, easing: 'easeOutQuart' as const },
-  plugins: {
-    legend: { display: false },
-    title: { display: false },
-  },
-  scales: {
-    y: { beginAtZero: true, grid: { color: 'rgba(26, 22, 18, 0.06)' } },
-    x: { grid: { display: false }, ticks: { font: { family: 'Outfit', size: 11 } } },
-  },
-};
-
+// ── Clasificacion Doughnut ────────────────────────────────────
 // ── Clasificacion Doughnut ────────────────────────────────────
 const clasificacionChartData = computed(() => {
   const map = stats.value?.songs_by_clasificacion ?? {};

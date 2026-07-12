@@ -10,10 +10,16 @@ const filters = useFiltersStore()
 const route = useRoute()
 const router = useRouter()
 
-// Local mirror of store — kept for two-way binding with debounce
+// Local mirror of store — kept for two-way binding with debounce.
+// Years are tracked as raw strings so the input never "loses" what
+// the user typed mid-typing; parseInt-or-null conversion happens at
+// commit time. The previous v-model.number + type=number combination
+// coerced empty input to an empty string, which Vue replaced with
+// the placeholder — making the value appear to vanish between
+// blur and re-render.
 const localThemesInput = ref<string[]>([])
-const localYearFrom = ref<number | ''>('')
-const localYearTo = ref<number | ''>('')
+const localYearFrom = ref<string>('')
+const localYearTo = ref<string>('')
 const localClasificaciones = ref<string[]>([])
 const localAlbum = ref('')
 const localQ = ref('')
@@ -56,9 +62,13 @@ function commitToUrl() {
 
 function applyFilters() {
   filters.themes = [...localThemesInput.value]
+  const fromRaw = localYearFrom.value.trim()
+  const toRaw = localYearTo.value.trim()
+  const from = fromRaw === '' ? null : Number.parseInt(fromRaw, 10)
+  const to = toRaw === '' ? null : Number.parseInt(toRaw, 10)
   filters.setYearRange(
-    typeof localYearFrom.value === 'number' ? localYearFrom.value : null,
-    typeof localYearTo.value === 'number' ? localYearTo.value : null,
+    Number.isFinite(from) ? from : null,
+    Number.isFinite(to) ? to : null,
   )
   filters.clasificaciones = [...localClasificaciones.value]
   filters.album = localAlbum.value || null
@@ -76,8 +86,8 @@ function clearAll() {
 
 function syncFromStore() {
   localThemesInput.value = [...filters.themes]
-  localYearFrom.value = filters.yearFrom ?? ''
-  localYearTo.value = filters.yearTo ?? ''
+  localYearFrom.value = filters.yearFrom != null ? String(filters.yearFrom) : ''
+  localYearTo.value = filters.yearTo != null ? String(filters.yearTo) : ''
   localClasificaciones.value = [...filters.clasificaciones]
   localAlbum.value = filters.album ?? ''
   localQ.value = filters.q
@@ -153,20 +163,30 @@ function onYearBlur() {
     </header>
 
     <div class="filters__body">
-      <!-- Year range -->
+      <!-- Year range.
+           Reviewer feedback (01/jul/2026) flagged that the "Hasta"
+           input appeared to clear itself after blur, leaving the
+           value only visible in the "Filtros aplicados" chips below.
+           Root cause: v-model.number + number inputs coerce empty
+           strings, and our commit-on-blur handler re-renders the
+           input with placeholder. We switch to a string v-model,
+           parse on commit, and use a clearer placeholder so the user
+           can always see what they typed even while the
+           dashboard is refetching stats. -->
       <fieldset class="filter-group">
         <legend class="filter-group__legend">Rango de años</legend>
         <div class="filter-group__row">
           <label class="filter-input-wrap">
             <span class="filter-input-label">Desde</span>
             <input
-              v-model.number="localYearFrom"
+              v-model="localYearFrom"
               type="number"
               inputmode="numeric"
               min="1900"
               max="2100"
+              step="1"
               class="filter-input mono"
-              placeholder="—"
+              placeholder="1980"
               @change="onYearBlur"
             />
           </label>
@@ -174,25 +194,41 @@ function onYearBlur() {
           <label class="filter-input-wrap">
             <span class="filter-input-label">Hasta</span>
             <input
-              v-model.number="localYearTo"
+              v-model="localYearTo"
               type="number"
               inputmode="numeric"
               min="1900"
               max="2100"
+              step="1"
               class="filter-input mono"
-              placeholder="—"
+              placeholder="1985"
               @change="onYearBlur"
             />
           </label>
         </div>
+        <p
+          v-if="filters.yearFrom != null || filters.yearTo != null"
+          class="filter-group__hint"
+          id="year-range-hint"
+        >
+          Filtro activo: {{ filters.yearFrom ?? '*' }} – {{ filters.yearTo ?? '*' }}
+        </p>
       </fieldset>
 
-      <!-- Theme chips — dynamically populated from /api/stats -->
+      <!-- Theme chips — dynamically populated from /api/stats.
+           Previously the legend said "X valores del catálogo" which
+           could be misread as "X temas distintos en el catálogo". The
+           "24 valores del catálogo" hint confused reviewers because
+           the KPI strip elsewhere said "33 temas distintos" under a
+           filter. We now qualify the hint as "catálogo completo" and
+           move the precise count to a dedicated chip-list summary
+           line so the user sees the exact taxonomy size and that it
+           is the catalog-wide one, not a filter-dependent one. -->
       <fieldset class="filter-group filter-group--wide">
         <legend class="filter-group__legend">
           Tema
           <span class="filter-group__hint">
-            ({{ knownThemes.length }} valores del catálogo)
+            ({{ knownThemes.length }} temas en catálogo completo)
           </span>
         </legend>
         <div v-if="knownThemes.length === 0" class="filter-group__empty">
