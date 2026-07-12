@@ -23,11 +23,11 @@ import (
 var articles = []string{"el ", "la ", "los ", "las ", "un ", "una ", "unos ", "unas "}
 
 var (
-	parenRe      = regexp.MustCompile(`\s*\(.*?\)`)
-	bracketRe    = regexp.MustCompile(`\s*\[.*?\]`)
-	nonAlnumRe   = regexp.MustCompile(`[^\w\s]`)
-	spaceRe      = regexp.MustCompile(`\s+`)
-	trackRe      = regexp.MustCompile(`\d+\.\s+`)
+	parenRe       = regexp.MustCompile(`\s*\(.*?\)`)
+	bracketRe     = regexp.MustCompile(`\s*\[.*?\]`)
+	nonAlnumRe    = regexp.MustCompile(`[^\w\s]`)
+	spaceRe       = regexp.MustCompile(`\s+`)
+	trackRe       = regexp.MustCompile(`\d+\.\s+`)
 	trailingParen = regexp.MustCompile(`\s*\([^)]*\)\s*$`)
 )
 
@@ -214,11 +214,11 @@ type SongMetadata struct {
 	CleanLyrics string
 }
 
-var reDura       = regexp.MustCompile(`(?im)^Dura:\s*(.+?)\s*$`)
+var reDura = regexp.MustCompile(`(?im)^Dura:\s*(.+?)\s*$`)
 var rePersonajes = regexp.MustCompile(`(?im)^Personajes:\s*(.+?)\s*$`)
-var reAutor      = regexp.MustCompile(`(?im)^Autor:\s*(.+?)\s*$`)
+var reAutor = regexp.MustCompile(`(?im)^Autor:\s*(.+?)\s*$`)
 var reCompositor = regexp.MustCompile(`(?im)^Compositor:\s*(.+?)\s*$`)
-var reInitials   = regexp.MustCompile(`(?m)^[A-Z](?:\.[A-Z]){1,4}\.?$`)
+var reInitials = regexp.MustCompile(`(?m)^[A-Z](?:\.[A-Z]){1,4}\.?$`)
 
 func extractSongMetadata(lyricsText string) SongMetadata {
 	m := SongMetadata{CleanLyrics: lyricsText}
