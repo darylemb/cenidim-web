@@ -98,12 +98,18 @@
         </article>
       </section>
 
-      <!-- Hero chart: timeline by year -->
+      <!-- Hero chart: timeline by year.
+           The chart tooltip explains how the year bucket is built
+           and that 's/d' represents songs whose fonograma has no
+           publish year. -->
       <section class="dashboard__hero" aria-label="Canciones por año">
         <header class="chart-header">
           <span class="eyebrow">Eje temporal</span>
           <h2 class="chart-header__title display">Canciones por año</h2>
-          <p class="chart-header__caption">Volumen anual del catálogo, año a año.</p>
+          <p class="chart-header__caption">
+            Volumen anual del catálogo, año a año.
+            <ChartInfoButton :info="chartInfo.cancionesPorAnio" />
+          </p>
         </header>
         <div class="chart-canvas" role="img" aria-label="Gráfico de canciones por año">
           <Line :data="yearLineChartData" :options="yearLineChartOptions" />
@@ -114,23 +120,40 @@
            Previously this row started with a "Top 10 por álbum" bar
            chart. Reviewer feedback (01/jul/2026) marked it as not
            relevant for the research analysis so it has been removed
-           (commit ux: dashboard KPI strip + chart labels clarified). -->
+           (commit ux: dashboard KPI strip + chart labels clarified).
+           Each remaining chart now carries a ChartInfoButton that
+           surfaces the definition in a popover so the user does not
+           have to consult an external glossary to understand what
+           the visualization measures. -->
       <section class="dashboard__grid">
-        <article class="chart-card" aria-label="Clasificación de español">
+        <article class="chart-card" aria-label="Tipología lingüística">
           <header class="chart-header">
             <span class="eyebrow">Tipología lingüística</span>
             <h2 class="chart-header__title display">Clasificación</h2>
+            <p class="chart-header__caption">
+              Distribución por categoría de español.
+              <ChartInfoButton :info="chartInfo.clasificacion" />
+            </p>
           </header>
-          <div class="chart-canvas" role="img" aria-label="Gráfico de clasificación de español">
+          <div class="chart-canvas" role="img" aria-label="Gráfico de clasificación lingüística">
             <Doughnut v-if="hasClasificacionData" :data="clasificacionChartData" :options="doughnutChartOptions" />
             <EmptyState v-else label="Sin datos de clasificación" />
           </div>
+          <ul class="chart-card__legend" aria-label="Leyenda">
+            <li><strong>Estándar</strong> &lt; 5% palabras OOV — vocabulario cotidiano</li>
+            <li><strong>Regional</strong> 5–18% OOV — regionalismos sin presencia indígena</li>
+            <li><strong>Indígena</strong> contiene palabras de la lista <code>PALABRAS_INDIGENAS</code> o &gt; 18% OOV</li>
+          </ul>
         </article>
 
         <article class="chart-card" aria-label="Canciones por tema">
           <header class="chart-header">
             <span class="eyebrow">Categorías temáticas</span>
             <h2 class="chart-header__title display">Por tema</h2>
+            <p class="chart-header__caption">
+              Distribución por tema declarado en el archivo de letra.
+              <ChartInfoButton :info="chartInfo.tema" />
+            </p>
           </header>
           <div class="chart-canvas" role="img" aria-label="Gráfico de canciones por tema">
             <Bar v-if="hasThemeData" :data="themeChartData" :options="themeChartOptions" />
@@ -138,15 +161,24 @@
           </div>
         </article>
 
-        <article class="chart-card" aria-label="Nivel OOV">
+        <article class="chart-card" aria-label="Nivel de vocabulario fuera del modelo">
           <header class="chart-header">
             <span class="eyebrow">Léxico</span>
-            <h2 class="chart-header__title display">Nivel OOV</h2>
+            <h2 class="chart-header__title display">Índice OOV</h2>
+            <p class="chart-header__caption">
+              Porcentaje de palabras no reconocidas por spaCy <code>es_core_news_md</code>.
+              <ChartInfoButton :info="chartInfo.oov" />
+            </p>
           </header>
-          <div class="chart-canvas" role="img" aria-label="Gráfico de nivel OOV por canción">
+          <div class="chart-canvas" role="img" aria-label="Gráfico de índice OOV por canción">
             <Bar v-if="hasOovData" :data="oovChartData" :options="oovChartOptions" />
             <EmptyState v-else label="Sin datos de OOV" />
           </div>
+          <ul class="chart-card__legend" aria-label="Leyenda">
+            <li><strong>Baja</strong> &lt; 5% OOV</li>
+            <li><strong>Media</strong> 5–18% OOV</li>
+            <li><strong>Alta</strong> &gt; 18% OOV</li>
+          </ul>
         </article>
       </section>
 
@@ -173,10 +205,12 @@ import WordCloud from '@/components/WordCloud.vue';
 import DashboardFilters from '@/components/DashboardFilters.vue';
 import FilterChips from '@/components/FilterChips.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import ChartInfoButton from '@/components/ChartInfoButton.vue';
 import { apiService } from '@/services/api';
 import { useFiltersStore } from '@/stores/filters';
 import type { Stats } from '@/types';
 import { swatchFor } from '@/config/themes';
+import { chartInfo } from '@/config/chartInfo';
 
 const filters = useFiltersStore();
 const stats = ref<Stats | null>(null);
@@ -650,6 +684,38 @@ const themeChartOptions = {
 
 .chart-card:nth-child(2n) {
   border-right: none;
+}
+
+.chart-card__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  border-top: var(--hairline-soft);
+  padding-top: var(--space-3);
+}
+.chart-card__legend li {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.chart-card__legend strong {
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 5.5rem;
+  display: inline-block;
+}
+.chart-card__legend code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0 var(--space-1);
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-sm);
 }
 
 .chart-header {
