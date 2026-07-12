@@ -4,6 +4,8 @@ This repository contains the full stack web application for **Cenidim** (Centro 
 
 The application serves a digital archive of musical lyrics — the CENIDIM children's songbook collection — and lets researchers search by title, album, or lyric content, browse statistical dashboards, and (for admins) manage the catalog and user accounts. The frontend follows a single design-token reference (Fraunces + Outfit + JetBrains Mono on a vino/mostaza/crema palette) so every page is visually consistent.
 
+**Glossary & terminology**: see [`docs/GLOSARIO.md`](docs/GLOSARIO.md) for the canonical definitions of every chart, KPI, and category shown on the dashboard. The frontend's `ⓘ` info buttons on each chart source their long-form text from `frontend/src/config/chartInfo.ts`.
+
 ## Architecture
 
 1. **Backend (Go – Gin)**: high-performance REST API written in Go. Runs on a **Distroless** image for minimum attack surface. Search latency is single-digit milliseconds on the full ~4,000 song catalog.
