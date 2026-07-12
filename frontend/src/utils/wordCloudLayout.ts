@@ -132,7 +132,12 @@ export function packWordCloud(
     mediumRadialStep: 18,
     angleStep: 0.42,
     heroDistributeCount: 6,
-    paddingFactor: 0.18,
+    // Padding between word boxes, as a fraction of the word's
+    // font size. Bumped from 0.18 → 0.28 in response to reviewer
+    // feedback 01/jul/2026 ("zona con palabras encimadas"). The
+    // trade-off is that fewer words fit per canvas, but the
+    // remaining ones read as discrete units.
+    paddingFactor: 0.28,
     charWidthFactor: 0.55,
     verticalSquish: 0.82,
     palette: DEFAULT_PALETTE,

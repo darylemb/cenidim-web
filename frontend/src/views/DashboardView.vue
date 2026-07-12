@@ -183,13 +183,10 @@
       </section>
 
       <!-- Word cloud full width — uses its own aspect ratio so the SVG
-           fills the container's width without being letterboxed. -->
+           fills the container's width without being letterboxed. The
+           WordCloud component now owns its own header (intro + info
+           button); we keep the wrapper section for layout slot. -->
       <section class="dashboard__wordcloud" aria-label="Nube de palabras">
-        <header class="chart-header">
-          <span class="eyebrow">Vocabulario recurrente</span>
-          <h2 class="chart-header__title display">Nube de palabras</h2>
-          <p class="chart-header__caption">Términos más frecuentes en las letras del archivo.</p>
-        </header>
         <div class="wordcloud-frame" role="img" aria-label="Nube de palabras frecuentes en las canciones">
           <WordCloud />
         </div>

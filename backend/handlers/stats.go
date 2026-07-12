@@ -426,13 +426,22 @@ func GetWordCloud(c *gin.Context) {
 		if err := rows.Scan(&letra); err == nil {
 			words := extractWords(cleanLyrics(letra))
 			for _, word := range words {
-				wordLower := word
+				// Case-fold BEFORE counting so "Mamá" and "mamá"
+				// collapse into a single bucket. This is the only
+				// place in the word-cloud path where case folding
+				// can happen (the front-end stop-word set already
+				// compares lowercased). Without this the cloud
+				// shows duplicate chips.
+				key := strings.ToLower(word)
+				if len(key) < 2 {
+					continue
+				}
 				totalWords++
-				if spanishStopWords[wordLower] {
+				if spanishStopWords[key] {
 					excludedCount++
 					continue
 				}
-				wordCounts[wordLower]++
+				wordCounts[key]++
 			}
 		}
 	}
