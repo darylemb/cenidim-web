@@ -211,14 +211,17 @@ type SongMetadata struct {
 	Compositor  string
 	Duracion    string
 	Personajes  string
+	Tema        string
 	CleanLyrics string
 }
 
-var reDura = regexp.MustCompile(`(?im)^Dura:\s*(.+?)\s*$`)
+var reDura       = regexp.MustCompile(`(?im)^Dura:\s*(.+?)\s*$`)
 var rePersonajes = regexp.MustCompile(`(?im)^Personajes:\s*(.+?)\s*$`)
-var reAutor = regexp.MustCompile(`(?im)^Autor:\s*(.+?)\s*$`)
+var reTema       = regexp.MustCompile(`(?im)^Tema:\s*(.+?)\s*$`)
+var reAutor      = regexp.MustCompile(`(?im)^Autor:\s*(.+?)\s*$`)
 var reCompositor = regexp.MustCompile(`(?im)^Compositor:\s*(.+?)\s*$`)
-var reInitials = regexp.MustCompile(`(?m)^[A-Z](?:\.[A-Z]){1,4}\.?$`)
+var reInitials   = regexp.MustCompile(`(?m)^[A-Z](?:\.[A-Z]){1,4}\.?$`)
+var reTemaSegment = regexp.MustCompile(`[,;]`)
 
 func extractSongMetadata(lyricsText string) SongMetadata {
 	m := SongMetadata{CleanLyrics: lyricsText}
@@ -247,6 +250,21 @@ func extractSongMetadata(lyricsText string) SongMetadata {
 		if ms := rePersonajes.FindStringSubmatch(tail); len(ms) > 1 {
 			m.Personajes = strings.TrimSpace(ms[1])
 		}
+		if ms := reTema.FindStringSubmatch(tail); len(ms) > 1 {
+			// The Tema: line can hold one or many comma-separated
+			// themes: "Familia, Eternidad/ Temporalidad." We persist
+			// the FIRST one as the canonical tema for the dashboard
+			// (the raw value will be normalized by the canonicalTema
+			// helper in handlers/stats.go and folded into a single
+			// chip per concept). classify_songs.py also reads Tema:
+			// back from the raw .txt if it needs the full list.
+			raw := strings.TrimSpace(ms[1])
+			// Strip "(Subtema: ...)" parenthetical and trailing period
+			raw = reTemaParen.ReplaceAllString(raw, "")
+			raw = reTemaSegment.Split(raw, 2)[0]
+			raw = strings.TrimSpace(strings.TrimRight(raw, "."))
+			m.Tema = strings.TrimSpace(raw)
+		}
 		// Explicit Autor: in the metadata block wins; otherwise we
 		// fall back to author initials on the last non-empty line of
 		// the file.
@@ -261,6 +279,8 @@ func extractSongMetadata(lyricsText string) SongMetadata {
 	}
 	return m
 }
+
+var reTemaParen = regexp.MustCompile(`\s*\([^)]*\)`)
 
 func main() {
 	csvPath := flag.String("csv", "../db_fonografia.csv", "Path to db_fonografia.csv")
@@ -318,6 +338,7 @@ func main() {
 			compositor     TEXT,
 			duracion       TEXT,
 			personajes     TEXT,
+			temas_raw      TEXT,
 			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
 			version        INTEGER DEFAULT 0,
 			FOREIGN KEY (fonograma_id) REFERENCES fonogramas(clave_fonograma)
@@ -427,9 +448,9 @@ func main() {
 				log.Printf("🔍 Matched: '%s' -> %s", trackTitle, filename)
 			}
 			_, err = tx.Exec(`
-				INSERT INTO songs (fonograma_id, title, filename, lyrics, autor, compositor, duracion, personajes)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-				clave, trackTitle, filename, lyricsText, md.Autor, md.Compositor, md.Duracion, md.Personajes,
+				INSERT INTO songs (fonograma_id, title, filename, lyrics, autor, compositor, duracion, personajes, tema)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				clave, trackTitle, filename, lyricsText, md.Autor, md.Compositor, md.Duracion, md.Personajes, md.Tema,
 			)
 			if err != nil {
 				log.Printf("⚠️ Error inserting song '%s': %v", trackTitle, err)
