@@ -188,12 +188,13 @@ func TestGetStatsIncludesThemeAggregation(t *testing.T) {
 	// Themes seeded: AMOR x2, NAVIDAD x1, FIESTA x1, NULL x1.
 	// The "Sin tema" / empty bucket is intentionally EXCLUDED from the
 	// response — the thematic-categories dashboard does not show it.
-	assert.Equal(t, 2, stats.SongsByTheme["AMOR"])
-	assert.Equal(t, 1, stats.SongsByTheme["NAVIDAD"])
-	assert.Equal(t, 1, stats.SongsByTheme["FIESTA"])
+	assert.Equal(t, 2, stats.SongsByTheme["Amor"],
+		"tema stored as AMOR must surface in canonical Title Case")
+	assert.Equal(t, 1, stats.SongsByTheme["Navidad"])
+	assert.Equal(t, 1, stats.SongsByTheme["Fiesta"])
 	_, hasEmpty := stats.SongsByTheme[""]
 	assert.False(t, hasEmpty, "unclassified songs must NOT appear in any bucket")
-	assert.Equal(t, 3, stats.DistinctThemes, "3 distinct buckets (AMOR, NAVIDAD, FIESTA) — empty excluded")
+	assert.Equal(t, 3, stats.DistinctThemes, "3 distinct buckets — empty excluded")
 }
 
 func TestGetStatsWithThemeFilter(t *testing.T) {
@@ -214,10 +215,11 @@ func TestGetStatsWithThemeFilter(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &stats)
 	require.NoError(t, err)
 
-	assert.Equal(t, 2, stats.SongsByTheme["AMOR"])
+	assert.Equal(t, 2, stats.SongsByTheme["Amor"],
+		"tema stored as AMOR must surface in canonical Title Case")
 	assert.Equal(t, 1, stats.DistinctThemes)
-	_, hasNavidad := stats.SongsByTheme["NAVIDAD"]
-	assert.False(t, hasNavidad, "NAVIDAD should be filtered out")
+	_, hasNavidad := stats.SongsByTheme["Navidad"]
+	assert.False(t, hasNavidad, "Navidad should be filtered out")
 }
 
 func TestGetStatsWithUnclassifiedThemeFilter(t *testing.T) {
@@ -264,6 +266,64 @@ func TestGetStatsRejectsInvalidYearRange(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestCanonicalTema folds human capitalization variants into a single
+// chip. The dashboard relies on this so "Vida/ muerte" and "Vida/
+// Muerte" don't show up as two separate filters.
+func TestCanonicalTema(t *testing.T) {
+	cases := []struct {
+		in, out string
+	}{
+		{"Vida/ muerte", "Vida/Muerte"},
+		{"Vida/ Muerte", "Vida/Muerte"},
+		{"equilibrio / desequilibrio", "Equilibrio/Desequilibrio"},
+		{" Orden/Caos ", "Orden/Caos"},
+		{"Familia", "Familia"},
+		{"", ""},
+		{"   ", ""},
+	}
+	for _, c := range cases {
+		got := canonicalTema(c.in)
+		assert.Equal(t, c.out, got, "canonicalTema(%q)", c.in)
+	}
+}
+
+// TestGetStatsNormalizesTemaCase is the end-to-end version of the
+// canonicalTema test: it inserts two rows with different case
+// variants of the same theme and verifies they collapse under a
+// single chip in the dashboard response.
+func TestGetStatsNormalizesTemaCase(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setupTestDBForStats(t)
+	defer func() { _ = database.DB.Close() }()
+
+	_, err := database.DB.Exec(
+		`UPDATE songs SET tema = 'Vida/ muerte' WHERE id IN (1, 2)`,
+	)
+	require.NoError(t, err)
+	_, err = database.DB.Exec(
+		`UPDATE songs SET tema = 'Vida/ Muerte' WHERE id IN (3, 4, 5)`,
+	)
+	require.NoError(t, err)
+
+	r := gin.New()
+	r.GET("/stats", GetStats)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/stats", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var stats StatsResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &stats))
+
+	assert.Equal(t, 5, stats.SongsByTheme["Vida/Muerte"],
+		"both case variants should fold into a single canonical chip")
+	_, hasVidaMuerte := stats.SongsByTheme["Vida/ Muerte"]
+	assert.False(t, hasVidaMuerte, "non-canonical key must not appear in the response")
+	_, hasVida_muerte := stats.SongsByTheme["Vida/ muerte"]
+	assert.False(t, hasVida_muerte, "non-canonical key must not appear in the response")
 }
 
 func TestGetStatsWithYearRange(t *testing.T) {

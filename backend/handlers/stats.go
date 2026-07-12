@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/daryl/cenidim-go-api/database"
 	"github.com/gin-gonic/gin"
@@ -38,6 +39,41 @@ type AlbumCount struct {
 	Year  string `json:"year"`
 	Count int    `json:"count"`
 }
+
+// canonicalTema normalizes a raw `Tema:` value to a stable form so that
+// human capitalization variants ("Vida/ muerte", "Vida/ Muerte") and
+// stray whitespace ("Equilibrio / Desequilibrio") collapse under one
+// chip in the dashboard. Single-word themes get Title Case; binomial
+// themes ("A/B") preserve the "/" and Title Case each segment. The
+// caller is expected to feed a pre-trimmed, lowercased key — the
+// SQL aggregation already does `LOWER(TRIM(...))` so this routine is
+// the display-side canonicalizer.
+func canonicalTema(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	parts := strings.Split(s, "/")
+	for i, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		// Title-case a single character, then lowercase the rest.
+		runes := []rune(p)
+		runes[0] = unicode.ToUpper(runes[0])
+		for j := 1; j < len(runes); j++ {
+			runes[j] = unicode.ToLower(runes[j])
+		}
+		parts[i] = string(runes)
+	}
+	out := strings.Join(parts, "/")
+	// Collapse internal whitespace (defensive, in case the SQL key has
+	// tabs or double spaces around the slash).
+	return spaceCollapseRegex.ReplaceAllString(out, " ")
+}
+
+var spaceCollapseRegex = regexp.MustCompile(`\s+`)
 
 // GetStats godoc
 // @Summary Get database statistics
@@ -242,10 +278,18 @@ func GetStats(c *gin.Context) {
 	// bucket — "Sin tema" / unclassified songs are not part of the
 	// thematic category dashboard. The dashboard filter chip list is
 	// derived from this same aggregate.
+	//
+	// Theme normalization: the raw `Tema:` values are written by hand
+	// and end up with case variations ("Vida/ muerte" vs "Vida/ Muerte")
+	// and occasional typos. We group by lower(trim(tema)) and re-emit
+	// the canonical Title-Case form (canonicalTema) so the front never
+	// shows two chips for the same concept. Existing rows that have not
+	// been re-processed by classify_songs.py still get folded under
+	// the same bucket by the LOWER() grouping.
 	themeQuery := `
-		SELECT s.tema, COUNT(*)
+		SELECT LOWER(TRIM(COALESCE(s.tema, ''))) AS tema_key, COUNT(*)
 		` + songFrom + whereWrap(whereAnd(filterWhere, "s.tema IS NOT NULL AND s.tema != ''")) + `
-		GROUP BY s.tema
+		GROUP BY LOWER(TRIM(COALESCE(s.tema, '')))
 		ORDER BY COUNT(*) DESC
 	`
 	themeRows, themeErr := database.DB.Query(themeQuery, filterArgs...)
@@ -256,7 +300,7 @@ func GetStats(c *gin.Context) {
 			var cnt int
 			if err := themeRows.Scan(&t, &cnt); err == nil {
 				if t != "" {
-					stats.SongsByTheme[t] = cnt
+					stats.SongsByTheme[canonicalTema(t)] = cnt
 				}
 			}
 		}
