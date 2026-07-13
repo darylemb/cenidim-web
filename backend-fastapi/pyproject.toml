@@ -42,10 +42,11 @@ addopts = [
     "--strict-config",
     "--cov=app",
     "--cov-report=term-missing",
-    # Phase-1 gate is 80%; master plan calls for 95% by Phase 7.
-    # The public router's raw-SQL paths are exercised via dedicated
-    # suite in Phase 2.
-    "--cov-fail-under=80",
+    # Phase-2 gate is 90%; master plan still calls for 95% by Phase 7.
+    # The public router's raw-SQL paths were replaced with ORM in
+    # Phase 2; the remaining ~8% lives in the production google-oauth
+    # verifier (lazy import) and the few error branches in services.
+    "--cov-fail-under=90",
 ]
 
 [tool.coverage.run]

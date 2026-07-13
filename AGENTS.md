@@ -9,7 +9,7 @@
 
 ## Active Branches
 - `fix/phase-0-admin-google-recovery-tests` (commit `2aab765`) — admin edits, password recovery, demote Google from login. Lives on `main`. Frontend coverage 95.4%.
-- `feature/fastapi-backend` — Phase 1 of the Go→FastAPI cut-over (commit `2a19551`+). 77 tests passing at 82% coverage, ruff clean. **All work happens here**; `backend/` stays untouched until Phase 7.
+- `feature/fastapi-backend` — Phase 1+2 of the Go→FastAPI cut-over (commit `2a19551`+). 97 tests passing at 92% coverage, ruff clean, 90% gate. **All work happens here**; `backend/` stays untouched until Phase 7.
 - `fix/critical-bugs-dashboard-and-oauth` — Go-era backup branch (do not delete; rollback target per user instruction).
 - `ux/dashboard-fixes-2026-07` — reviewer-feedback branch.
 
@@ -17,7 +17,7 @@
 ```bash
 cd backend-fastapi
 uv sync                              # one-time install + lock
-PYTHONPATH=. uv run pytest tests/    # 77 tests, 82% coverage
+PYTHONPATH=. uv run pytest tests/    # 97 tests, 92% coverage (90% gate)
 uv run ruff check app/ tests/        # lint (clean)
 uv run mypy app/                     # type check (strict, ignore_missing_imports)
 uv run uvicorn app.main:app --port 8000 --reload
@@ -39,10 +39,12 @@ uv run uvicorn app.main:app --port 8000 --reload
   in-memory engine between the FastAPI app and direct ORM seed
   helpers (`make_user`, `make_admin`, `make_identity`,
   `make_email_outbox`).
-- Coverage gate is `80%` (Phase 1); master plan calls for `95%` by
-  Phase 7 (post-cutover). Routes/services we have hardened are
-  covered; the public router's raw-SQL paths are exercised via a
-  dedicated suite in Phase 2.
+- Coverage gate is `90%` (Phase 2); master plan still calls for
+  `95%` by Phase 7 (post-cutover). Phase 2 replaced the public
+  router's raw-SQL paths with ORM (`/api/search`, `/api/song/{id}`,
+  `/api/timeline`, `/api/stats`, `/api/word-cloud`); the remaining
+  ~8% lives in the production google-oauth verifier (lazy import)
+  and a few error branches in services.
 
 ## Database Build
 ```bash
