@@ -19,10 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   /api/auth/me, AuthResponse token field, admin song create returns
   SongOut) + OpenAPI drift guard (openapi.json checked in,
   scripts/generate_openapi.py, tests/api/test_openapi.py).
-- Phase 5 (commit pending): end-to-end integration test that boots
+- Phase 5 (commit `9fd2e66`): end-to-end integration test that boots
   real uvicorn (`tests/integration/test_uvicorn_smoke.py`) +
   `scripts/smoke.sh` post-deploy health check + GitHub Actions
   `fastapi-checks` and `docker-build-fastapi` jobs.
+- Phase 6 (commit pending): Alembic migrations (alembic.ini +
+  env.py + initial_schema revision), hand-rolled Prometheus metrics
+  (`app/observability.py` + `/metrics` endpoint), structured JSON
+  logging (`app/logging_config.py`).
 - New `RefreshTokenRevocation` and `AuditLog` tables matching the
   planned schema (mirrored from the Go-side design).
 - `/api/auth/refresh` rotates the refresh token's `jti` so stolen

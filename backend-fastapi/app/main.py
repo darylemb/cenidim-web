@@ -1,7 +1,7 @@
 """Common dependencies + CORS + security middleware."""
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
@@ -10,6 +10,15 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import Settings, get_settings
 from app.db import dispose_engine, init_engine
+from app.logging_config import configure_logging
+from app.observability import (
+    HTTP_4XX,
+    HTTP_5XX,
+    HTTP_LATENCY,
+    HTTP_REQUESTS,
+    REGISTRY,
+    timed,
+)
 from app.routers import admin as admin_router
 from app.routers import auth as auth_router
 from app.routers import google_oauth as google_router
@@ -24,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     their own files.
     """
     settings = settings or get_settings()
+    configure_logging(level="DEBUG" if settings.is_dev else "INFO")
     app = FastAPI(
         title=settings.app_name,
         version="1.0.0",
@@ -87,6 +97,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}
 
+    # Prometheus metrics endpoint. Served in the standard text
+    # exposition format so any Prometheus-compatible scraper can
+    # ingest it.
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics() -> Response:
+        return Response(
+            content=REGISTRY.render(),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
+    # HTTP metrics middleware. Records latency + response code
+    # counters labelled by method + path + status.
+    @app.middleware("http")
+    async def _record_metrics(request: Request, call_next):  # type: ignore[no-untyped-def]
+        start = timed()
+        response = await call_next(request)
+        elapsed = timed() - start
+        route = request.scope.get("route")
+        path = getattr(route, "path", request.url.path)
+        HTTP_LATENCY.observe(elapsed)
+        HTTP_REQUESTS.inc(
+            method=request.method,
+            path=path,
+            status=str(response.status_code),
+        )
+        if response.status_code >= 500:
+            HTTP_5XX.inc(method=request.method, path=path)
+        elif response.status_code >= 400:
+            HTTP_4XX.inc(method=request.method, path=path)
+        return response
+
     # Sub-routers.
     app.include_router(auth_router.router)
     app.include_router(public_router.router)
@@ -98,16 +139,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def _shutdown() -> None:
         await dispose_engine()
 
-    # Auto-create the schema on startup if it doesn't exist yet.
-    # The Go backend's db-init container handles production builds;
-    # this fallback lets ``uvicorn app.main:app`` work standalone in
-    # dev / smoke tests without a manual migration step.
-    if not settings.db_path.exists() or settings.is_dev:
-        from app.models import Base
-
+    # Schema bootstrap. In production the docker-compose db-init
+    # container runs ``alembic upgrade head`` before the API starts;
+    # in dev / standalone ``uvicorn`` runs we either:
+    #   - apply pending migrations (when the DB exists but is stale),
+    #   - or fall back to ``metadata.create_all`` for an empty DB so
+    #     unit tests + integration tests don't need a migration step.
+    if settings.is_dev:
         @app.on_event("startup")
-        async def _create_schema() -> None:
+        async def _bootstrap_schema() -> None:
+            from sqlalchemy import inspect
+
+            from app.db import init_engine
+
             engine = init_engine(settings)
+            async with engine.begin() as conn:
+                inspector = await conn.run_sync(inspect)
+                tables = await conn.run_sync(
+                    lambda sync_conn: set(inspector.get_table_names())
+                )
+            if tables:
+                # Schema already exists; rely on alembic for changes.
+                return
+            from app.models import Base
+
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
 

@@ -9,7 +9,7 @@
 
 ## Active Branches
 - `fix/phase-0-admin-google-recovery-tests` (commit `2aab765`) — admin edits, password recovery, demote Google from login. Lives on `main`. Frontend coverage 95.4%.
-- `feature/fastapi-backend` — Phase 1+2+3+4+5 of the Go→FastAPI cut-over (commit `2a19551`+). 147 tests passing at 95.28% coverage, ruff clean, 95% gate. **All work happens here**; `backend/` stays untouched until Phase 7.
+- `feature/fastapi-backend` — Phase 1+2+3+4+5+6 of the Go→FastAPI cut-over (commit `2a19551`+). 171 tests passing at 95.93% coverage, ruff clean, 95% gate. **All work happens here**; `backend/` stays untouched until Phase 7.
 - `fix/critical-bugs-dashboard-and-oauth` — Go-era backup branch (do not delete; rollback target per user instruction).
 - `ux/dashboard-fixes-2026-07` — reviewer-feedback branch.
 
@@ -17,11 +17,16 @@
 ```bash
 cd backend-fastapi
 uv sync                              # one-time install + lock
-PYTHONPATH=. uv run pytest tests/    # 147 tests, 95.28% coverage (95% gate)
+PYTHONPATH=. uv run pytest tests/    # 171 tests, 95.93% coverage (95% gate)
 uv run ruff check app/ tests/        # lint (clean)
 uv run mypy app/                     # type check (strict, ignore_missing_imports)
 uv run uvicorn app.main:app --port 8000 --reload
 ./scripts/smoke.sh http://localhost:8000  # post-boot health check
+# Migrations
+uv run alembic upgrade head           # apply pending migrations
+uv run alembic revision --autogenerate -m "..."  # create new migration
+# OpenAPI
+uv run python scripts/generate_openapi.py  # refresh openapi.json
 ```
 
 Docker (Phase 1+ overlay):

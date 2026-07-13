@@ -37,6 +37,9 @@ echo "Smoke-testing $BASE"
 step "healthz 200"
 check_status 200 "$BASE/healthz"
 
+step "/metrics 200 (Prometheus exposition)"
+check_status 200 "$BASE/metrics"
+
 step "openapi.json 200"
 check_status 200 "$BASE/openapi.json"
 
