@@ -12,9 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   ORM models, and the auth service.
 - Phase 2 (commit `bbdc768`): ORM-ified public router + 20 tests at
   92% coverage.
-- Phase 3 (commit pending): 135 tests pass at 95.17% coverage,
-  ruff clean, 95% gate, plus the docker-compose-fastapi overlay and
+- Phase 3 (commit `e40eea3`): 135 tests at 95.17% coverage, ruff
+  clean, 95% gate, plus the docker-compose-fastapi overlay and
   multi-stage Dockerfile.
+- Phase 4 (commit `b03f24d`): frontend parity (search ?query alias,
+  /api/auth/me, AuthResponse token field, admin song create returns
+  SongOut) + OpenAPI drift guard (openapi.json checked in,
+  scripts/generate_openapi.py, tests/api/test_openapi.py).
+- Phase 5 (commit pending): end-to-end integration test that boots
+  real uvicorn (`tests/integration/test_uvicorn_smoke.py`) +
+  `scripts/smoke.sh` post-deploy health check + GitHub Actions
+  `fastapi-checks` and `docker-build-fastapi` jobs.
 - New `RefreshTokenRevocation` and `AuditLog` tables matching the
   planned schema (mirrored from the Go-side design).
 - `/api/auth/refresh` rotates the refresh token's `jti` so stolen
@@ -33,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `actor_id` + `action`).
 - Emails-outbox endpoint (`GET /api/admin/emails`, filtered by
   `only_failures`).
+- OpenAPI 3.1 spec auto-generated and committed
+  (`openapi.json`); drift guarded by `tests/api/test_openapi.py`.
+- `scripts/smoke.sh` (curl-driven post-boot health check).
+- `scripts/generate_openapi.py` to refresh the spec after router
+  changes.
 
 ### Changed
 - The FastAPI test conftest now shares a single `StaticPool`
@@ -42,6 +55,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Public router raw-SQL paths were replaced with SQLAlchemy 2.0
   ORM constructs (`select`, `func`, `case`, `cast`, `in_`,
   `order_by`, `replace`, `lower`, `trim`); no behaviour change.
+- `/api/search` accepts both `?query=` (Vue convention) and `?q=`
+  (FastAPI default) via FastAPI's `alias=` mechanism.
+- `/api/auth/{login,register,refresh}` responses now include a
+  `token` field that mirrors the access-token JWT.
+- `POST /api/admin/songs` returns the created `SongOut` (with id)
+  so the Vue dashboard can use it directly.
 - AGENTS.md updated to document the FastAPI branch + commands.
 
 ### Security

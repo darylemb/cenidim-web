@@ -82,6 +82,7 @@ ignore = ["E501", "B904"]
 "app/deps.py" = ["B008"]
 "app/db/session.py" = ["S101"]
 "app/config.py" = ["S105"]
+"tests/integration/**/*.py" = ["S603"]
 "app/schemas/stats.py" = ["N815"]  # camelCase comes from frontend API contract
 
 [tool.mypy]

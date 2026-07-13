@@ -98,6 +98,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def _shutdown() -> None:
         await dispose_engine()
 
+    # Auto-create the schema on startup if it doesn't exist yet.
+    # The Go backend's db-init container handles production builds;
+    # this fallback lets ``uvicorn app.main:app`` work standalone in
+    # dev / smoke tests without a manual migration step.
+    if not settings.db_path.exists() or settings.is_dev:
+        from app.models import Base
+
+        @app.on_event("startup")
+        async def _create_schema() -> None:
+            engine = init_engine(settings)
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+
     return app
 
 
@@ -113,4 +126,10 @@ async def _rate_limit_handler(_request: Request, exc: RateLimitExceeded) -> JSON
     )
 
 
-__all__ = ["create_app"]
+# Module-level ASGI app so `uvicorn app.main:app` works without
+# the --factory flag. Tests still build their own instances via
+# ``create_app(settings)`` so per-test Settings isolation is preserved.
+app = create_app()
+
+
+__all__ = ["app", "create_app"]
