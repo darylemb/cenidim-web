@@ -10,7 +10,9 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import Settings, get_settings
 from app.db import dispose_engine, init_engine
+from app.routers import admin as admin_router
 from app.routers import auth as auth_router
+from app.routers import google_oauth as google_router
 from app.routers import public as public_router
 from app.security import issue_csrf_token
 from app.services.email import EmailService
@@ -28,7 +30,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url="/docs" if not settings.is_prod else None,
         redoc_url=None,
     )
-    init_engine(settings)
+    # Only initialise the engine if one isn't already configured.
+    # Tests set up an in-memory engine before calling ``create_app``
+    # so they can share the same DB across the API client and direct
+    # ORM access in the same test (see tests/conftest.py).
+    from app.db.session import _engine
+
+    if _engine is None:
+        init_engine(settings)
     EmailService.configure(settings)
 
     # CORS — strict allowlist. Wildcard is intentionally disabled.
@@ -81,6 +90,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Sub-routers.
     app.include_router(auth_router.router)
     app.include_router(public_router.router)
+    app.include_router(admin_router.router)
+    app.include_router(google_router.router)
 
     # Tear down the DB engine on shutdown so connections close cleanly.
     @app.on_event("shutdown")

@@ -124,12 +124,13 @@ async def request_password_reset(
     )
     reset_url = f"{settings.frontend_base_url}/reset?token={token}"
     await db.flush()
-    EmailService.enqueue(
+    await EmailService.enqueue(
         to=user.email,
         subject="CENIDIM — Recupera tu contraseña",
         body=EmailService.build_reset_body(user.username, reset_url),
         kind="password_reset",
         related_user_id=user.id,
+        db=db,
     )
     if settings.email_demo_print_body:
         return reset_url, None
@@ -199,9 +200,18 @@ async def consume_password_reset(
 
 
 def _verify_bcrypt_safe(token: str, hashed: str) -> bool:
+    """bcrypt-verify ``token`` against ``hashed``.
+
+    The token was originally pre-hashed with SHA-256 before bcrypt on
+    the creation path (see ``app.security._prep``); we replicate that
+    here so direct ``bcrypt.checkpw`` matches.
+    """
     try:
-        from passlib.context import CryptContext
-        return CryptContext(schemes=["bcrypt"]).verify(token, hashed)
+        import bcrypt
+
+        from app.security import _prep
+
+        return bcrypt.checkpw(_prep(token), hashed.encode("ascii"))
     except Exception:
         return False
 

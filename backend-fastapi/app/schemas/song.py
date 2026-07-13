@@ -101,6 +101,20 @@ class SongUpdate(BaseModel):
     tema: str | None = Field(default=None, max_length=200)
 
 
+class SongUpdateIn(BaseModel):
+    """Request body for ``PUT /api/admin/songs/{id}``.
+
+    Only the editable fields are exposed; the existing ``id`` /
+    ``fonograma_id`` / ``created_at`` are read from the database.
+    Mirrors the Go PUT semantics: only non-empty fields are
+    persisted, matching its gorm.UpdateColumns-on-non-empty contract.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    title: TituloStr | None = None
+    lyrics: str | None = Field(default=None, max_length=50_000)
+
+
 class SongCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -114,12 +128,27 @@ class SongCreate(BaseModel):
     tema: str | None = Field(default=None, max_length=200)
 
 
+class SongCreateIn(BaseModel):
+    """Request body for ``POST /api/admin/songs``.
+
+    Only the create-time fields are required; the ``id`` and the
+    timestamp columns come from the database.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    fonograma_id: ClaveFonograma
+    title: TituloStr
+    lyrics: str | None = Field(default=None, max_length=50_000)
+
+
 __all__ = [
     "FonogramaCreate",
     "FonogramaOut",
     "SongCreate",
+    "SongCreateIn",
     "SongOut",
     "SongUpdate",
+    "SongUpdateIn",
     "fonograma_to_out",
     "song_to_out",
 ]

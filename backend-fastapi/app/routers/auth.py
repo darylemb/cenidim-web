@@ -1,10 +1,15 @@
 """HTTP routers for /api/auth/*."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from jose import JWTError, jwt
+from sqlalchemy import select
 
 from app.config import Settings, get_settings
 from app.deps import DbDep, issue_access_token
+from app.models.refresh_revocation import RefreshTokenRevocation
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
@@ -98,9 +103,115 @@ async def reset(
 
 
 @router.post("/logout")
-async def logout(response: Response) -> dict[str, bool]:
+async def logout(
+    request: Request,
+    response: Response,
+    db: DbDep,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, bool]:
+    """Revoke the current refresh token (if any) and clear cookies."""
+    refresh = request.cookies.get("cenidim_refresh")
+    if refresh:
+        try:
+            claims = jwt.decode(
+                refresh,
+                settings.jwt_secret.get_secret_value(),
+                algorithms=[settings.jwt_algorithm],
+            )
+        except JWTError:
+            claims = None
+        if claims:
+            sub = claims.get("sub")
+            jti = claims.get("jti")
+            exp_ts = claims.get("exp")
+            try:
+                sub_int = int(sub) if sub is not None else None
+            except (TypeError, ValueError):
+                sub_int = None
+            if (
+                isinstance(sub_int, int)
+                and isinstance(jti, str)
+                and isinstance(exp_ts, int)
+            ):
+                db.add(
+                    RefreshTokenRevocation(
+                        jti=jti,
+                        user_id=sub_int,
+                        reason="logout",
+                        expires_at=datetime.fromtimestamp(exp_ts, UTC),
+                    )
+                )
+                await db.flush()
     _clear_session_cookies(response)
     return {"ok": True}
+
+
+@router.post("/refresh", response_model=AuthResponse)
+async def refresh(
+    request: Request,
+    response: Response,
+    db: DbDep,
+    settings: Settings = Depends(get_settings),
+) -> AuthResponse:
+    """Rotate the refresh token. Old ``jti`` is recorded as
+    revoked so any future reuse returns 401.
+    """
+    refresh_cookie = request.cookies.get("cenidim_refresh")
+    if not refresh_cookie:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+    try:
+        claims = jwt.decode(
+            refresh_cookie,
+            settings.jwt_secret.get_secret_value(),
+            algorithms=[settings.jwt_algorithm],
+        )
+    except JWTError as exc:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
+    if claims.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Wrong token type")
+    sub = claims.get("sub")
+    jti = claims.get("jti")
+    exp_ts = claims.get("exp")
+    # python-jose returns ``sub`` as str; the rest come back as their
+    # original types. We coerce ``sub`` to int and require ``jti`` /
+    # ``exp`` to be present and of the expected types.
+    try:
+        sub_int = int(sub) if sub is not None else None
+    except (TypeError, ValueError):
+        sub_int = None
+    if not (
+        isinstance(sub_int, int)
+        and isinstance(jti, str)
+        and isinstance(exp_ts, int)
+    ):
+        raise HTTPException(status_code=401, detail="Malformed refresh claims")
+
+    # Reject if the jti has been revoked (e.g. by a previous /refresh).
+    revoked = (
+        await db.execute(
+            select(RefreshTokenRevocation).where(RefreshTokenRevocation.jti == jti)
+        )
+    ).scalar_one_or_none()
+    if revoked is not None:
+        raise HTTPException(status_code=401, detail="Refresh revoked")
+
+    user = (
+        await db.execute(select(User).where(User.id == sub_int))
+    ).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User no longer exists")
+
+    # Record the old jti and issue a fresh pair.
+    db.add(
+        RefreshTokenRevocation(
+            jti=jti,
+            user_id=sub_int,
+            reason="rotated",
+            expires_at=datetime.fromtimestamp(exp_ts, UTC),
+        )
+    )
+    _set_session_cookies(response, user, settings)
+    return AuthResponse(user=user_to_out(user))
 
 
 def _set_session_cookies(response: Response, user: User, settings: Settings) -> None:

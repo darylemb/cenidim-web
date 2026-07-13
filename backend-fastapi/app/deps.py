@@ -71,7 +71,7 @@ async def get_current_user(
     or the Authorization: Bearer header (fallback for API clients).
     """
     token: str | None = None
-    bearer = await request.cookies.get("cenidim_session")
+    bearer = request.cookies.get("cenidim_session")
     if bearer:
         token = bearer
     elif request.headers.get("authorization", "").lower().startswith("bearer "):
@@ -87,8 +87,14 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     claims = _decode_jwt(token, settings)
-    user_id = claims.get("sub")
-    if not isinstance(user_id, int):
+    sub = claims.get("sub")
+    # python-jose enforces ``sub`` to be a string at mint time; we
+    # accept either and coerce to int for the user lookup.
+    try:
+        user_id = int(sub) if sub is not None else None
+    except (TypeError, ValueError):
+        user_id = None
+    if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Malformed token",
@@ -126,12 +132,17 @@ def require_role(min_role: str):
 
 
 def issue_access_token(user: User, settings: Settings) -> tuple[str, datetime]:
-    """Mint a fresh access token. Returns (token, expires_at)."""
+    """Mint a fresh access token. Returns (token, expires_at).
+
+    Note: python-jose requires the ``sub`` claim to be a string at
+    mint time (it enforces the spec). We coerce the int user id via
+    ``str()`` here; the consumer (``get_current_user``) coerces back.
+    """
     now = _now_utc()
     exp = now + timedelta(seconds=settings.jwt_access_ttl_seconds)
     token = jwt.encode(
         {
-            "sub": user.id,
+            "sub": str(user.id),
             "username": user.username,
             "role": user.role,
             "type": "access",

@@ -8,11 +8,12 @@ demo SMTP is "log to stdout".
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-from sqlalchemy.exc import SQLAlchemyError
+from typing import TYPE_CHECKING
 
 from app.config import Settings
-from app.db import session_scope
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @dataclass
@@ -76,11 +77,16 @@ class EmailService:
         body: tuple[str, str] | str,
         kind: str,
         related_user_id: int | None,
+        db: AsyncSession | None = None,
     ) -> int | None:
         """Persist the email to email_outbox; send via Resend if configured.
 
         Returns the email_outbox row id (so callers / admin UI can
         reference the message), or None if the outbox write failed.
+
+        If ``db`` is provided (caller already has a session, e.g.
+        inside a FastAPI dep) we reuse it; otherwise we open our
+        own via ``session_scope()``.
         """
         if isinstance(body, str):
             text, html = body, body
@@ -91,28 +97,37 @@ class EmailService:
         # admin audit/emails module; we inline the SQL here to keep
         # the email service free of circular imports with models.
         from sqlalchemy import text as sa_text
+
+        async def _insert(session: AsyncSession) -> int | None:
+            result = await session.execute(
+                sa_text(
+                    "INSERT INTO email_outbox "
+                    "(to_addr, subject, body_text, body_html, kind, related_user_id) "
+                    "VALUES (:to, :subj, :text, :html, :kind, :uid)"
+                ),
+                {
+                    "to": to,
+                    "subj": subject,
+                    "text": text,
+                    "html": html,
+                    "kind": kind,
+                    "uid": related_user_id,
+                },
+            )
+            return result.lastrowid
+
+        row_id: int | None = None
         try:
-            async with session_scope() as db:
-                result = await db.execute(
-                    sa_text(
-                        "INSERT INTO email_outbox "
-                        "(to_addr, subject, body_text, body_html, kind, related_user_id) "
-                        "VALUES (:to, :subj, :text, :html, :kind, :uid)"
-                    ),
-                    {
-                        "to": to,
-                        "subj": subject,
-                        "text": text,
-                        "html": html,
-                        "kind": kind,
-                        "uid": related_user_id,
-                    },
-                )
-                row_id = result.lastrowid
-        except SQLAlchemyError as exc:
-            # Don't fail the caller just because the outbox write
-            # failed; log it so the operator can investigate.
+            if db is not None:
+                row_id = await _insert(db)
+            else:
+                from app.db import session_scope_cm
+
+                async with session_scope_cm() as scoped:
+                    row_id = await _insert(scoped)
+        except Exception as exc:  # noqa: BLE001 - never break the caller; just log
             import logging
+
             logging.getLogger(__name__).warning(
                 "email_outbox insert failed for kind=%s to=%s: %s", kind, to, exc,
             )
@@ -134,7 +149,7 @@ class EmailService:
         elif settings.email_demo_print_body or settings.env == "dev":
             import logging
             logging.getLogger(__name__).info(
-                "[DEV EMAIL OUTBOX id=%s kind=%s] to=%s subject=%q link/body available in email_outbox row",
+                "[DEV EMAIL OUTBOX id=%s kind=%s] to=%s subject=%r link/body available in email_outbox row",
                 row_id, kind, to, subject,
             )
         return row_id

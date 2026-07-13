@@ -10,6 +10,7 @@ from app.db.session import (
     init_engine,
     init_in_memory_engine,
     session_scope,
+    session_scope_cm,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "init_engine",
     "init_in_memory_engine",
     "session_scope",
+    "session_scope_cm",
 ]

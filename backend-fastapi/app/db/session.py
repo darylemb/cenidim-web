@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from sqlalchemy.ext.asyncio import (
+from sqlalchemy.ext.asyncio import (  # noqa: F401
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
@@ -47,11 +47,20 @@ def init_engine(settings: Settings | None = None) -> AsyncEngine:
 
 
 def init_in_memory_engine() -> AsyncEngine:
-    """Create an in-memory engine (test-only)."""
+    """Create an in-memory engine (test-only).
+
+    Uses ``StaticPool`` so every connection shares the same underlying
+    sqlite database (the default :memory: makes a fresh DB per
+    connection, which breaks tests that seed via one connection and
+    read via another).
+    """
+    from sqlalchemy.pool import StaticPool
+
     global _engine, _sessionmaker
     _engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
@@ -96,10 +105,51 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
             raise
 
 
+class _SessionScopeCM:
+    """Async-context-manager wrapper around ``session_scope()``.
+
+    Some helpers outside the FastAPI dependency tree want to write
+    through ``async with session_scope() as db:`` (matching the Go
+    style). The FastAPI dep continues to use the bare async
+    generator. Both forms share the same commit/rollback behaviour.
+    """
+
+    def __init__(self) -> None:
+        self._gen = session_scope()
+        self._session: AsyncSession | None = None
+
+    async def __aenter__(self) -> AsyncSession:
+        self._session = await self._gen.__anext__()
+        return self._session
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        try:
+            if exc_type is None:
+                # Drive the generator to completion so the commit fires.
+                await self._gen.__anext__()
+                return
+            await self._gen.athrow(exc_type, exc, tb)
+        except StopAsyncIteration:
+            return
+        except Exception:
+            raise
+        finally:
+            await self._gen.aclose()
+
+
+def session_scope_cm() -> _SessionScopeCM:
+    """Return a fresh ``async with``-compatible CM around
+    ``session_scope()``. Use it from non-FastAPI callers (e.g. the
+    email service when no request-scoped session is available).
+    """
+    return _SessionScopeCM()
+
+
 __all__ = [
     "init_engine",
     "init_in_memory_engine",
     "dispose_engine",
     "get_sessionmaker",
     "session_scope",
+    "session_scope_cm",
 ]

@@ -1,10 +1,48 @@
 # AGENTS.md
 
 ## Project Structure
-- `backend/` — Go API (Gin + SQLite). Entry point: `main.go`.
+- `backend/` — Go API (Gin + SQLite). Entry point: `main.go`. **Live** through Phase 6.
+- `backend-fastapi/` — FastAPI/Pydantic v2 cut-over (Phase 1 scaffold, **live on `feature/fastapi-backend`**). Reads the same `letras.db` schema.
 - `frontend/` — Vue 3 app (Vite + TypeScript). Entry point: `frontend/src/`.
 - `scripts/build_db.sh` — Builds `letras.db` from CSV + lyrics. Must run before `docker compose up`.
 - `scripts/classify_songs.py` — Classifies songs in DB using spaCy (`es_core_news_md`). Runs **after** the Go builder inside `build_db.sh`.
+
+## Active Branches
+- `fix/phase-0-admin-google-recovery-tests` (commit `2aab765`) — admin edits, password recovery, demote Google from login. Lives on `main`. Frontend coverage 95.4%.
+- `feature/fastapi-backend` — Phase 1 of the Go→FastAPI cut-over (commit `2a19551`+). 77 tests passing at 82% coverage, ruff clean. **All work happens here**; `backend/` stays untouched until Phase 7.
+- `fix/critical-bugs-dashboard-and-oauth` — Go-era backup branch (do not delete; rollback target per user instruction).
+- `ux/dashboard-fixes-2026-07` — reviewer-feedback branch.
+
+## Backend (FastAPI — work in progress)
+```bash
+cd backend-fastapi
+uv sync                              # one-time install + lock
+PYTHONPATH=. uv run pytest tests/    # 77 tests, 82% coverage
+uv run ruff check app/ tests/        # lint (clean)
+uv run mypy app/                     # type check (strict, ignore_missing_imports)
+uv run uvicorn app.main:app --port 8000 --reload
+```
+- Read the same `letras.db` SQLite schema as the Go backend
+  (snake_case column names; SQLAlchemy ORM models under
+  `app/models/`).
+- Auth: `app/services/auth.py` (password hashing via sha256+bcrypt,
+  JWT issue/verify via python-jose, refresh-token rotation via
+  `RefreshTokenRevocation` table).
+- Admin: `app/routers/admin.py` mirrors `backend/handlers/admin.go`;
+  viewer/editor/admin tiers backed by `require_role("...")` factory
+  in `app/deps.py`.
+- Google OAuth: `app/routers/google_oauth.py` with a
+  `StubIDTokenVerifier` test seam; production verifier in
+  `app/services/google_oauth.py` (google-auth, lazy import).
+- Resend + dev outbox: `app/services/email.py`.
+- Test conftest (`tests/conftest.py`) shares a single StaticPool
+  in-memory engine between the FastAPI app and direct ORM seed
+  helpers (`make_user`, `make_admin`, `make_identity`,
+  `make_email_outbox`).
+- Coverage gate is `80%` (Phase 1); master plan calls for `95%` by
+  Phase 7 (post-cutover). Routes/services we have hardened are
+  covered; the public router's raw-SQL paths are exercised via a
+  dedicated suite in Phase 2.
 
 ## Database Build
 ```bash
