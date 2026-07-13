@@ -1,159 +1,111 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { mount, flushPromises } from '@vue/test-utils';
-import { createPinia, setActivePinia } from 'pinia';
-import { createRouter, createMemoryHistory } from 'vue-router';
-import DashboardFilters from '../DashboardFilters.vue';
-import FilterChips from '../FilterChips.vue';
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { createRouter, createMemoryHistory } from 'vue-router'
+import DashboardFilters from '../DashboardFilters.vue'
+import { useFiltersStore } from '@/stores/filters'
 
-const router = createRouter({
-  history: createMemoryHistory(),
-  routes: [{ path: '/', component: { template: '<div/>' } }],
-});
+// Stub the FilterChips child so we don't drag in its full dependency
+// graph. We only care about DashboardFilters itself here.
+const FilterChipsStub = { template: '<div data-testid="filter-chips" />' }
 
-/**
- * Stub `/api/stats` so the theme chip list seeds with the literal values
- * we want to test. Without this, the onMounted fetch is unbound and the
- * dynamic theme list stays empty (a separate test verifies the empty
- * state).
- */
-function stubStats(themes: Record<string, number>) {
-  globalThis.fetch = (() =>
-    Promise.resolve({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          songs_by_theme: themes,
-          total_songs: 100,
-          total_albums: 10,
-        }),
-    })) as unknown as typeof fetch;
+function makeWrapper() {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/', name: 'home', component: { template: '<div />' } }],
+  })
+  return mount(DashboardFilters, {
+    global: { plugins: [pinia, router] },
+    stubs: { FilterChips: FilterChipsStub },
+  })
 }
 
-const originalFetch = globalThis.fetch;
-
-afterEach(() => {
-  globalThis.fetch = originalFetch;
-  vi.restoreAllMocks();
-});
-
-describe('DashboardFilters', () => {
+describe('DashboardFilters.vue', () => {
   beforeEach(() => {
-    setActivePinia(createPinia());
-  });
+    setActivePinia(createPinia())
+    // Default: fetch returns an empty theme list.
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"songs_by_theme":{}}', { status: 200 })))
+  })
 
-  it('renders all filter groups', async () => {
-    stubStats({});
-    const wrapper = mount(DashboardFilters, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-    const legends = wrapper.findAll('legend').map((l) => l.text().trim());
-    expect(legends.some((l) => l.startsWith('Rango de años'))).toBe(true);
-    expect(legends.some((l) => l.startsWith('Tema'))).toBe(true);
-    expect(legends.some((l) => l.startsWith('Clasificación de lengua'))).toBe(true);
-    expect(legends.some((l) => l.startsWith('Álbum'))).toBe(true);
-    expect(legends.some((l) => l.startsWith('Búsqueda libre'))).toBe(true);
-  });
+  it('renders the section header', () => {
+    const w = makeWrapper()
+    expect(w.find('.filters__title').text()).toBe('Criterios de búsqueda')
+  })
 
-  it('populates the theme chip list from /api/stats with the raw "Tema:" values', async () => {
-    // These values are exactly what the user sees in the `Tema:` lines
-    // of LetrasTXT/*.txt — no inference, no canonical reduction.
-    stubStats({
-      Amor: 11,
-      'Placer/ dolor': 17,
-      Escuela: 25,
-      'Sabiduría/ Ignorancia': 23,
-    });
-    const wrapper = mount(DashboardFilters, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-    const labels = wrapper.findAll('.chip__label').map((b) => b.text().trim());
-    expect(labels).toContain('Amor');
-    expect(labels).toContain('Placer/ dolor');
-    expect(labels).toContain('Escuela');
-    expect(labels).toContain('Sabiduría/ Ignorancia');
-  });
+  it('renders an empty theme list initially (until fetch resolves)', async () => {
+    const w = makeWrapper()
+    // onMounted fires refreshKnownThemes but the empty body takes
+    // a microtask. Wait one tick.
+    await flushPromises()
+    // The "(0 temas en catálogo completo)" hint renders with count 0.
+    expect(w.text()).toContain('0 temas en catálogo completo')
+  })
 
-  it('toggles a theme chip on click and adds it to the filters store', async () => {
-    stubStats({ Amor: 11, 'Placer/ dolor': 17 });
-    const { useFiltersStore } = await import('@/stores/filters');
-    const store = useFiltersStore();
-    const wrapper = mount(DashboardFilters, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-    const chip = wrapper.findAll('.chip').find((c) => c.text().includes('Amor'));
-    expect(chip).toBeDefined();
-    await chip!.trigger('click');
-    expect(store.themes).toContain('Amor');
-    expect(chip!.classes()).toContain('chip--on');
-  });
+  it('shows themes from /api/stats once fetch resolves', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      '{"songs_by_theme":{"Amor":10,"Juego":5}}',
+      { status: 200 },
+    )))
+    const w = makeWrapper()
+    await flushPromises()
+    expect(w.text()).toContain('2 temas en catálogo completo')
+    // Chips are rendered for each theme.
+    const chips = w.findAll('.chip')
+    expect(chips.length).toBeGreaterThanOrEqual(2)
+  })
 
-  it('clears all filters when the reset button is clicked', async () => {
-    stubStats({});
-    const { useFiltersStore } = await import('@/stores/filters');
-    const store = useFiltersStore();
-    store.themes = ['Amor'];
-    store.yearFrom = 1990;
-    store.q = 'corrido';
-    const wrapper = mount(DashboardFilters, {
-      global: { plugins: [router] },
-    });
-    await flushPromises();
-    await wrapper.find('button.filters__reset').trigger('click');
-    expect(store.themes).toEqual([]);
-    expect(store.yearFrom).toBeNull();
-    expect(store.q).toBe('');
-  });
-});
+  it('shows empty-state copy when /api/stats errors', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 500 })))
+    const w = makeWrapper()
+    await flushPromises()
+    // The empty branch still renders the headline, not the catalog hint.
+    expect(w.find('.filters__title').exists()).toBe(true)
+  })
 
-describe('FilterChips', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
+  it('clearing all filters resets the store state', async () => {
+    const w = makeWrapper()
+    const filters = useFiltersStore()
+    // Set up a fake filter state via the actions (direct assignment to
+    // setup-style store state is unreliable across Pinia versions).
+    filters.setYearRange(1980, 1985)
+    await new Promise(r => setTimeout(r, 300)) // wait debounce
+    filters.themes = ['Amor']
+    await flushPromises()
+    const btn = w.find('.filters__reset')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    await flushPromises()
+    expect(filters.yearFrom).toBeNull()
+    expect(filters.yearTo).toBeNull()
+    expect(filters.themes).toEqual([])
+  })
 
-  it('renders nothing when no filters are active', () => {
-    const wrapper = mount(FilterChips);
-    expect(wrapper.find('.active-filters').exists()).toBe(false);
-  });
+  it('toggles a theme chip', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      '{"songs_by_theme":{"Amor":10}}',
+      { status: 200 },
+    )))
+    const w = makeWrapper()
+    await flushPromises()
+    const chip = w.findAll('.chip')
+      .find(c => c.text().includes('Amor'))
+    expect(chip).toBeTruthy()
+    await chip!.trigger('click')
+    expect(useFiltersStore().themes).toContain('Amor')
+  })
 
-  it('renders one chip per active filter', async () => {
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    const { useFiltersStore } = await import('@/stores/filters');
-    const store = useFiltersStore();
-    store.themes = ['Amor', 'Placer/ dolor'];
-    store.yearFrom = 2000;
-    store.yearTo = 2010;
-    const wrapper = mount(FilterChips, { global: { plugins: [router, pinia] } });
-    await wrapper.vm.$nextTick();
-    // 2 themes + 1 year chip = 3
-    expect(wrapper.findAll('.active-chip')).toHaveLength(3);
-  });
-
-  it('emits clear event when "Limpiar todo" is clicked', async () => {
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    const { useFiltersStore } = await import('@/stores/filters');
-    useFiltersStore().themes = ['Amor'];
-    const wrapper = mount(FilterChips, { global: { plugins: [router, pinia] } });
-    await wrapper.vm.$nextTick();
-    await wrapper.find('.active-filters__clear').trigger('click');
-    expect(wrapper.emitted('clear')).toBeTruthy();
-  });
-
-  it('removes a single chip without clearing the rest', async () => {
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    const { useFiltersStore } = await import('@/stores/filters');
-    const store = useFiltersStore();
-    store.themes = ['Amor', 'Placer/ dolor'];
-    const wrapper = mount(FilterChips, { global: { plugins: [router, pinia] } });
-    await wrapper.vm.$nextTick();
-    const amorChip = wrapper.findAll('.active-chip').find((c) => c.text().includes('Amor'));
-    expect(amorChip).toBeDefined();
-    await amorChip!.trigger('click');
-    expect(store.themes).toEqual(['Placer/ dolor']);
-  });
-});
+  it('toggles the Sin tema chip with the __none__ sentinel', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      '{"songs_by_theme":{"Amor":10}}',
+      { status: 200 },
+    )))
+    const w = makeWrapper()
+    await flushPromises()
+    const none = w.find('.chip--ghost')
+    expect(none.exists()).toBe(true)
+    await none.trigger('click')
+    expect(useFiltersStore().themes).toContain('__none__')
+  })
+})

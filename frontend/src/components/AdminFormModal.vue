@@ -79,6 +79,14 @@
           </template>
 
           <template v-else-if="formType === 'song'">
+            <!--
+              Canciones se editan con sólo los campos que el backend
+              AdminUpdateSong persiste (title, lyrics, clasificacion,
+              tema, duracion, autor, compositor). Los campos de
+              fonograma (album, interprete, year, editora, pistas,
+              observaciones) viven en el fonograma asociado y se editan
+              desde el tab "Fonogramas" → "Editar".
+            -->
             <div class="form-row">
               <div class="form-group">
                 <label for="id">ID</label>
@@ -86,7 +94,14 @@
               </div>
               <div class="form-group">
                 <label for="fonograma_id">Fonograma ID</label>
-                <input id="fonograma_id" v-model="form.fonograma_id" type="number" required />
+                <input
+                  id="fonograma_id"
+                  v-model="form.fonograma_id"
+                  type="number"
+                  required
+                  :readonly="isEditing"
+                  :class="{ 'input-readonly': isEditing }"
+                />
               </div>
             </div>
             <div class="form-group">
@@ -94,35 +109,23 @@
               <input id="title" v-model="form.title" type="text" required />
             </div>
             <div class="form-group">
-              <label for="album">Álbum</label>
-              <input id="album" v-model="form.album" type="text" />
+              <label for="autor">Autor</label>
+              <input id="autor" v-model="form.autor" type="text" placeholder="Ej. M.G.A. o Gilda y Valentín Rincón" />
             </div>
             <div class="form-group">
-              <label for="subtitulo">Subtítulo</label>
-              <input id="subtitulo" v-model="form.subtitulo" type="text" />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="interprete_principal">Intérprete Principal</label>
-                <input id="interprete_principal" v-model="form.interprete_principal" type="text" />
-              </div>
-              <div class="form-group">
-                <label for="year">Año</label>
-                <input id="year" v-model="form.year" type="text" />
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pais_edicion">País</label>
-                <input id="pais_edicion" v-model="form.pais_edicion" type="text" />
-              </div>
-              <div class="form-group">
-                <label for="editora">Editora</label>
-                <input id="editora" v-model="form.editora" type="text" />
-              </div>
+              <label for="compositor">Compositor</label>
+              <input id="compositor" v-model="form.compositor" type="text" />
             </div>
             <div class="form-group">
-              <label for="clasificacion">Clasificación</label>
+              <label for="duracion">Duración</label>
+              <input id="duracion" v-model="form.duracion" type="text" placeholder="Ej. 2:34" />
+            </div>
+            <div class="form-group">
+              <label for="personajes">Personajes</label>
+              <input id="personajes" v-model="form.personajes" type="text" />
+            </div>
+            <div class="form-group">
+              <label for="clasificacion">Clasificación lingüística</label>
               <select id="clasificacion" v-model="form.clasificacion">
                 <option value="">Sin clasificación</option>
                 <option value="ESPAÑOL_ESTANDAR">Español Estándar</option>
@@ -131,20 +134,17 @@
               </select>
             </div>
             <div class="form-group">
-              <label for="interpretes_invitados">Intérpretes Invitados</label>
-              <input id="interpretes_invitados" v-model="form.interpretes_invitados" type="text" />
+              <label for="tema">Tema</label>
+              <input
+                id="tema"
+                v-model="form.tema"
+                type="text"
+                placeholder="Ej. Familia, Vida/ muerte"
+              />
             </div>
             <div class="form-group">
-              <label for="filename">Nombre Archivo</label>
-              <input id="filename" v-model="form.filename" type="text" />
-            </div>
-            <div class="form-group">
-              <label for="pistas">Pistas</label>
-              <textarea id="pistas" v-model="form.pistas" rows="2"></textarea>
-            </div>
-            <div class="form-group">
-              <label for="observaciones">Observaciones</label>
-              <textarea id="observaciones" v-model="form.observaciones" rows="2"></textarea>
+              <label for="lyrics">Letra</label>
+              <textarea id="lyrics" v-model="form.lyrics" rows="10" style="font-family: var(--font-mono); font-size: var(--font-size-sm);"></textarea>
             </div>
           </template>
 
@@ -249,21 +249,13 @@ const defaultSong = (): Record<string, any> => ({
   id: 0,
   fonograma_id: 0,
   title: '',
-  album: '',
-  subtitulo: '',
-  interprete_principal: '',
-  interpretes_invitados: '',
-  interprete_participante: '',
-  soporte_fisico: '',
-  editora: '',
-  numero_catalogo: '',
-  ciudad_edicion: '',
-  pais_edicion: '',
-  year: '',
-  pistas: '',
-  observaciones: '',
-  filename: '',
+  autor: '',
+  compositor: '',
+  duracion: '',
+  personajes: '',
   clasificacion: '',
+  tema: '',
+  lyrics: '',
 });
 
 const defaultUser = (): Record<string, any> => ({

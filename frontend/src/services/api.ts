@@ -136,6 +136,39 @@ export const apiService = {
     return data;
   },
 
+  /**
+   * Forgot password — sends a recovery link to the given email.
+   * Always returns ok (the backend doesn't reveal whether the email
+   * exists, to prevent user enumeration). In demo mode the link is
+   * also returned in the response body when `EMAIL_DEMO=1` is set on
+   * the backend.
+   */
+  forgotPassword: async (email: string): Promise<{ ok: true; dev_link?: string }> => {
+    const response = await fetch(`${BASE_URL}/auth/forgot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se pudo enviar el enlace');
+    return data;
+  },
+
+  /**
+   * Reset password using a one-shot token from the email link.
+   * Returns ok on success; throws the server error on 4xx.
+   */
+  resetPassword: async (token: string, newPassword: string): Promise<{ ok: true }> => {
+    const response = await fetch(`${BASE_URL}/auth/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se pudo restablecer la contraseña');
+    return data;
+  },
+
   register: async (username: string, email: string, password: string): Promise<AuthResponse> => {
     const response = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',

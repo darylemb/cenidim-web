@@ -56,7 +56,6 @@
               <td>{{ f.editora }}</td>
               <td>
                 <div class="admin-actions">
-                  <button class="btn-secondary btn-sm" @click="openFonoForm(f)">Ver</button>
                   <button v-if="auth.isEditor" class="btn-primary btn-sm" @click="openFonoForm(f)">
                     Editar
                   </button>
@@ -126,7 +125,6 @@
               <td>{{ s.clasificacion }}</td>
               <td>
                 <div class="admin-actions">
-                  <button class="btn-secondary btn-sm" @click="openSongForm(s)">Ver</button>
                   <button v-if="auth.isEditor" class="btn-primary btn-sm" @click="openSongForm(s)">
                     Editar
                   </button>

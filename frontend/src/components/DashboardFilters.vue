@@ -192,7 +192,7 @@ function onYearBlur() {
         <legend class="filter-group__legend">
           Tema
           <span class="filter-group__hint">
-            ({{ knownThemes.length }} valores del catálogo)
+            ({{ knownThemes.length }} temas en catálogo completo)
           </span>
         </legend>
         <div v-if="knownThemes.length === 0" class="filter-group__empty">
