@@ -9,7 +9,7 @@
 
 ## Active Branches
 - `fix/phase-0-admin-google-recovery-tests` (commit `2aab765`) — admin edits, password recovery, demote Google from login. Lives on `main`. Frontend coverage 95.4%.
-- `feature/fastapi-backend` — Phase 1+2 of the Go→FastAPI cut-over (commit `2a19551`+). 97 tests passing at 92% coverage, ruff clean, 90% gate. **All work happens here**; `backend/` stays untouched until Phase 7.
+- `feature/fastapi-backend` — Phase 1+2+3 of the Go→FastAPI cut-over (commit `2a19551`+). 135 tests passing at 95.17% coverage, ruff clean, 95% gate. **All work happens here**; `backend/` stays untouched until Phase 7.
 - `fix/critical-bugs-dashboard-and-oauth` — Go-era backup branch (do not delete; rollback target per user instruction).
 - `ux/dashboard-fixes-2026-07` — reviewer-feedback branch.
 
@@ -17,10 +17,16 @@
 ```bash
 cd backend-fastapi
 uv sync                              # one-time install + lock
-PYTHONPATH=. uv run pytest tests/    # 97 tests, 92% coverage (90% gate)
+PYTHONPATH=. uv run pytest tests/    # 135 tests, 95.17% coverage (95% gate)
 uv run ruff check app/ tests/        # lint (clean)
 uv run mypy app/                     # type check (strict, ignore_missing_imports)
 uv run uvicorn app.main:app --port 8000 --reload
+```
+
+Docker (Phase 1+ overlay):
+```bash
+docker compose -f docker-compose-fastapi.yaml up --build
+# db-init -> backend-fastapi -> frontend (with healthchecks on /healthz)
 ```
 - Read the same `letras.db` SQLite schema as the Go backend
   (snake_case column names; SQLAlchemy ORM models under
@@ -39,12 +45,11 @@ uv run uvicorn app.main:app --port 8000 --reload
   in-memory engine between the FastAPI app and direct ORM seed
   helpers (`make_user`, `make_admin`, `make_identity`,
   `make_email_outbox`).
-- Coverage gate is `90%` (Phase 2); master plan still calls for
-  `95%` by Phase 7 (post-cutover). Phase 2 replaced the public
-  router's raw-SQL paths with ORM (`/api/search`, `/api/song/{id}`,
-  `/api/timeline`, `/api/stats`, `/api/word-cloud`); the remaining
-  ~8% lives in the production google-oauth verifier (lazy import)
-  and a few error branches in services.
+- Coverage gate is `95%` (Phase 3, matches the master-plan target).
+  The remaining ~5% lives in the production google-oauth verifier
+  (lazy-imported `google-auth` SDK), the Resend send path, and the
+  audit-log warning branches that aren't reachable without breaking
+  the in-memory engine mid-request.
 
 ## Database Build
 ```bash

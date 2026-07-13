@@ -123,18 +123,26 @@ class _SessionScopeCM:
         return self._session
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
-        try:
-            if exc_type is None:
-                # Drive the generator to completion so the commit fires.
+        if exc is None:
+            # Drive the generator to completion so the commit fires.
+            try:
                 await self._gen.__anext__()
-                return
-            await self._gen.athrow(exc_type, exc, tb)
-        except StopAsyncIteration:
+            except StopAsyncIteration:
+                pass
             return
-        except Exception:
-            raise
-        finally:
-            await self._gen.aclose()
+        # Re-raise into the generator so its try/except can roll back.
+        raised = None
+        try:
+            await self._gen.athrow(exc)
+        except StopAsyncIteration:
+            # Generator exited cleanly after rollback; nothing more.
+            return
+        except BaseException as propagated:
+            raised = propagated
+        # If athrow returned without raising, the generator is
+        # exhausted or already yielded; treat as best-effort rollback.
+        if raised is not None:
+            raise raised
 
 
 def session_scope_cm() -> _SessionScopeCM:

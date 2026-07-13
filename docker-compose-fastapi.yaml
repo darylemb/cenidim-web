@@ -1,0 +1,74 @@
+# Phase 1 docker-compose overlay for the FastAPI backend.
+#
+# Usage:
+#   docker compose -f docker-compose-fastapi.yaml up --build
+#
+# This file mirrors docker-compose.yaml so the FastAPI backend can
+# run side-by-side (or as a drop-in replacement) for development
+# without touching the existing Go stack. Phase 7 of the master plan
+# folds this into docker-compose.yaml as the single backend service.
+
+services:
+  # The Python build still depends on db-init producing letras.db so
+  # both stacks see the same catalog during the cutover.
+  db-init:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.init
+      args:
+        - ADMIN_PASS=admin123
+    environment:
+      - ADMIN_PASS=admin123
+    volumes:
+      - ./backend/data:/data
+      - ./LetrasTXT:/app/LetrasTXT:ro
+      - ./db_fonografia.csv:/app/db_fonografia.csv:ro
+    restart: "no"
+
+  backend-fastapi:
+    build:
+      context: .
+      dockerfile: backend-fastapi/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # Core
+      - DB_PATH=/data/letras.db
+      - JWT_SECRET=cenidim-dev-secret-2024
+
+      # Google OAuth — fill these in to enable "Continuar con Google"
+      # on the login page. When any of the three required vars is
+      # empty, the backend boots in non-OAuth mode. The python-jose
+      # verifier is wired lazily so missing values do not crash the
+      # import graph.
+      - GOOGLE_CLIENT_ID=
+      - GOOGLE_CLIENT_SECRET=
+      - GOOGLE_REDIRECT_URL=http://localhost:8000/api/auth/google/callback
+      - FRONTEND_BASE_URL=http://localhost
+
+      # Resend — leave blank to use the dev outbox path. See
+      # app/services/email.py for the contract.
+      - RESEND_API_KEY=
+      - EMAIL_FROM=no-reply@cenidim.local
+    volumes:
+      - ./backend/data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:8080"
+    restart: unless-stopped
+    depends_on:
+      - backend-fastapi

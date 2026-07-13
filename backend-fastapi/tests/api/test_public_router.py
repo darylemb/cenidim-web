@@ -83,10 +83,28 @@ async def _seed(db_session) -> None:
         session.add(
             SongStats(
                 song_id=songs[0].id,
-                pct_oov=0.05,
+                pct_oov=2.0,   # BAJA bucket (<5)
                 categoria="medium",
                 contiene_indigena=0,
                 n_tokens=15,
+            )
+        )
+        session.add(
+            SongStats(
+                song_id=songs[1].id,
+                pct_oov=10.0,  # MEDIA bucket (<18)
+                categoria="medium",
+                contiene_indigena=1,  # CON_INDIGENA bucket
+                n_tokens=15,
+            )
+        )
+        session.add(
+            SongStats(
+                song_id=songs[2].id,
+                pct_oov=25.0,  # ALTA bucket (>=18)
+                categoria="alta",
+                contiene_indigena=0,
+                n_tokens=20,
             )
         )
         await session.commit()
@@ -218,6 +236,69 @@ async def test_search_order_by_title_desc(app_client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_search_order_by_year(app_client, db_session):
+    await _seed(db_session)
+    response = await app_client.get("/api/search", params={"order_by": "year"})
+    assert response.status_code == 200
+    body = response.json()
+    # 1950 < 1975 < 1990
+    years = [int(r["fonograma_id"]) for r in body["results"]]
+    # First two songs are fonograma 10 (1950), then 20 (1975), then 30 (1990).
+    assert years == [10, 10, 20, 30]
+
+
+@pytest.mark.asyncio
+async def test_search_q_too_long(app_client, db_session):
+    response = await app_client.get("/api/search", params={"q": "x" * 201})
+    # FastAPI's Query(max_length=200) rejects before our handler runs.
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_search_field_lyrics(app_client, db_session):
+    await _seed(db_session)
+    response = await app_client.get(
+        "/api/search", params={"q": "brown fox", "field": "lyrics"}
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_search_field_album(app_client, db_session):
+    await _seed(db_session)
+    response = await app_client.get(
+        "/api/search", params={"q": "Album Uno", "field": "album"}
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+
+
+@pytest.mark.asyncio
+async def test_timeline_year_to_filter(app_client, db_session):
+    await _seed(db_session)
+    response = await app_client.get(
+        "/api/timeline", params={"query": "year_to=1960"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "1950" in body["years"]
+    assert "1975" not in body["years"]
+
+
+@pytest.mark.asyncio
+async def test_word_cloud_with_year_filter(app_client, db_session):
+    await _seed(db_session)
+    response = await app_client.get(
+        "/api/word-cloud", params={"query": "year_from=1990"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    # Track D has lyrics=None, so no words at all in 1990+ range.
+    assert body["totalWords"] == 0
+
+
+@pytest.mark.asyncio
 async def test_search_invalid_order_by_returns_422(app_client, db_session):
     response = await app_client.get("/api/search", params={"order_by": "evil"})
     assert response.status_code == 422
@@ -268,6 +349,26 @@ async def test_stats_endpoint(app_client, db_session):
     assert body["songs_by_year"]["1950"] == 2
     assert body["songs_by_year"]["1975"] == 1
     assert body["songs_by_year"]["1990"] == 1
+    # OOV buckets: BAJA=1 (songs[0]), MEDIA=1 (songs[1]), ALTA=1 (songs[2])
+    assert body["songs_by_oov_level"]["BAJA"] == 1
+    assert body["songs_by_oov_level"]["MEDIA"] == 1
+    assert body["songs_by_oov_level"]["ALTA"] == 1
+    # Indigena buckets
+    assert body["songs_by_indigena"]["CON_INDIGENA"] == 1
+    assert body["songs_by_indigena"]["SIN_INDIGENA"] == 2
+
+
+@pytest.mark.asyncio
+async def test_stats_with_year_from_filter(app_client, db_session):
+    await _seed(db_session)
+    response = await app_client.get(
+        "/api/stats", params={"query": "year_from=1970"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    # Filtered to 1975+ -> only Track C (1975) + Track D (1990) = 2 songs.
+    assert body["total_songs"] == 2
+    assert body["songs_by_year"].get("1950") is None
 
 
 @pytest.mark.asyncio

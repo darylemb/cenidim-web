@@ -192,6 +192,104 @@ async def test_admin_song_update_404(db_session, app_client):
 
 
 @pytest.mark.asyncio
+async def test_admin_fonograma_update_404(db_session, app_client):
+    await make_admin()
+    await make_user(
+        username="editor", email="editor@cenidim.example", role="editor"
+    )
+    await login_as(app_client, "editor", "Strong1234")
+    response = await app_client.put(
+        "/api/admin/fonogramas/9999",
+        json={
+            "clave_fonograma": 9999,
+            "titulo": "Ghost",
+        },
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_admin_user_update_404(db_session, app_client):
+    await make_admin()
+    await login_as(app_client, "admin", "admin1234")
+    response = await app_client.put(
+        "/api/admin/users/9999",
+        json={"role": "viewer"},
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_admin_user_update_weak_password(db_session, app_client):
+    await make_admin()
+    await login_as(app_client, "admin", "admin1234")
+    new_user = await make_user(
+        username="victim", email="victim@cenidim.example", role="viewer"
+    )
+    response = await app_client.put(
+        f"/api/admin/users/{new_user.id}",
+        json={"password": "nodigits"},
+    )
+    assert response.status_code == 400
+    assert "digit" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_admin_audit_log_filters(db_session, app_client):
+    await make_admin()
+    await login_as(app_client, "admin", "admin1234")
+    # Create a user (generates an audit row).
+    response = await app_client.post(
+        "/api/admin/users",
+        json={
+            "username": "audit-target",
+            "email": "audit-target@cenidim.example",
+            "password": "Strong1234",
+        },
+    )
+    assert response.status_code == 201
+
+    # Filter by action
+    response = await app_client.get(
+        "/api/admin/audit?action=user.create"
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] >= 1
+    assert all(r["action"] == "user.create" for r in body["results"])
+
+    # Filter by actor (the admin user we logged in as).
+    response = await app_client.get("/api/admin/audit?actor_id=1")
+    assert response.status_code == 200
+    assert response.json()["total"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_admin_user_update_no_fields(db_session, app_client):
+    """Updating with no body fields just bumps the version."""
+    await make_admin()
+    await login_as(app_client, "admin", "admin1234")
+    new_user = await make_user(
+        username="noop", email="noop@cenidim.example", role="viewer"
+    )
+    response = await app_client.put(
+        f"/api/admin/users/{new_user.id}",
+        json={},
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_admin_emails_only_failures_filter(db_session, app_client):
+    await make_admin()
+    await make_email_outbox(to_addr="bob@cenidim.example", kind="password_reset")
+    await login_as(app_client, "admin", "admin1234")
+    response = await app_client.get("/api/admin/emails?only_failures=true")
+    assert response.status_code == 200
+    assert response.json()["total"] == 0
+
+
+@pytest.mark.asyncio
 async def test_admin_user_crud_roundtrip(db_session, app_client):
     await make_admin()
     await login_as(app_client, "admin", "admin1234")
