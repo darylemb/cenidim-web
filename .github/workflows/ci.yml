@@ -93,11 +93,14 @@ jobs:
         run: bash -n scripts/smoke.sh
 
   docker-build:
+    # Phase 7 cut-over: docker-compose.yaml now points at the
+    # FastAPI backend. This job builds + boots the default stack
+    # and runs the smoke script against /healthz + /metrics.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
-      - name: Build Docker images
+      - name: Build Docker images (default compose = FastAPI)
         run: docker compose build
       - name: Install Trivy
         run: |
@@ -125,17 +128,22 @@ jobs:
       - name: Start services
         run: docker compose up -d
       - name: Health check
-        run: sleep 5 && curl -sf http://localhost:8000/health
+        run: sleep 15 && curl -sf http://localhost:8000/healthz
+      - name: Smoke script
+        run: |
+          chmod +x backend-fastapi/scripts/smoke.sh
+          backend-fastapi/scripts/smoke.sh http://localhost:8000
       - name: Stop services
+        if: always()
         run: docker compose down
 
   docker-build-fastapi:
-    name: FastAPI docker compose smoke
+    name: FastAPI docker compose overlay smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
-      - name: Build + boot the FastAPI stack
+      - name: Build + boot the FastAPI overlay stack
         run: docker compose -f docker-compose-fastapi.yaml up -d --build
       - name: Health check
         run: sleep 15 && curl -sf http://localhost:8000/healthz
@@ -146,3 +154,19 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose -f docker-compose-fastapi.yaml down
+
+  docker-build-go-rollback:
+    # Verifies the rollback compose file still works, so operators
+    # can flip back if the FastAPI cut-over misbehaves.
+    name: Go docker compose rollback smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build + boot the Go rollback stack
+        run: docker compose -f docker-compose-go.yaml up -d --build
+      - name: Health check
+        run: sleep 15 && curl -sf http://localhost:8000/health
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose-go.yaml down

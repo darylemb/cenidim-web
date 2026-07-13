@@ -1,8 +1,16 @@
+# Default stack — Phase 7 cut-over.
+#
+# After Phase 7 the ``backend`` service is the FastAPI / Python
+# implementation. The Go / Gin service lives in `docker-compose-go.yaml`
+# for emergency rollback (see docs/CUTOVER.md).
+#
+# Frontend is unchanged: nginx still proxies /api/* to whichever
+# backend service is on port 8000.
+
 services:
   # db-init regenerates letras.db from CSV + LetrasTXT + the classifier.
-  # It runs once per `docker compose up` and exits. The backend waits
-  # for it via depends_on + condition: service_completed_successfully
-  # so the API never serves a stale DB.
+  # The classifier stage now produces a FastAPI-compatible DB
+  # (same schema, same snake_case columns, same FK semantics).
   db-init:
     build:
       context: .
@@ -18,37 +26,49 @@ services:
     restart: "no"
 
   backend:
+    # FastAPI / Pydantic v2 implementation. See backend-fastapi/Dockerfile
+    # for the multi-stage build (uv-managed deps, non-root runtime).
     build:
       context: .
-      dockerfile: backend/Dockerfile
-      args:
-        - ADMIN_PASS=admin123
+      dockerfile: backend-fastapi/Dockerfile
     ports:
-      - "8000:8080"
+      - "8000:8000"
     environment:
       # Core
-      - DB_PATH=/data/letras.db
-      - JWT_SECRET=cenidim-dev-secret-2024
-      - GIN_MODE=release
+      - CENIDIM_DB_PATH=/data/letras.db
+      - CENIDIM_JWT_SECRET=cenidim-dev-secret-2024
+      - CENIDIM_ENV=dev
 
-      # Google OAuth — fill these in to enable "Continuar con Google" on
-      # the login page. When any of the three required vars is empty,
-      # the backend boots in non-OAuth mode: password login still works
-      # and the Google button shows "temporalmente no disponible". See
-      # the README section "Google sign-in (local development)" for the
-      # full step-by-step.
+      # Structured logging (json default; set to "text" for human-readable).
+      - CENIDIM_LOG_FORMAT=json
+
+      # Google OAuth — Phase 7 hides it from the login page; set
+      # CENIDIM_ADMIN_EMAILS to enable admin-promotion on sign-in.
+      # The link lives at /api/auth/google/* and is intentionally NOT
+      # surfaced on the public dashboard.
       - GOOGLE_CLIENT_ID=
       - GOOGLE_CLIENT_SECRET=
       - GOOGLE_REDIRECT_URL=http://localhost:8000/api/auth/google/callback
       - FRONTEND_BASE_URL=http://localhost
+
+      # Resend — leave blank to use the dev outbox path. The outbox
+      # is exposed at /api/admin/emails so operators can inspect
+      # sends in development.
+      - RESEND_API_KEY=
+      - CENIDIM_EMAIL_FROM=no-reply@cenidim.local
     volumes:
       - ./backend/data:/data
     healthcheck:
-      test: ["CMD", "./healthcheck"]
+      test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).status == 200 else 1)"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
+      start_period: 10s
     restart: unless-stopped
+    # Production runs ``alembic upgrade head`` against the freshly-
+    # produced letras.db. The Dockerfile's CMD is fine for dev;
+    # operators can override with command: ["alembic", "upgrade", "head"]
+    # on first boot.
     depends_on:
       db-init:
         condition: service_completed_successfully

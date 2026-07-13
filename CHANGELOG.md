@@ -23,10 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   real uvicorn (`tests/integration/test_uvicorn_smoke.py`) +
   `scripts/smoke.sh` post-deploy health check + GitHub Actions
   `fastapi-checks` and `docker-build-fastapi` jobs.
-- Phase 6 (commit pending): Alembic migrations (alembic.ini +
+- Phase 6 (commit `e21ed14`): Alembic migrations (alembic.ini +
   env.py + initial_schema revision), hand-rolled Prometheus metrics
   (`app/observability.py` + `/metrics` endpoint), structured JSON
   logging (`app/logging_config.py`).
+- Phase 7 (commit pending): **cut-over**. `docker-compose.yaml`
+  now points at the FastAPI service. `docker-compose-go.yaml` is
+  kept as the rollback target. `docker-compose-fastapi.yaml`
+  remains as a development overlay. `docker-compose-coolify.yaml`
+  updated for the production stack. `docs/adr/0001-fastapi-replaces-go.md`
+  documents the decision; `docs/CUTOVER.md` is the operator
+  playbook. GitHub Actions adds a `docker-build-go-rollback` job
+  that boots the Go stack to ensure the rollback path stays
+  green.
 - New `RefreshTokenRevocation` and `AuditLog` tables matching the
   planned schema (mirrored from the Go-side design).
 - `/api/auth/refresh` rotates the refresh token's `jti` so stolen

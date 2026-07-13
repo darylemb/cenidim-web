@@ -9,7 +9,7 @@
 
 ## Active Branches
 - `fix/phase-0-admin-google-recovery-tests` (commit `2aab765`) — admin edits, password recovery, demote Google from login. Lives on `main`. Frontend coverage 95.4%.
-- `feature/fastapi-backend` — Phase 1+2+3+4+5+6 of the Go→FastAPI cut-over (commit `2a19551`+). 171 tests passing at 95.93% coverage, ruff clean, 95% gate. **All work happens here**; `backend/` stays untouched until Phase 7.
+- `feature/fastapi-backend` — **Phase 7 cut-over landed**. The default `docker compose up` boots the FastAPI stack; the Go backend is kept under `docker-compose-go.yaml` as the rollback. 171 backend tests + 273 frontend tests pass; ruff clean; 95% backend gate met.
 - `fix/critical-bugs-dashboard-and-oauth` — Go-era backup branch (do not delete; rollback target per user instruction).
 - `ux/dashboard-fixes-2026-07` — reviewer-feedback branch.
 
@@ -29,10 +29,11 @@ uv run alembic revision --autogenerate -m "..."  # create new migration
 uv run python scripts/generate_openapi.py  # refresh openapi.json
 ```
 
-Docker (Phase 1+ overlay):
+Docker (default = FastAPI after Phase 7):
 ```bash
-docker compose -f docker-compose-fastapi.yaml up --build
-# db-init -> backend-fastapi -> frontend (with healthchecks on /healthz)
+docker compose up --build          # FastAPI on :8000
+docker compose -f docker-compose-go.yaml up -d  # Rollback to Go
+# Both stacks serve the same /api contract on port 8000.
 backend-fastapi/scripts/smoke.sh http://localhost:8000
 ```
 - Read the same `letras.db` SQLite schema as the Go backend
