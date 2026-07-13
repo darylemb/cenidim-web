@@ -137,6 +137,10 @@ async def test_admin_song_crud_roundtrip(db_session, app_client):
         },
     )
     assert response.status_code == 201, response.text
+    created = response.json()
+    assert created["title"] == "Track One"
+    assert created["id"] > 0
+    assert created["fonograma_id"] == 300
 
     # List songs (joined view should include album + year).
     response = await app_client.get("/api/admin/songs")

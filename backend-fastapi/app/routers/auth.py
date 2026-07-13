@@ -8,7 +8,7 @@ from jose import JWTError, jwt
 from sqlalchemy import select
 
 from app.config import Settings, get_settings
-from app.deps import DbDep, issue_access_token
+from app.deps import CurrentUser, DbDep, issue_access_token
 from app.models.refresh_revocation import RefreshTokenRevocation
 from app.models.user import User
 from app.schemas.auth import (
@@ -18,6 +18,7 @@ from app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
     ResetPasswordRequest,
+    UserOut,
     user_to_out,
 )
 from app.security import (
@@ -40,10 +41,10 @@ async def login(
         user = await authenticate(db, username=body.username, password=body.password)
     except AuthError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-    _set_session_cookies(response, user, settings)
+    access_token, _ = _set_session_cookies(response, user, settings)
     user.last_sign_in_method = "password"
     await db.flush()
-    return AuthResponse(user=user_to_out(user))
+    return AuthResponse(token=access_token, user=user_to_out(user))
 
 
 @router.post("/register", response_model=AuthResponse, status_code=201)
@@ -63,8 +64,8 @@ async def register(
         )
     except AuthError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-    _set_session_cookies(response, user, settings)
-    return AuthResponse(user=user_to_out(user))
+    access_token, _ = _set_session_cookies(response, user, settings)
+    return AuthResponse(token=access_token, user=user_to_out(user))
 
 
 @router.post("/forgot", response_model=ForgotPasswordResponse)
@@ -146,6 +147,16 @@ async def logout(
     return {"ok": True}
 
 
+@router.get("/me", response_model=UserOut)
+async def me(current: CurrentUser) -> UserOut:
+    """Return the currently authenticated user.
+
+    Mirrors the Go ``GET /api/auth/me`` so the Vue dashboard can
+    rehydrate the auth store on page reload.
+    """
+    return user_to_out(current)
+
+
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh(
     request: Request,
@@ -210,12 +221,18 @@ async def refresh(
             expires_at=datetime.fromtimestamp(exp_ts, UTC),
         )
     )
-    _set_session_cookies(response, user, settings)
-    return AuthResponse(user=user_to_out(user))
+    access_token, _ = _set_session_cookies(response, user, settings)
+    return AuthResponse(token=access_token, user=user_to_out(user))
 
 
-def _set_session_cookies(response: Response, user: User, settings: Settings) -> None:
-    """Attach the HttpOnly access + refresh cookies + the CSRF seed."""
+def _set_session_cookies(
+    response: Response, user: User, settings: Settings
+) -> tuple[str, datetime]:
+    """Attach the HttpOnly access + refresh cookies + the CSRF seed.
+
+    Returns the access-token JWT so callers can echo it in the
+    response body for the dashboard's localStorage stash.
+    """
     access, access_exp = issue_access_token(user, settings)
     refresh, refresh_exp = issue_jwt(
         subject=user.id,
@@ -252,6 +269,7 @@ def _set_session_cookies(response: Response, user: User, settings: Settings) -> 
         samesite="strict",
         path="/",
     )
+    return access, access_exp
 
 
 def _clear_session_cookies(response: Response) -> None:

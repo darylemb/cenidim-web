@@ -29,6 +29,7 @@ from app.models.user_identity import UserIdentity
 from app.schemas.song import (
     FonogramaOut,
     SongCreateIn,
+    SongOut,
     SongUpdateIn,
     fonograma_to_out,
     song_to_out,
@@ -295,14 +296,14 @@ async def admin_list_songs(
 
 @router.post(
     "/songs",
-    response_model=UserCreatedResponse,
+    response_model=SongOut,
     status_code=status.HTTP_201_CREATED,
 )
 async def admin_create_song(
     db: DbDep,
     body: SongCreateIn,
     actor: User = Depends(require_role("editor")),
-) -> UserCreatedResponse:
+) -> Song:
     row = Song(
         fonograma_id=body.fonograma_id,
         title=body.title,
@@ -318,7 +319,7 @@ async def admin_create_song(
         target_id=row.id,
         detail=f"title={row.title!r}",
     )
-    return UserCreatedResponse(message=f"Song {row.id} created")
+    return row
 
 
 @router.put("/songs/{id}", response_model=UserCreatedResponse)

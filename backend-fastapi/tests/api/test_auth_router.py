@@ -51,9 +51,31 @@ async def test_login_succeeds_and_sets_cookies(app_client, db_session):
         json={"username": "admin", "password": "admin1234"},
     )
     assert response.status_code == 200
-    assert response.json()["user"]["username"] == "admin"
+    body = response.json()
+    assert body["user"]["username"] == "admin"
+    # Body must include the access token (frontend mirrors it to localStorage).
+    assert body["token"]
+    assert body["token"].count(".") == 2  # JWT has 3 segments
     cookie_names = {c.name for c in response.cookies.jar}
     assert "cenidim_session" in cookie_names
+
+
+@pytest.mark.asyncio
+async def test_me_returns_authenticated_user(app_client, db_session):
+    await make_admin()
+    await login_as(app_client, "admin", "admin1234")
+    response = await app_client.get("/api/auth/me")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["username"] == "admin"
+    assert body["role"] == "admin"
+    assert "id" in body
+
+
+@pytest.mark.asyncio
+async def test_me_requires_auth(app_client, db_session):
+    response = await app_client.get("/api/auth/me")
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio

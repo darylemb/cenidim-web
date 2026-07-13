@@ -122,7 +122,7 @@ async def test_search_returns_empty(app_client, db_session):
 @pytest.mark.asyncio
 async def test_search_by_title(app_client, db_session):
     await _seed(db_session)
-    response = await app_client.get("/api/search", params={"q": "Track A", "field": "title"})
+    response = await app_client.get("/api/search", params={"query": "Track A", "field": "title"})
     assert response.status_code == 200
     body = response.json()
     assert body["total"] >= 1
@@ -135,7 +135,7 @@ async def test_search_by_lyrics(app_client, db_session):
     await _seed(db_session)
     response = await app_client.get(
         "/api/search",
-        params={"q": "quick brown fox", "field": "lyrics"},
+        params={"query": "quick brown fox", "field": "lyrics"},
     )
     assert response.status_code == 200
     body = response.json()
@@ -148,7 +148,7 @@ async def test_search_by_album(app_client, db_session):
     await _seed(db_session)
     response = await app_client.get(
         "/api/search",
-        params={"q": "Album Uno", "field": "album"},
+        params={"query": "Album Uno", "field": "album"},
     )
     assert response.status_code == 200
     body = response.json()
@@ -249,7 +249,7 @@ async def test_search_order_by_year(app_client, db_session):
 
 @pytest.mark.asyncio
 async def test_search_q_too_long(app_client, db_session):
-    response = await app_client.get("/api/search", params={"q": "x" * 201})
+    response = await app_client.get("/api/search", params={"query": "x" * 201})
     # FastAPI's Query(max_length=200) rejects before our handler runs.
     assert response.status_code == 422
 
@@ -258,7 +258,7 @@ async def test_search_q_too_long(app_client, db_session):
 async def test_search_field_lyrics(app_client, db_session):
     await _seed(db_session)
     response = await app_client.get(
-        "/api/search", params={"q": "brown fox", "field": "lyrics"}
+        "/api/search", params={"query": "brown fox", "field": "lyrics"}
     )
     assert response.status_code == 200
     assert response.json()["total"] == 1
@@ -268,10 +268,19 @@ async def test_search_field_lyrics(app_client, db_session):
 async def test_search_field_album(app_client, db_session):
     await _seed(db_session)
     response = await app_client.get(
-        "/api/search", params={"q": "Album Uno", "field": "album"}
+        "/api/search", params={"query": "Album Uno", "field": "album"}
     )
     assert response.status_code == 200
     assert response.json()["total"] == 2
+
+
+@pytest.mark.asyncio
+async def test_search_accepts_alias_query_param(app_client, db_session):
+    """The Vue dashboard sends ``query=``; ensure the alias works."""
+    await _seed(db_session)
+    response = await app_client.get("/api/search", params={"query": "Track A"})
+    assert response.status_code == 200
+    assert response.json()["total"] >= 1
 
 
 @pytest.mark.asyncio

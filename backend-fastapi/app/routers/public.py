@@ -66,7 +66,7 @@ def _norm_themes(values: list[str]) -> list[str]:
 @router.get("/search", response_model=dict)
 async def search_songs(
     db: DbDep,
-    q: Annotated[str, Query(max_length=200)] = "",
+    q: Annotated[str, Query(max_length=200, alias="query", description="Search query (alias `query` for the Go frontend)")] = "",
     field: Annotated[str, Query(pattern="^(all|title|album|lyrics)$")] = "all",
     page: Annotated[int, Query(ge=1)] = 1,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -83,6 +83,10 @@ async def search_songs(
     Theme/classification are exact-match after lowercasing so case
     variants collapse into a single bucket. Year range is bounded
     by ``year_from <= year_to``; the helper raises 400 if inverted.
+
+    The ``q`` parameter is also exposed as ``query`` so the existing
+    Vue dashboard (which sends ``?query=...``) keeps working
+    without a frontend change.
     """
     if year_from is not None and year_to is not None and year_from > year_to:
         raise HTTPException(status_code=400, detail="year_from must be <= year_to")

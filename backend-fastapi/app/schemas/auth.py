@@ -22,15 +22,30 @@ class RegisterRequest(BaseModel):
 
 
 class UserOut(BaseModel):
+    """The shape the Vue dashboard expects.
+
+    The ``token`` field on the response is the access-token JWT; the
+    cookie carries it too, but mirroring it in the body keeps the
+    Go-era dashboard functional without requiring it to read
+    ``document.cookie``.
+    """
     model_config = ConfigDict(from_attributes=True)
     id: int
     username: str
     email: str
     role: str
-    created_at: datetime
+    created_at: datetime | None = None
+    last_sign_in_method: str | None = None
+    last_sign_in_at: datetime | None = None
 
 
 class AuthResponse(BaseModel):
+    """The /api/auth/{login,register,refresh} envelope.
+
+    Includes the access-token JWT so the Vue dashboard can stash it
+    in localStorage (matching the Go contract).
+    """
+    token: str
     user: UserOut
 
 
