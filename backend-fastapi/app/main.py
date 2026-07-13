@@ -1,7 +1,7 @@
 """Common dependencies + CORS + security middleware."""
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
@@ -10,6 +10,8 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import Settings, get_settings
 from app.db import dispose_engine, init_engine
+from app.routers import auth as auth_router
+from app.routers import public as public_router
 from app.security import issue_csrf_token
 from app.services.email import EmailService
 
@@ -75,6 +77,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}
+
+    # Sub-routers.
+    app.include_router(auth_router.router)
+    app.include_router(public_router.router)
 
     # Tear down the DB engine on shutdown so connections close cleanly.
     @app.on_event("shutdown")

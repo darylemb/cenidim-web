@@ -7,20 +7,79 @@ from app.services.auth import (
     AuthError,
     authenticate,
     register_user,
-    request_password_reset,
 )
-from app.security import hash_password, verify_password_policy
 
 
 @pytest.mark.asyncio
-async def test_register_user_happy_path(db_session):
+async def test_register_user_happy_path(db_session, settings):
     user = await register_user(
         db_session,
         username="alice",
         email="alice@cenidim.test",
         password="Strong1234",
-        settings=db_session.get_bind().__class__,  # placeholder
+        settings=settings,
     )
-    # The function takes a Settings but db_session.get_bind is an
-    # AsyncConnection, so we use a sentinel through the auth service.
-    # For brevity, fall through to the simpler tests.
+    assert user.id is not None
+    assert user.username == "alice"
+    assert user.role == "viewer"
+
+
+@pytest.mark.asyncio
+async def test_register_user_rejects_weak_password(db_session, settings):
+    with pytest.raises(AuthError) as exc:
+        await register_user(
+            db_session,
+            username="bob",
+            email="bob@cenidim.test",
+            password="nodigits",
+            settings=settings,
+        )
+    assert exc.value.status_code == 400
+    assert "digit" in exc.value.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_register_user_rejects_duplicate(db_session, settings):
+    await register_user(
+        db_session,
+        username="carol",
+        email="carol@cenidim.test",
+        password="Strong1234",
+        settings=settings,
+    )
+    with pytest.raises(AuthError) as exc:
+        await register_user(
+            db_session,
+            username="carol",
+            email="carol@cenidim.test",
+            password="Different1",
+            settings=settings,
+        )
+    assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_authenticate_round_trip(db_session, settings):
+    await register_user(
+        db_session,
+        username="dave",
+        email="dave@cenidim.test",
+        password="Strong1234",
+        settings=settings,
+    )
+    user = await authenticate(db_session, username="dave", password="Strong1234")
+    assert user.username == "dave"
+
+
+@pytest.mark.asyncio
+async def test_authenticate_rejects_bad_password(db_session, settings):
+    await register_user(
+        db_session,
+        username="eve",
+        email="eve@cenidim.test",
+        password="Strong1234",
+        settings=settings,
+    )
+    with pytest.raises(AuthError) as exc:
+        await authenticate(db_session, username="eve", password="WrongPass1")
+    assert exc.value.status_code == 401

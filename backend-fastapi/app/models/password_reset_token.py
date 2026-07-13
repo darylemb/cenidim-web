@@ -31,7 +31,7 @@ class PasswordResetToken(Base):
         server_default=func.current_timestamp(),
     )
 
-    user: Mapped["User"] = relationship(back_populates="reset_tokens")
+    user: Mapped[User] = relationship(back_populates="reset_tokens")
 
 
 __all__ = ["PasswordResetToken"]

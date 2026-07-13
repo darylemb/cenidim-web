@@ -29,7 +29,6 @@ async def db_session(settings: Settings) -> AsyncIterator:
     init_in_memory_engine()
     EmailService.configure(settings)
     # The in-memory DB starts empty; create_all() is idempotent.
-    from sqlalchemy.ext.asyncio import create_async_engine
 
     from app.db.session import _engine, get_sessionmaker
 

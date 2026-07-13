@@ -10,14 +10,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.password_reset_token import PasswordResetToken
-    from app.models.refresh_revocation import RefreshTokenRevocation
     from app.models.user_identity import UserIdentity
 
 
@@ -33,11 +32,11 @@ class User(Base, TimestampMixin):
     last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    identities: Mapped[list["UserIdentity"]] = relationship(
+    identities: Mapped[list[UserIdentity]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    reset_tokens: Mapped[list["PasswordResetToken"]] = relationship(
+    reset_tokens: Mapped[list[PasswordResetToken]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )

@@ -16,7 +16,10 @@ def test_jwt_roundtrip():
     )
     from jose import jwt
     payload = jwt.decode(token, "x" * 64, algorithms=["HS256"])
-    assert payload["sub"] == 42
+    # python-jose enforces ``sub`` to be a string, so we coerce once at
+    # issue time and accept either representation here.
+    assert payload["sub"] in ("42", 42)
+    assert int(payload["sub"]) == 42
     assert payload["role"] == "admin"
     assert payload["type"] == "access"
     assert payload["exp"] > 0

@@ -8,18 +8,13 @@ single bucket.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import select
 
-from app.config import Settings, get_settings
-from app.deps import DbDep, SettingsDep
-from app.models.fonograma import Fonograma
+from app.deps import DbDep
 from app.models.song import Song
-from app.models.song_stats import SongStats
 from app.models.theme_normalization import canonical_tema
 from app.schemas.song import SongOut, song_to_out
 from app.schemas.stats import (
@@ -32,7 +27,6 @@ from app.schemas.stats import (
 from app.services.filters import (
     AlbumQ,
     ClasificacionList,
-    QueryText,
     TemaList,
     YearFromQ,
     YearToQ,
@@ -309,8 +303,8 @@ async def get_stats(
             songs_by_theme[c] = songs_by_theme.get(c, 0) + count
 
     recently_added = (await db.execute(
-        f"SELECT COUNT(*) FROM songs s "
-        f"WHERE s.created_at > datetime('now', '-30 days')",
+        "SELECT COUNT(*) FROM songs s "
+        "WHERE s.created_at > datetime('now', '-30 days')",
     )).scalar_one()
 
     total_albums = (await db.execute(

@@ -8,11 +8,8 @@ demo SMTP is "log to stdout".
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.db import session_scope

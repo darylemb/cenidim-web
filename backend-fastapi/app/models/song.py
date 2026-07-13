@@ -5,10 +5,9 @@ Mirrors the Go ``songs`` table. Foreign key to ``fonogramas`` with
 """
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -39,8 +38,8 @@ class Song(Base, TimestampMixin):
     temas_raw: Mapped[str | None] = mapped_column(String, nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    fonograma: Mapped["Fonograma"] = relationship(back_populates="songs")
-    stats: Mapped["SongStats | None"] = relationship(
+    fonograma: Mapped[Fonograma] = relationship(back_populates="songs")
+    stats: Mapped[SongStats | None] = relationship(
         back_populates="song",
         cascade="all, delete-orphan",
         uselist=False,

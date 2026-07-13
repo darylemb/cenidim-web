@@ -1,8 +1,7 @@
 """HTTP routers for /api/auth/*."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import EmailStr
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from app.config import Settings, get_settings
 from app.deps import DbDep, issue_access_token
@@ -17,11 +16,8 @@ from app.schemas.auth import (
     user_to_out,
 )
 from app.security import (
-    hash_password,
     issue_csrf_token,
     issue_jwt,
-    verify_password,
-    verify_password_policy,
 )
 from app.services.auth import AuthError, authenticate, register_user
 
@@ -116,7 +112,7 @@ def _set_session_cookies(response: Response, user: User, settings: Settings) -> 
         ttl_seconds=settings.jwt_refresh_ttl_seconds,
         secret=settings.jwt_secret.get_secret_value(),
         algorithm=settings.jwt_algorithm,
-        token_type="refresh",
+        token_type="refresh",  # noqa: S106
     )
     response.set_cookie(
         "cenidim_session",

@@ -24,7 +24,7 @@ class SongStats(Base):
     contiene_indigena: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     n_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    song: Mapped["Song"] = relationship(back_populates="stats")
+    song: Mapped[Song] = relationship(back_populates="stats")
 
 
 __all__ = ["SongStats"]

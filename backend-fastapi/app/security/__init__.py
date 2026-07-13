@@ -1,26 +1,32 @@
 """Security helpers: password hashing + JWT + CSRF double-submit."""
 from __future__ import annotations
 
+import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import bcrypt
 from jose import jwt
-from passlib.context import CryptContext
 
-from app.config import Settings
+# bcrypt's hard 72-byte input limit is bypassed by pre-hashing with
+# SHA-256 first. The hex digest is 64 ASCII bytes (well within the
+# limit), and the bcrypt layer still provides per-password salts and
+# the slow factor. This is the same pattern Django and others use.
 
-_pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _prep(plain: str) -> bytes:
+    return hashlib.sha256(plain.encode("utf-8")).hexdigest().encode("ascii")
 
 
 def hash_password(plain: str) -> str:
-    return _pwd_ctx.hash(plain)
+    return bcrypt.hashpw(_prep(plain), bcrypt.gensalt(rounds=12)).decode("ascii")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     try:
-        return _pwd_ctx.verify(plain, hashed)
-    except ValueError:
+        return bcrypt.checkpw(_prep(plain), hashed.encode("ascii"))
+    except (ValueError, TypeError):
         return False
 
 
@@ -31,13 +37,13 @@ def generate_reset_token() -> tuple[str, str]:
     so a DB leak does not yield usable reset links.
     """
     raw = secrets.token_urlsafe(32)
-    hashed = _pwd_ctx.hash(raw)
+    hashed = bcrypt.hashpw(_prep(raw), bcrypt.gensalt(rounds=12)).decode("ascii")
     return raw, hashed
 
 
 def hash_reset_token(plaintext: str) -> str:
     """Bcrypt an existing plaintext (used when verifying)."""
-    return _pwd_ctx.hash(plaintext)
+    return bcrypt.hashpw(_prep(plaintext), bcrypt.gensalt(rounds=12)).decode("ascii")
 
 
 def issue_jwt(
@@ -51,10 +57,10 @@ def issue_jwt(
     extra: dict[str, Any] | None = None,
 ) -> tuple[str, datetime]:
     """Mint a signed JWT. Returns (token, expires_at)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     exp = now + timedelta(seconds=ttl_seconds)
     payload: dict[str, Any] = {
-        "sub": subject,
+        "sub": str(subject),
         "role": role,
         "type": token_type,
         "iat": int(now.timestamp()),

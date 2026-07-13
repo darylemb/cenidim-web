@@ -18,7 +18,7 @@ def test_password_hash_and_verify_roundtrip():
         ("abc", "at least 8"),
         ("a" * 129, "at most 128"),
         ("nodigitshere", "at least one digit"),
-        ("1n0digit5", "at least one digit"),  # has 'n' digit but no actual digit char
+        ("NoDigitsHere!", "at least one digit"),  # no actual digit char
     ],
 )
 def test_password_policy_rejects_invalid(pwd, reason):

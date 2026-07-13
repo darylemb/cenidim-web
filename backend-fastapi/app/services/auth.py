@@ -6,8 +6,7 @@ email outbox, refresh-token revocation) happen here.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Sequence
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -45,7 +44,7 @@ async def register_user(
 
     Raises AuthError(409) on username / email collision.
     """
-    err := verify_password_policy(password)
+    err = verify_password_policy(password)
     if err is not None:
         raise AuthError(400, err)
     user = User(
@@ -81,7 +80,7 @@ def issue_session(user: User, settings: Settings) -> dict[str, tuple[str, dateti
         ttl_seconds=settings.jwt_access_ttl_seconds,
         secret=settings.jwt_secret.get_secret_value(),
         algorithm=settings.jwt_algorithm,
-        token_type="access",
+        token_type="access",  # noqa: S106
     )
     refresh, refresh_exp = issue_jwt(
         subject=user.id,
@@ -89,7 +88,7 @@ def issue_session(user: User, settings: Settings) -> dict[str, tuple[str, dateti
         ttl_seconds=settings.jwt_refresh_ttl_seconds,
         secret=settings.jwt_secret.get_secret_value(),
         algorithm=settings.jwt_algorithm,
-        token_type="refresh",
+        token_type="refresh",  # noqa: S106
     )
     return {
         "access": (access, access_exp),
@@ -119,7 +118,7 @@ async def request_password_reset(
         PasswordResetToken(
             user_id=user.id,
             token_hash=token_hash,
-            expires_at=datetime.now(timezone.utc)
+            expires_at=datetime.now(UTC)
             + timedelta(seconds=settings.jwt_access_ttl_seconds),  # 1h same as access
         )
     )
@@ -150,15 +149,17 @@ async def consume_password_reset(
 
     Raises AuthError(401) for any validation failure.
     """
-    from datetime import datetime, timezone
-    from sqlalchemy import update
-    from app.security import hash_password, hash_reset_token
+    from datetime import datetime
 
-    err := verify_password_policy(new_password)
+    from sqlalchemy import update
+
+    from app.security import hash_password
+
+    err = verify_password_policy(new_password)
     if err is not None:
         raise AuthError(400, err)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     rows = (
         await db.execute(
             select(PasswordResetToken).where(

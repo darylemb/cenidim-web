@@ -35,7 +35,7 @@ class Fonograma(Base):
     observaciones: Mapped[str | None] = mapped_column(String, nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    songs: Mapped[list["Song"]] = relationship(back_populates="fonograma")
+    songs: Mapped[list[Song]] = relationship(back_populates="fonograma")
 
 
 __all__ = ["Fonograma"]

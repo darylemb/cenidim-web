@@ -8,7 +8,7 @@ JS where XSS is the bigger threat model).
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request, status
@@ -43,7 +43,7 @@ DbDep = Annotated[AsyncSession, Depends(get_db)]
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _decode_jwt(token: str, settings: Settings) -> dict[str, Any]:

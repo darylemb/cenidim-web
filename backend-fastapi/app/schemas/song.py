@@ -12,6 +12,14 @@ from app.models.song import Song
 ClaveFonograma = Annotated[int, Field(ge=1)]
 SongId = Annotated[int, Field(ge=1)]
 
+# String field with ``strip_whitespace`` + bounded length. Pydantic v2
+# requires ``Annotated[str, StringConstraints(...)]`` - a bare
+# ``StringConstraints(...)`` annotation is invalid (it isn't a class
+# and has no ``__mro__``).
+TituloStr = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+]
+
 
 class FonogramaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -40,7 +48,7 @@ def fonograma_to_out(f: Fonograma) -> FonogramaOut:
 class FonogramaCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     clave_fonograma: ClaveFonograma
-    titulo: StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+    titulo: TituloStr
     subtitulo: str | None = Field(default=None, max_length=500)
     interprete_principal: str | None = Field(default=None, max_length=500)
     interpretes_invitados: str | None = Field(default=None, max_length=500)
@@ -84,7 +92,7 @@ class SongUpdate(BaseModel):
     """
     model_config = ConfigDict(extra="forbid")
 
-    title: StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+    title: TituloStr
     lyrics: str | None = Field(default=None, max_length=50_000)
     autor: str | None = Field(default=None, max_length=200)
     compositor: str | None = Field(default=None, max_length=200)
@@ -97,7 +105,7 @@ class SongCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     fonograma_id: ClaveFonograma
-    title: StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+    title: TituloStr
     lyrics: str | None = Field(default=None, max_length=50_000)
     autor: str | None = Field(default=None, max_length=200)
     compositor: str | None = Field(default=None, max_length=200)

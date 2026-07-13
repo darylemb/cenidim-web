@@ -14,7 +14,13 @@ _WHITESPACE_RE = re.compile(r"\s+")
 
 
 def canonical_tema(value: str | None) -> str:
-    """Title-case each slash-delimited segment, collapse whitespace.
+    """Title-case each whitespace-delimited word in every
+    slash-delimited segment.
+
+    Examples:
+      "Vida/ muerte"     -> "Vida/Muerte"
+      "Ao nuevo"        -> "Ao Nuevo"
+      "  caf/  T "     -> "Caf/T"
 
     Empty / None inputs return an empty string so the calling site
     can treat the result as a plain bucket key.
@@ -30,11 +36,9 @@ def _title_segment(segment: str) -> str:
     segment = _WHITESPACE_RE.sub(" ", segment).strip()
     if not segment:
         return ""
-    chars = list(segment)
-    chars[0] = chars[0].upper()
-    for i in range(1, len(chars)):
-        chars[i] = chars[i].lower()
-    return "".join(chars)
+    # Per-word title-casing so multi-word segments ("Ao nuevo")
+    # produce "Ao Nuevo" instead of "Ao nuevo".
+    return " ".join(w.capitalize() for w in segment.split(" "))
 
 
 __all__ = ["canonical_tema"]
