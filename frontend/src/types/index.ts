@@ -52,6 +52,14 @@ export interface User {
   role: UserRole;
 }
 
+export interface UserIdentity {
+  id: number;
+  provider: string;
+  subject: string;
+  email_at_link: string;
+  linked_at: string;
+}
+
 export interface Stats {
   total_songs: number;
   total_albums: number;

@@ -14,6 +14,7 @@ import type {
   User,
   PaginatedResponse,
   AuthResponse,
+  UserIdentity,
 } from '@/types';
 
 const BASE_URL = '/api';
@@ -322,5 +323,32 @@ export const apiService = {
       headers: { ...authHeaders() },
     });
     if (!response.ok) throw new Error('Error');
+  },
+
+  /**
+   * Identity management (admin only). Phase 7+ hides the Google
+   * button on the login page, so the only path for an admin to
+   * manage an existing Google-linked account is via these calls.
+   */
+  adminListIdentities: async (userId: number): Promise<UserIdentity[]> => {
+    const response = await fetch(`${BASE_URL}/admin/users/${userId}/identities`, {
+      headers: { ...authHeaders() },
+    });
+    if (!response.ok) throw new Error('Error');
+    return response.json();
+  },
+
+  adminUnlinkIdentity: async (userId: number): Promise<void> => {
+    const response = await fetch(
+      `${BASE_URL}/admin/users/${userId}/identity`,
+      {
+        method: 'DELETE',
+        headers: { ...authHeaders() },
+      },
+    );
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.detail || 'Error');
+    }
   },
 };

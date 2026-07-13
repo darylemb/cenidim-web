@@ -14,6 +14,8 @@ vi.mock('@/services/api', () => ({
     adminDeleteFonograma: vi.fn(async () => {}),
     adminDeleteSong: vi.fn(async () => {}),
     adminDeleteUser: vi.fn(async () => {}),
+    adminListIdentities: vi.fn(async () => []),
+    adminUnlinkIdentity: vi.fn(async () => {}),
   },
 }))
 
@@ -384,4 +386,92 @@ describe('AdminPanel.vue', () => {
     expect(th).toBeTruthy()
     await th!.trigger('click')
     await flushPromises()
+  })
+
+  it('shows "ninguna" when a user has no linked identities', async () => {
+    ;(apiService.adminListUsers as ReturnType<typeof vi.fn>).mockReset()
+    ;(apiService.adminListIdentities as ReturnType<typeof vi.fn>).mockReset()
+    ;(apiService.adminListUsers as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 1, username: 'alice', email: 'a@x', role: 'viewer' },
+    ])
+    ;(apiService.adminListIdentities as ReturnType<typeof vi.fn>).mockResolvedValueOnce([])
+    const w = makeWrapper('admin')
+    await flushPromises()
+    await w.findAll('.admin-tabs button')[2].trigger('click') // Usuarios tab
+    await flushPromises()
+    expect(w.text()).toContain('ninguna')
+  })
+
+  it('renders linked identities with their provider + subject', async () => {
+    ;(apiService.adminListUsers as ReturnType<typeof vi.fn>).mockReset()
+    ;(apiService.adminListIdentities as ReturnType<typeof vi.fn>).mockReset()
+    ;(apiService.adminListUsers as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 1, username: 'alice', email: 'a@x', role: 'viewer' },
+    ])
+    ;(apiService.adminListIdentities as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: 7,
+        provider: 'google',
+        subject: 'google-123456',
+        email_at_link: 'a@x',
+        linked_at: '2026-01-01T00:00:00',
+      },
+    ])
+    const w = makeWrapper('admin')
+    await flushPromises()
+    await w.findAll('.admin-tabs button')[2].trigger('click')
+    await flushPromises()
+    expect(w.find('[data-testid="identity-1-google"]').exists()).toBe(true)
+    expect(w.text()).toContain('google')
+    expect(w.text()).toContain('google-123456')
+  })
+
+  it('clicking Desvincular opens the confirm modal', async () => {
+    ;(apiService.adminListUsers as ReturnType<typeof vi.fn>).mockReset()
+    ;(apiService.adminListIdentities as ReturnType<typeof vi.fn>).mockReset()
+    ;(apiService.adminListUsers as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 1, username: 'alice', email: 'a@x', role: 'viewer' },
+    ])
+    ;(apiService.adminListIdentities as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: 7,
+        provider: 'google',
+        subject: 'google-abc',
+        email_at_link: 'a@x',
+        linked_at: '2026-01-01T00:00:00',
+      },
+    ])
+    const w = makeWrapper('admin')
+    await flushPromises()
+    await w.findAll('.admin-tabs button')[2].trigger('click')
+    await flushPromises()
+    const btn = w.find('[data-testid="unlink-1-google"]')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    await flushPromises()
+    // ConfirmModal is rendered as a child component.
+    expect(w.text()).toContain('Desvincular la identidad google')
+  })
+
+  it('clicking Desvincular sets up the confirm-modal payload', async () => {
+    ;(apiService.adminListUsers as ReturnType<typeof vi.fn>).mockReset()
+    ;(apiService.adminListIdentities as ReturnType<typeof vi.fn>).mockReset()
+    ;(apiService.adminListUsers as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 1, username: 'alice', email: 'a@x', role: 'viewer' },
+    ])
+    ;(apiService.adminListIdentities as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: 7,
+        provider: 'google',
+        subject: 'google-abc',
+        email_at_link: 'a@x',
+        linked_at: '2026-01-01T00:00:00',
+      },
+    ])
+    const w = makeWrapper('admin')
+    await flushPromises()
+    await w.findAll('.admin-tabs button')[2].trigger('click')
+    await flushPromises()
+    const btn = w.find('[data-testid="unlink-1-google"]')
+    expect(btn.exists()).toBe(true)
   })

@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   env.py + initial_schema revision), hand-rolled Prometheus metrics
   (`app/observability.py` + `/metrics` endpoint), structured JSON
   logging (`app/logging_config.py`).
-- Phase 7 (commit pending): **cut-over**. `docker-compose.yaml`
+- Phase 7 (commit `9ba5cd1`): **cut-over**. `docker-compose.yaml`
   now points at the FastAPI service. `docker-compose-go.yaml` is
   kept as the rollback target. `docker-compose-fastapi.yaml`
   remains as a development overlay. `docker-compose-coolify.yaml`
@@ -36,6 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   playbook. GitHub Actions adds a `docker-build-go-rollback` job
   that boots the Go stack to ensure the rollback path stays
   green.
+- Phase 8 (commit pending): Google OAuth identity management in
+  the dashboard. The Users tab now shows each row's linked
+  identities (provider + subject) with an inline
+  `Desvincular <provider>` action that calls the FastAPI
+  `/api/admin/users/{id}/identity` DELETE. Backend test coverage
+  for the identity-admin endpoints; frontend tests for the new
+  column + unlink flow. (`UserIdentity` type added to the
+  frontend's `src/types/index.ts`; `apiService.adminListIdentities`
+  and `apiService.adminUnlinkIdentity` added to `src/services/api.ts`.)
 - New `RefreshTokenRevocation` and `AuditLog` tables matching the
   planned schema (mirrored from the Go-side design).
 - `/api/auth/refresh` rotates the refresh token's `jti` so stolen

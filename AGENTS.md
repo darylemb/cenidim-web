@@ -9,7 +9,7 @@
 
 ## Active Branches
 - `fix/phase-0-admin-google-recovery-tests` (commit `2aab765`) — admin edits, password recovery, demote Google from login. Lives on `main`. Frontend coverage 95.4%.
-- `feature/fastapi-backend` — **Phase 7 cut-over landed**. The default `docker compose up` boots the FastAPI stack; the Go backend is kept under `docker-compose-go.yaml` as the rollback. 171 backend tests + 273 frontend tests pass; ruff clean; 95% backend gate met.
+- `feature/fastapi-backend` — **Phase 7 cut-over landed**. The default `docker compose up` boots the FastAPI stack; the Go backend is kept under `docker-compose-go.yaml` as the rollback. 177 backend tests + 277 frontend tests pass; ruff clean; 96.05% backend coverage (95% gate met). Phase 8 added the admin Google-OAuth identity management UI.
 - `fix/critical-bugs-dashboard-and-oauth` — Go-era backup branch (do not delete; rollback target per user instruction).
 - `ux/dashboard-fixes-2026-07` — reviewer-feedback branch.
 
