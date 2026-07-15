@@ -320,3 +320,4 @@ When changing the Google OAuth env vars, only the `environment:` block of the `b
 
 See `LICENSE` (not included in this README; check the repository root).
 # retrigger ci
+<!-- CI: Tue Jul 14 22:23:24 CST 2026 -->
