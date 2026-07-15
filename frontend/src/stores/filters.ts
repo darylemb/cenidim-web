@@ -190,12 +190,6 @@ export const useFiltersStore = defineStore('filters', () => {
       !q.value
   );
 
-  // Explicit setters so callers (including DashboardFilters' direct
-  // assignment) can mutate the store through Pinia's proxy instead of
-  // fighting with how setup-style stores expose refs.
-  function setThemes(t: string[]) { themes.value = [...t] }
-  function setClasificaciones(c: string[]) { clasificaciones.value = [...c] }
-
   return {
     themes,
     yearFrom,
@@ -208,8 +202,6 @@ export const useFiltersStore = defineStore('filters', () => {
     clear,
     setYearRange,
     setQ,
-    setThemes,
-    setClasificaciones,
     onDebouncedFlush,
     queryString,
     active,

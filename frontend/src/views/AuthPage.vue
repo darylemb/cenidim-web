@@ -19,13 +19,13 @@
       </div>
 
       <div v-if="error" class="auth-error">{{ error }}</div>
+      <div v-if="googleError" class="auth-error">{{ googleError }}</div>
 
-      <!--
-        Google OAuth se movió al panel admin (AdminUserForm →
-        "Vincular cuenta Google"). Los usuarios normales ahora
-        ingresan solo con password y pueden recuperar la contraseña
-        desde "¿Olvidaste tu contraseña?".
-      -->
+      <GoogleSignInButton :unavailable="googleUnavailable" class="auth-google" />
+
+      <div class="auth-divider">
+        <span>o</span>
+      </div>
 
       <form class="auth-form" @submit.prevent="handleSubmit">
         <div class="form-group">
@@ -55,59 +55,19 @@
         <button type="submit" class="auth-submit" :disabled="loading">
           {{ loading ? 'Cargando...' : mode === 'login' ? 'Acceder' : 'Crear Cuenta' }}
         </button>
-        <button
-          v-if="mode === 'login'"
-          type="button"
-          class="auth-link"
-          @click="showForgot = true"
-        >
-          ¿Olvidaste tu contraseña?
-        </button>
       </form>
-
-      <div v-if="showForgot" class="auth-modal-overlay" @click.self="showForgot = false">
-        <div class="auth-modal" role="dialog" aria-labelledby="forgot-title">
-          <h3 id="forgot-title">Recuperar contraseña</h3>
-          <p class="auth-modal-hint">
-            Te enviaremos un enlace por email si la cuenta existe. En modo demo
-            el enlace se imprime en la consola del backend
-            (busca <code>DEV EMAIL OUTBOX</code> en los logs de Coolify).
-          </p>
-          <div v-if="forgotError" class="auth-error">{{ forgotError }}</div>
-          <div v-if="forgotSuccess" class="auth-success">
-            Si la cuenta existe, te enviamos un email con instrucciones.
-          </div>
-          <form @submit.prevent="handleForgot">
-            <div class="form-group">
-              <label for="forgot-email">Correo</label>
-              <input
-                id="forgot-email"
-                v-model="forgotEmail"
-                type="email"
-                required
-                autocomplete="email"
-              />
-            </div>
-            <div class="auth-modal-actions">
-              <button type="button" class="btn-secondary" @click="showForgot = false">Cerrar</button>
-              <button type="submit" class="btn-primary" :disabled="forgotLoading">
-                {{ forgotLoading ? 'Enviando…' : 'Enviar enlace' }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import { apiService } from '@/services/api';
+import GoogleSignInButton from '@/components/GoogleSignInButton.vue';
 
 const router = useRouter();
+const route = useRoute();
 const auth = useAuthStore();
 
 const mode = ref<'login' | 'register'>('login');
@@ -116,32 +76,83 @@ const email = ref('');
 const password = ref('');
 const loading = ref(false);
 const error = ref('');
+const googleError = ref('');
+const googleUnavailable = ref(false);
 
-const showForgot = ref(false);
-const forgotEmail = ref('');
-const forgotError = ref('');
-const forgotSuccess = ref(false);
-const forgotLoading = ref(false);
+onMounted(async () => {
+  const q = route.query.google
+  if (typeof q === 'string' && q.startsWith('err=')) {
+    const code = q.substring(4)
+    googleError.value = humanizeGoogleError(code)
+  } else if (q === 'ok') {
+    // Token comes back in the URL fragment to keep it out of server logs.
+    const hash = window.location.hash.replace(/^#/, '')
+    const params = new URLSearchParams(hash)
+    const token = params.get('token')
+    const username = params.get('username')
+    const role = params.get('role')
+    if (token) {
+      localStorage.setItem('cenidim_token', token)
+      try {
+        await auth.refresh()
+      } catch {
+        // Fall back to the values from the fragment so the user can land
+        // somewhere meaningful even if /auth/me is briefly unavailable.
+        auth.user = {
+          id: Number(params.get('id') ?? 0),
+          username: username ?? '',
+          email: params.get('email') ?? '',
+          role: (role as 'viewer' | 'editor' | 'admin') ?? 'viewer',
+        }
+      }
+      const finalRole = auth.user?.role ?? ((role as 'viewer' | 'editor' | 'admin') ?? 'viewer')
+      // Strip the fragment so it is not re-sent on reload.
+      router.replace({ name: 'login', query: {}, hash: '' })
+      router.push({ name: finalRole === 'admin' ? 'admin' : 'timeline' })
+    } else {
+      googleError.value = 'Google no devolvió un token. Intenta de nuevo.'
+    }
+  }
 
-// Google OAuth se movió al panel admin. Esta vista ya no captura el
-// callback ?google=ok|err=... — la única ruta de OAuth es el flujo
-// admin "Vincular cuenta Google" en AdminUserForm.
-
-async function handleForgot() {
-  forgotError.value = ''
-  forgotSuccess.value = false
-  forgotLoading.value = true
+  // Probe the Google start endpoint to see if it's configured. A
+  // properly configured endpoint replies with a 302 to Google's consent
+  // screen — the browser masks that to status 0 + type 'opaqueredirect'
+  // when `redirect: 'manual'`. Anything else (4xx/5xx) means OAuth
+  // env vars are missing or the route is misconfigured, so the button
+  // should fall back to its disabled state.
   try {
-    await apiService.forgotPassword(forgotEmail.value)
-    // The backend always returns 200 to avoid user enumeration, so we
-    // always show the success message regardless of whether the email
-    // was actually registered.
-    forgotSuccess.value = true
-    forgotEmail.value = ''
-  } catch (e: unknown) {
-    forgotError.value = e instanceof Error ? e.message : 'Error al enviar el enlace'
-  } finally {
-    forgotLoading.value = false
+    const ctl = new AbortController()
+    const timer = setTimeout(() => ctl.abort(), 1500)
+    const res = await fetch('/api/auth/google/start', {
+      method: 'GET',
+      redirect: 'manual',
+      signal: ctl.signal,
+    })
+    clearTimeout(timer)
+    // opaqueredirect → status 0; configured backend also returns 302
+    // when the browser is configured to follow it, which is harmless.
+    if (res.type !== 'opaqueredirect' && res.status >= 400) {
+      googleUnavailable.value = true
+    }
+  } catch {
+    googleUnavailable.value = true
+  }
+})
+
+function humanizeGoogleError(code: string): string {
+  switch (code) {
+    case 'state_mismatch':
+      return 'La verificación de seguridad de Google falló. Por favor intenta de nuevo.'
+    case 'user_cancelled':
+      return 'Cancelaste el inicio de sesión con Google.'
+    case 'email_not_verified':
+      return 'Tu dirección de Gmail no está verificada. Verifícala en Google y vuelve a intentarlo.'
+    case 'upstream':
+      return 'No pudimos comunicarnos con Google en este momento. Intenta de nuevo o usa tu contraseña.'
+    case 'missing_code':
+      return 'Google no devolvió un código de autorización. Intenta de nuevo.'
+    default:
+      return 'No se pudo iniciar la sesión con Google.'
   }
 }
 

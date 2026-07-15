@@ -59,11 +59,21 @@ async def db_session(settings: Settings) -> AsyncIterator[None]:
 
 @pytest_asyncio.fixture
 async def app_client(db_session, settings: Settings) -> AsyncIterator[AsyncClient]:
-    """Per-test FastAPI app + httpx AsyncClient (no cookie sharing)."""
+    """Per-test FastAPI app + httpx AsyncClient (no cookie sharing).
+
+    The teardown explicitly disposes the async engine BEFORE the
+    AsyncClient + ASGITransport are closed. Otherwise aiosqlite's
+    background worker thread may try to schedule callbacks on an
+    event loop that's already closing — raising ``RuntimeError:
+    Event loop is closed`` under Python 3.12 in particular.
+    """
     app = create_app(settings)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        yield client
+        try:
+            yield client
+        finally:
+            await db_module.dispose_engine()
 
 
 async def make_user(
