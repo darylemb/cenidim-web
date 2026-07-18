@@ -26,6 +26,7 @@ services:
     restart: "no"
 
   backend-fastapi:
+    image: cenidim-backend-fastapi:latest
     build:
       context: .
       dockerfile: backend-fastapi/Dockerfile
@@ -65,6 +66,7 @@ services:
         condition: service_completed_successfully
 
   frontend:
+    image: cenidim-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile

@@ -26,8 +26,10 @@ services:
     restart: "no"
 
   backend:
+    image: cenidim-backend:latest
     # FastAPI / Pydantic v2 implementation. See backend-fastapi/Dockerfile
     # for the multi-stage build (uv-managed deps, non-root runtime).
+    image: cenidim-backend:latest
     build:
       context: .
       dockerfile: backend-fastapi/Dockerfile
@@ -79,6 +81,7 @@ services:
         condition: service_completed_successfully
 
   frontend:
+    image: cenidim-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
