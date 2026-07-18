@@ -86,9 +86,10 @@ EXPOSE 8000
 
 # The CMD honours $CENIDIM_WORKERS (default 2); Coolify / k8s override.
 #
-# The \`chown\` rewrites letras.db to be owned by the non-root \`app\`
-# user. The Go db-init container (which runs as root) creates the
-# file with root-only write permissions, and the FastAPI runtime
-# image runs as \`app\`. Without this \`chown\` alembic upgrade
-# fails with \`attempt to write a readonly database\`.
-CMD ["sh", "-c", "chown app:app /data/letras.db 2>/dev/null || true; chmod 0664 /data/letras.db 2>/dev/null || true; .venv/bin/alembic upgrade head; exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${CENIDIM_WORKERS:-2}"]
+# The entrypoint script does the chown + alembic as root (the
+# letras.db volume is created by the root-only Go db-init
+# container) and then drops to the non-root \`app\` user via
+# \`su\` for the uvicorn process.
+COPY backend-fastapi/scripts/entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD []

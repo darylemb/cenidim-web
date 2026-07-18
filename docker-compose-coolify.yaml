@@ -59,16 +59,11 @@ services:
     volumes:
       - cenidim_db:/data
     restart: unless-stopped
-    # Apply pending Alembic migrations before uvicorn starts. The
-    # fallback ``|| true`` keeps the container up even when the DB is
-    # already at head (alembic returns 0 but the pipe-friendly behaviour
-    # avoids spurious errors during the boot).
     command:
       - sh
       - -c
       - |
-        chown app:app /data/letras.db 2>/dev/null || true; chmod 0664 /data/letras.db 2>/dev/null || true; .venv/bin/alembic upgrade head || true
-        exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers $${CENIDIM_WORKERS:-2}
+        /entrypoint.sh
     healthcheck:
       test:
         - CMD

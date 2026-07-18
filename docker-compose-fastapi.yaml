@@ -56,16 +56,10 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
-    # Apply pending Alembic migrations, then start uvicorn. The
-    # \`|| true\` fallback keeps the container up when alembic returns
-    # 0 (no pending migrations) so the operator's existing flow stays
-    # intact.
     command:
       - sh
       - -c
-      - |
-        chown app:app /data/letras.db 2>/dev/null || true; chmod 0664 /data/letras.db 2>/dev/null || true; .venv/bin/alembic upgrade head || true
-        exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+      - /entrypoint.sh
     depends_on:
       db-init:
         condition: service_completed_successfully
