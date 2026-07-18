@@ -129,12 +129,14 @@ jobs:
         run: docker compose up -d
       - name: Health check
         run: sleep 45 && curl -sf http://localhost:8000/healthz
-      - name: Debug backend-fastapi logs
+      - name: Debug backend logs
         run: |
           sleep 5
-          docker compose -f docker-compose-fastapi.yaml logs --no-color backend-fastapi | tail -200 || true
-          echo '---Inspect columns---'
-          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi sqlite3 /data/letras.db '.schema songs' || true
+          docker compose logs --no-color backend | tail -200 || true
+          echo '---Inspect songs columns---'
+          docker compose exec -T backend sqlite3 /data/letras.db '.schema songs' || true
+          echo '---Inspect alembic version---'
+          docker compose exec -T backend sqlite3 /data/letras.db 'SELECT * FROM alembic_version' || true
       - name: Smoke script
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
