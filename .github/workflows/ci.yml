@@ -129,6 +129,8 @@ jobs:
         run: docker compose up -d
       - name: Health check
         run: sleep 45 && curl -sf http://localhost:8000/healthz
+      - name: Debug: dump backend-fastapi logs
+        run: docker compose -f docker-compose-fastapi.yaml logs backend-fastapi | tail -200
       - name: Smoke script
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
