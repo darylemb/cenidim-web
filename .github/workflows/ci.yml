@@ -129,6 +129,14 @@ jobs:
         run: docker compose up -d
       - name: Health check
         run: sleep 15 && curl -sf http://localhost:8000/healthz
+      - name: Debug FastAPI container
+        run: |
+          sleep 5
+          docker compose -f docker-compose-fastapi.yaml logs backend-fastapi | tail -100 || true
+          echo '---Inspect songs schema---'
+          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi sqlite3 /data/letras.db '.schema songs' || true
+          echo '---Inspect alembic version---'
+          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi sqlite3 /data/letras.db 'SELECT * FROM alembic_version' || true
       - name: Smoke script
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
