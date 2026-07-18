@@ -65,10 +65,19 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
-    # Production runs ``alembic upgrade head`` against the freshly-
-    # produced letras.db. The Dockerfile's CMD is fine for dev;
-    # operators can override with command: ["alembic", "upgrade", "head"]
-    # on first boot.
+    # Apply any pending Alembic migrations, then start uvicorn. The
+    # dev schema-bootstrap (which creates the tables from scratch when
+    # the DB is empty) still runs as a fallback so a brand-new
+    # ``letras.db`` produced by the db-init sidecar continues to work
+    # even without an alembic_version row.
+    command:
+      - sh
+      - -c
+      - |
+        .venv/bin/alembic upgrade head || true
+        exec .venv/bin/uvicorn app.main:app \
+          --host 0.0.0.0 --port 8000 \
+          --workers $${CENIDIM_WORKERS:-2}
     depends_on:
       db-init:
         condition: service_completed_successfully
