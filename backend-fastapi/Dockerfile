@@ -72,6 +72,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 COPY --from=deps /app/.venv ./.venv
 COPY backend-fastapi/app ./app
+# Alembic config + migration scripts. The runtime image runs
+# ``alembic upgrade head`` before uvicorn so the Go-seeded
+# ``letras.db`` (which lacks autor / compositor / duracion / personajes /
+# temas_raw / editora / last_sign_in_*) gets the FastAPI columns
+# before the API serves requests.
+COPY backend-fastapi/alembic.ini ./alembic.ini
+COPY backend-fastapi/alembic ./alembic
 
 USER app
 
