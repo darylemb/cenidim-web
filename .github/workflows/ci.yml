@@ -153,6 +153,10 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Build + boot the FastAPI overlay stack
         run: docker compose -f docker-compose-fastapi.yaml build --no-cache && docker compose -f docker-compose-fastapi.yaml up -d
+      - name: Debug container
+        run: |
+          sleep 5
+          docker compose -f docker-compose-fastapi.yaml logs backend-fastapi 2>&1 | head -100 || true
       - name: Health check
         run: sleep 45 && curl -sf http://localhost:8000/healthz
       - name: Smoke script
