@@ -137,6 +137,9 @@ jobs:
           docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi sqlite3 /data/letras.db '.schema songs' || true
           echo '---Test query directly---'
           docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi python -c '.venv/bin/python -c "from app.main import create_app; from app.db.session import init_engine; from app.config import Settings; init_engine(Settings(env="dev", jwt_secret="x"*64, db_path="/data/letras.db")); app = create_app(); print("app created")"' || true
+      - name: Debug before smoke
+        run: |
+          docker compose -f docker-compose-fastapi.yaml logs backend-fastapi 2>&1 | head -200 || true
       - name: Smoke script
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
