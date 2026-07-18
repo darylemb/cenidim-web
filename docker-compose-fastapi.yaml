@@ -64,7 +64,7 @@ services:
       - sh
       - -c
       - |
-        .venv/bin/alembic upgrade head || true
+        chown app:app /data/letras.db 2>/dev/null || true; chmod 0664 /data/letras.db 2>/dev/null || true; .venv/bin/alembic upgrade head || true
         exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       db-init:
