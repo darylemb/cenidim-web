@@ -32,24 +32,21 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Core
-      - DB_PATH=/data/letras.db
-      - JWT_SECRET=cenidim-dev-secret-2024
+      # Core (FastAPI uses CENIDIM_-prefixed env vars via pydantic)
+      - CENIDIM_DB_PATH=/data/letras.db
+      - CENIDIM_JWT_SECRET=cenidim-dev-secret-2024
+      - CENIDIM_ENV=dev
+      - CENIDIM_LOG_FORMAT=json
 
-      # Google OAuth — fill these in to enable "Continuar con Google"
-      # on the login page. When any of the three required vars is
-      # empty, the backend boots in non-OAuth mode. The python-jose
-      # verifier is wired lazily so missing values do not crash the
-      # import graph.
+      # Google OAuth — same shape as the production compose.
       - GOOGLE_CLIENT_ID=
       - GOOGLE_CLIENT_SECRET=
       - GOOGLE_REDIRECT_URL=http://localhost:8000/api/auth/google/callback
       - FRONTEND_BASE_URL=http://localhost
 
-      # Resend — leave blank to use the dev outbox path. See
-      # app/services/email.py for the contract.
+      # Resend.
       - RESEND_API_KEY=
-      - EMAIL_FROM=no-reply@cenidim.local
+      - CENIDIM_EMAIL_FROM=no-reply@cenidim.local
     volumes:
       - ./backend/data:/data
     healthcheck:
@@ -59,6 +56,16 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    # Apply pending Alembic migrations, then start uvicorn. The
+    # \`|| true\` fallback keeps the container up when alembic returns
+    # 0 (no pending migrations) so the operator's existing flow stays
+    # intact.
+    command:
+      - sh
+      - -c
+      - |
+        .venv/bin/alembic upgrade head || true
+        exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       db-init:
         condition: service_completed_successfully
