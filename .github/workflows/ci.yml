@@ -137,14 +137,6 @@ jobs:
           docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi sqlite3 /data/letras.db '.schema songs' || true
           echo '---Test query directly---'
           docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi python -c '.venv/bin/python -c "from app.main import create_app; from app.db.session import init_engine; from app.config import Settings; init_engine(Settings(env="dev", jwt_secret="x"*64, db_path="/data/letras.db")); app = create_app(); print("app created")"' || true
-      - name: Debug container before smoke
-        run: |
-          sleep 5
-          docker compose -f docker-compose-fastapi.yaml logs backend-fastapi | tail -100 || true
-          echo '---Inspect songs schema---'
-          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi sqlite3 /data/letras.db '.schema songs' || true
-          echo '---alembic version---'
-          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi sqlite3 /data/letras.db 'SELECT * FROM alembic_version' || true
       - name: Smoke script
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
@@ -163,14 +155,6 @@ jobs:
         run: docker compose -f docker-compose-fastapi.yaml up -d --build
       - name: Health check
         run: sleep 45 && curl -sf http://localhost:8000/healthz
-      - name: Debug container before smoke
-        run: |
-          sleep 5
-          docker compose -f docker-compose-fastapi.yaml logs backend-fastapi | tail -100 || true
-          echo '---Inspect songs schema---'
-          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi sqlite3 /data/letras.db '.schema songs' || true
-          echo '---alembic version---'
-          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi sqlite3 /data/letras.db 'SELECT * FROM alembic_version' || true
       - name: Smoke script
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
