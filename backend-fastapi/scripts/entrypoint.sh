@@ -1,34 +1,31 @@
 #!/bin/sh
 # entrypoint for the FastAPI container.
-# Runs as root (the image's USER directive is the `app` user, but
-# the compose override executes this entrypoint directly which
-# inherits root from the docker exec).
 set -eu
 
-# letras.db is created by the Go db-init container as root. The
-# FastAPI runtime runs as the non-root `app` user, so we chown the
-# file *and* its parent directory so SQLite's WAL journal can be
-# created (SQLite needs write access to the directory, not just the
-# file). Without this the dev startup's engine.begin() fails with
-# `attempt to write a readonly database`.
-chown -R app:app /data 2>/dev/null || true
-chmod -R u+rwX /data 2>/dev/null || true
+# The compose overlay bind-mounts ./backend/data into /data. The
+# db-init container runs as root and creates /data/letras.db owned by
+# root:root. The FastAPI image runs the `app` user, which needs write
+# access to BOTH the file (for the SQLite db itself) AND the parent
+# directory (for the WAL journal `-wal` and `-shm` files).
+#
+# On CI the chown to `app:app` fails silently because the host user
+# namespace doesn't have a matching UID, so the chown call returns
+# EPERM. We work around this by chmod'ing the directory to 0777
+# (world-writable) which lets the `app` user create the journal
+# files regardless of who owns the directory.
+chmod 0777 /data 2>/dev/null || true
+chmod 0666 /data/letras.db 2>/dev/null || true
 
-# Idempotent migration: continue even if it fails so /healthz can
-# still diagnose the rest of the boot.
+# Idempotent migration: no-op if alembic is already at head.
 .venv/bin/alembic upgrade head || true
 
-# Run uvicorn as the `app` user. We can't use `su` (no password)
-# so we use `setpriv` (provided by util-linux) or just exec
-# under a subshell that drops to app.
+# Drop to the non-root `app` user via setpriv, then exec uvicorn.
 if [ "$(id -u)" = "0" ]; then
-    # Drop to app user via setpriv, then exec uvicorn.
     exec setpriv --reuid="$(id -u app)" --regid="$(id -g app)" -- \
         .venv/bin/uvicorn app.main:app \
         --host 0.0.0.0 --port 8000 \
         --workers ${CENIDIM_WORKERS:-2}
 else
-    # Already non-root (e.g. local dev with `docker run --user 1000`).
     exec .venv/bin/uvicorn app.main:app \
         --host 0.0.0.0 --port 8000 \
         --workers ${CENIDIM_WORKERS:-2}
