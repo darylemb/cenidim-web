@@ -5,25 +5,22 @@
 # inherits root from the docker exec).
 set -eu
 
-# letras.db is created by the Go db-init container as root with
-# mode 0644. The FastAPI runtime runs as `app`, so a plain
-# `alembic upgrade head` fails with "attempt to write a readonly
-# database". The chown + chmod below makes the file writable for
-# the `app` user.
-chown app:app /data/letras.db 2>/dev/null || true
-chmod 0664 /data/letras.db 2>/dev/null || true
+# letras.db is created by the Go db-init container as root. The
+# FastAPI runtime runs as the non-root `app` user, so we chown the
+# file *and* its parent directory so SQLite's WAL journal can be
+# created (SQLite needs write access to the directory, not just the
+# file). Without this the dev startup's engine.begin() fails with
+# `attempt to write a readonly database`.
+chown -R app:app /data 2>/dev/null || true
+chmod -R u+rwX /data 2>/dev/null || true
 
-# Idempotent migration: continue even if it fails so /healthz
-# can still diagnose the rest of the boot.
+# Idempotent migration: continue even if it fails so /healthz can
+# still diagnose the rest of the boot.
 .venv/bin/alembic upgrade head || true
 
 # Run uvicorn as the `app` user. We can't use `su` (no password)
 # so we use `setpriv` (provided by util-linux) or just exec
 # under a subshell that drops to app.
-# Since python's os.setuid handles dropping privileges, the
-# cleanest pattern is to keep the alembic as root and run uvicorn
-# as the existing user (which is `app` because of the USER
-# directive - but only after the chown succeeded).
 if [ "$(id -u)" = "0" ]; then
     # Drop to app user via setpriv, then exec uvicorn.
     exec setpriv --reuid="$(id -u app)" --regid="$(id -g app)" -- \
