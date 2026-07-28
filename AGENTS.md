@@ -1,10 +1,66 @@
 # AGENTS.md
 
 ## Project Structure
-- `backend/` — Go API (Gin + SQLite). Entry point: `main.go`.
+- `backend/` — Go API (Gin + SQLite). Entry point: `main.go`. **Frozen at commit `2aab765`** (Phase 0). Used only by the `db-init` Docker sidecar (to seed `letras.db` from CSV + lyrics) and by the `docker-compose-go.yaml` rollback target. Phase 9 retires it.
+- `backend-fastapi/` — FastAPI/Pydantic v2 cut-over (Phase 1 scaffold, **production since Phase 7 on `feature/fastapi-backend`**). Reads the same `letras.db` schema.
 - `frontend/` — Vue 3 app (Vite + TypeScript). Entry point: `frontend/src/`.
 - `scripts/build_db.sh` — Builds `letras.db` from CSV + lyrics. Must run before `docker compose up`.
 - `scripts/classify_songs.py` — Classifies songs in DB using spaCy (`es_core_news_md`). Runs **after** the Go builder inside `build_db.sh`.
+- `docs/adr/0001-fastapi-replaces-go.md` — ADR for the cut-over decision.
+- `docs/CUTOVER.md` — operator playbook (TL;DR, rollback, Phase 7 checklist).
+- `docs/PR-merge-to-main.md` — draft description for the Phase 9 PR that merges `feature/fastapi-backend` → `main` and retires the Go tree.
+
+## Active Branches
+- `fix/phase-0-admin-google-recovery-tests` (commit `2aab765`) — admin edits, password recovery, demote Google from login. Lives on `main`. Frontend coverage 95.4%.
+- `feature/fastapi-backend` — **Phase 7 cut-over landed**. The default `docker compose up` boots the FastAPI stack; the Go backend is kept under `docker-compose-go.yaml` as the rollback. 177 backend tests + 277 frontend tests pass; ruff clean; 96.05% backend coverage (95% gate met). Phase 8 added the admin Google-OAuth identity management UI. Ready to merge into `main` (Phase 9).
+- `fix/critical-bugs-dashboard-and-oauth` — Go-era backup branch (do not delete; rollback target per user instruction).
+- `ux/dashboard-fixes-2026-07` — reviewer-feedback branch.
+
+## Backend (FastAPI — work in progress)
+```bash
+cd backend-fastapi
+uv sync                              # one-time install + lock
+PYTHONPATH=. uv run pytest tests/    # 171 tests, 95.93% coverage (95% gate)
+uv run ruff check app/ tests/        # lint (clean)
+uv run mypy app/                     # type check (strict, ignore_missing_imports)
+uv run uvicorn app.main:app --port 8000 --reload
+./scripts/smoke.sh http://localhost:8000  # post-boot health check
+# Migrations
+uv run alembic upgrade head           # apply pending migrations
+uv run alembic revision --autogenerate -m "..."  # create new migration
+# OpenAPI
+uv run python scripts/generate_openapi.py  # refresh openapi.json
+```
+
+Docker (default = FastAPI after Phase 7):
+```bash
+docker compose up --build          # FastAPI on :8000
+docker compose -f docker-compose-go.yaml up -d  # Rollback to Go
+# Both stacks serve the same /api contract on port 8000.
+backend-fastapi/scripts/smoke.sh http://localhost:8000
+```
+- Read the same `letras.db` SQLite schema as the Go backend
+  (snake_case column names; SQLAlchemy ORM models under
+  `app/models/`).
+- Auth: `app/services/auth.py` (password hashing via sha256+bcrypt,
+  JWT issue/verify via python-jose, refresh-token rotation via
+  `RefreshTokenRevocation` table).
+- Admin: `app/routers/admin.py` mirrors `backend/handlers/admin.go`;
+  viewer/editor/admin tiers backed by `require_role("...")` factory
+  in `app/deps.py`.
+- Google OAuth: `app/routers/google_oauth.py` with a
+  `StubIDTokenVerifier` test seam; production verifier in
+  `app/services/google_oauth.py` (google-auth, lazy import).
+- Resend + dev outbox: `app/services/email.py`.
+- Test conftest (`tests/conftest.py`) shares a single StaticPool
+  in-memory engine between the FastAPI app and direct ORM seed
+  helpers (`make_user`, `make_admin`, `make_identity`,
+  `make_email_outbox`).
+- Coverage gate is `95%` (Phase 3, matches the master-plan target).
+  The remaining ~5% lives in the production google-oauth verifier
+  (lazy-imported `google-auth` SDK), the Resend send path, and the
+  audit-log warning branches that aren't reachable without breaking
+  the in-memory engine mid-request.
 
 ## Database Build
 ```bash
@@ -14,7 +70,16 @@ Requires: Go (for `cmd/build-db/main.go`) and Python with spaCy (`es_core_news_m
 Sets `ADMIN_PASS` env var to create initial admin user.
 The two-step process: (1) Go builds SQLite from `db_fonografia.csv` + `LetrasTXT/`, (2) Python/spaCy classifies each song + writes `song_stats` table.
 
-## Backend (Go)
+## Backend (Go — rollback only)
+The Go tree is **frozen at commit `2aab765`**. It is kept in the repo
+for two reasons:
+  1. The `db-init` Docker sidecar still uses the Go `cmd/build-db`
+     CLI to seed `letras.db` from `LetrasTXT/` + `db_fonografia.csv`.
+     We could rewrite this in Python, but the Go CLI is fast and
+     battle-tested.
+  2. `docker-compose-go.yaml` boots the Go service as the emergency
+     rollback target during the Phase 7 cut-over.
+
 ```bash
 cd backend
 go run main.go          # Dev server on :8080

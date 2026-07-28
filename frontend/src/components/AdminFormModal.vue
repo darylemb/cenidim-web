@@ -274,7 +274,6 @@ const defaultUser = (): Record<string, any> => ({
   role: 'viewer',
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const form = ref<Record<string, any>>({});
 
 watch(

@@ -80,4 +80,23 @@ export default [
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
+  // Test files commonly import helpers (vi, async, etc.) and pass
+  // typed functions as mocks whose signatures look unused to the
+  // no-unused-vars rule. Relax the checks there so test files don't
+  // need to be linted-to-shape.
+  {
+    files: [
+      '**/__tests__/**',
+      'src/test/**',
+      'src/**/*.spec.ts',
+      'src/**/*.test.ts',
+    ],
+    rules: {
+      'no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      'no-unused-expressions': 'off',
+    },
+  },
 ]

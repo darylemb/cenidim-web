@@ -56,7 +56,6 @@
               <td>{{ f.editora }}</td>
               <td>
                 <div class="admin-actions">
-                  <button class="btn-secondary btn-sm" @click="openFonoForm(f)">Ver</button>
                   <button v-if="auth.isEditor" class="btn-primary btn-sm" @click="openFonoForm(f)">
                     Editar
                   </button>
@@ -126,7 +125,6 @@
               <td>{{ s.clasificacion }}</td>
               <td>
                 <div class="admin-actions">
-                  <button class="btn-secondary btn-sm" @click="openSongForm(s)">Ver</button>
                   <button v-if="auth.isEditor" class="btn-primary btn-sm" @click="openSongForm(s)">
                     Editar
                   </button>
@@ -248,7 +246,10 @@ const songSortKey = ref('');
 const songSortDir = ref<'asc' | 'desc'>('asc');
 const hasMoreFonos = ref(false);
 const hasMoreSongs = ref(false);
-const confirmTarget = ref<{ type: 'fonograma' | 'song' | 'user'; id: number } | null>(null);
+const confirmTarget = ref<
+  | { type: 'fonograma' | 'song' | 'user'; id: number }
+  | null
+>(null);
 const confirmMessage = ref('');
 const confirmLoading = ref(false);
 
@@ -390,7 +391,7 @@ async function executeDelete() {
     } else if (confirmTarget.value.type === 'song') {
       await apiService.adminDeleteSong(confirmTarget.value.id);
       loadSongs();
-    } else {
+    } else if (confirmTarget.value.type === 'user') {
       await apiService.adminDeleteUser(confirmTarget.value.id);
       loadUsers();
     }
