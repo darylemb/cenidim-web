@@ -119,28 +119,28 @@ def song_to_out(s: Song, fonograma: Fonograma | None = None) -> SongOut:
     """
     payload = SongOut.model_validate(s).model_dump()
     if fonograma is not None:
-        for f in (
-            "album",
-            "subtitulo",
-            "interprete_principal",
-            "interpretes_invitados",
-            "interprete_participante",
-            "soporte_fisico",
-            "editora",
-            "numero_catalogo",
-            "ciudad_edicion",
-            "pais_edicion",
-            "year",
-            "pistas",
-            "observaciones",
-        ):
-            payload[f] = getattr(fonograma, f, None) or (
-                fonograma.titulo if f == "album" else None
-            )
+        # Field-by-field mapping. The ORM attribute names are
+        # identical to the API names EXCEPT for ``anio`` (ORM) →
+        # ``year`` (API). The album column maps to Fonograma.titulo.
+        field_map = {
+            "subtitulo": "subtitulo",
+            "interprete_principal": "interprete_principal",
+            "interpretes_invitados": "interpretes_invitados",
+            "interprete_participante": "interprete_participante",
+            "soporte_fisico": "soporte_fisico",
+            "editora": "editora",
+            "numero_catalogo": "numero_catalogo",
+            "ciudad_edicion": "ciudad_edicion",
+            "pais_edicion": "pais_edicion",
+            "year": "anio",
+            "pistas": "pistas",
+            "observaciones": "observaciones",
+        }
+        for api_field, orm_attr in field_map.items():
+            payload[api_field] = getattr(fonograma, orm_attr, None)
         # ``album`` mirrors ``fonograma.titulo`` so the frontend's
         # ``Song.album`` field is non-null even when the column is.
-        if payload["album"] is None:
-            payload["album"] = fonograma.titulo
+        payload["album"] = fonograma.titulo
     return SongOut.model_validate(payload)
 
 
