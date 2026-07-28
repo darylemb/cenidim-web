@@ -4,7 +4,7 @@
   "folders": [
     {
       "v": 2,
-      "name": "Api/Admin",
+      "name": "Admin",
       "folders": [],
       "requests": [
         {
@@ -452,7 +452,7 @@
     },
     {
       "v": 2,
-      "name": "Api/Auth",
+      "name": "Auth",
       "folders": [],
       "requests": [
         {
@@ -632,7 +632,7 @@
     },
     {
       "v": 2,
-      "name": "Api/Search",
+      "name": "Search",
       "folders": [],
       "requests": [
         {
@@ -735,7 +735,7 @@
     },
     {
       "v": 2,
-      "name": "Api/Song",
+      "name": "Song",
       "folders": [],
       "requests": [
         {
@@ -771,7 +771,7 @@
     },
     {
       "v": 2,
-      "name": "Api/Stats",
+      "name": "Stats",
       "folders": [],
       "requests": [
         {
@@ -814,7 +814,7 @@
     },
     {
       "v": 2,
-      "name": "Api/Timeline",
+      "name": "Timeline",
       "folders": [],
       "requests": [
         {
@@ -863,7 +863,7 @@
     },
     {
       "v": 2,
-      "name": "Api/Word-Cloud",
+      "name": "Word-Cloud",
       "folders": [],
       "requests": [
         {

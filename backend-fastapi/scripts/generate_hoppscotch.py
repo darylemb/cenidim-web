@@ -147,7 +147,14 @@ def build_collection(base_url: str = "http://localhost:8000") -> dict[str, Any]:
 
     folders = []
     for bucket, requests in by_prefix.items():
-        label = bucket.replace("_", " ").title().replace("Api ", "API ")
+        # Folder names with "/" trip Hoppscotch's name rendering.
+        # Drop the "api/" prefix and title-case the rest:
+        #   api/admin       -> Admin
+        #   api/word-cloud  -> Word-Cloud
+        #   healthz         -> Healthz
+        parts = bucket.split("/")
+        resource = parts[1] if parts[0] == "api" else parts[0]
+        label = resource.replace("-", " ").title().replace(" ", "-")
         folders.append(_folder(label, requests))
 
     return {
@@ -166,8 +173,21 @@ def main() -> None:
     repo = Path(__file__).resolve().parents[1]
     out = repo / "scripts" / "hoppscotch-collection.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(build_collection(), indent=2, ensure_ascii=False))
+    collection = build_collection()
+    out.write_text(json.dumps(collection, indent=2, ensure_ascii=False))
     print(f"Wrote {out}")
+
+    # Print a summary that doubles as a structural sanity check.
+    total = sum(len(f["requests"]) for f in collection["folders"])
+    print(
+        f"  {len(collection['folders'])} folders, {total} requests, "
+        f"collection v={collection['v']}, folder v={collection['folders'][0]['v']}, "
+        f"request v={collection['folders'][0]['requests'][0]['v']!r}"
+    )
+    print(
+        "  Verify with: "
+        "cd scripts/hoppscotch-validator && node validate.mjs ../hoppscotch-collection.json"
+    )
 
 
 if __name__ == "__main__":
