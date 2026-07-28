@@ -529,7 +529,7 @@
               "type": "integer",
               "maximum": 5000,
               "minimum": 1,
-              "default": 1000,
+              "default": 5000,
               "title": "Limit"
             }
           }
