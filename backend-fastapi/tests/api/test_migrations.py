@@ -5,7 +5,7 @@ as a no-op when the Go-seeded legacy tables already exist, but the
 follow-up migration (f6f8e399e38d) only adds columns — it never
 creates the FastAPI-only tables (``audit_log``, ``email_outbox``,
 ``password_reset_tokens``, ``refresh_token_revocations``,
-``user_identities``). The new migration closes that gap.
+``refresh_token_revocations``). The new migration closes that gap.
 
 This test runs alembic against a fresh sqlite file in three states:
 
@@ -32,7 +32,6 @@ _FASTAPI_TABLES = frozenset(
         "email_outbox",
         "password_reset_tokens",
         "refresh_token_revocations",
-        "user_identities",
     }
 )
 

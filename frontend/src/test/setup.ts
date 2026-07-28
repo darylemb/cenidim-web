@@ -68,8 +68,6 @@ vi.mock('@/services/api', () => ({
     }),
     adminUpdateUser: vi.fn().mockResolvedValue({ message: 'User updated' }),
     adminDeleteUser: vi.fn().mockResolvedValue(undefined),
-    adminListIdentities: vi.fn().mockResolvedValue([]),
-    adminUnlinkIdentity: vi.fn().mockResolvedValue(undefined),
   },
 }));
 

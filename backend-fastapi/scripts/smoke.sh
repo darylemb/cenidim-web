@@ -70,13 +70,5 @@ if [[ "$actual" != "422" ]]; then
 fi
 echo "OK ($actual)"
 
-step "/api/auth/google/start 302 (or 500 when env unset)"
-actual=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/auth/google/start")
-if [[ "$actual" != "302" && "$actual" != "500" ]]; then
-  echo "FAIL (expected 302/500, got $actual)"
-  exit 1
-fi
-echo "OK ($actual)"
-
 echo
 echo "All smoke checks passed."

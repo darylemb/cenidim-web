@@ -43,8 +43,7 @@ addopts = [
     "--cov=app",
     "--cov-report=term-missing",
     # Phase-3 gate is 95%; matches the master-plan target.
-    # The remaining ~17% lives in the production google-oauth verifier
-    # (lazy-imported ``google-auth`` SDK), the Resend send path, the
+    # The remaining ~5% lives in the Resend send path, the
     # session_scope_cm fallback used by the email service, and a few
     # audit-log warning branches that aren't reachable without breaking
     # the in-memory engine mid-request. The Phase 8 follow-up will

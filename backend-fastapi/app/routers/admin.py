@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,6 @@ from app.models.email_outbox import EmailOutbox
 from app.models.fonograma import Fonograma
 from app.models.song import Song
 from app.models.user import User
-from app.models.user_identity import UserIdentity
 from app.schemas.song import (
     FonogramaOut,
     SongCreateIn,
@@ -39,7 +38,6 @@ from app.schemas.user import (
     UserCreatedResponse,
     UserCreateIn,
     UserCreateOut,
-    UserIdentityOut,
     UserOut,
     UserUpdateIn,
     user_to_out,
@@ -497,34 +495,6 @@ async def admin_delete_user(
     return UserCreatedResponse(message="User deleted")
 
 
-@router.delete("/users/{id}/identity", status_code=status.HTTP_204_NO_CONTENT)
-async def admin_unlink_identity(
-    db: DbDep,
-    id: Annotated[int, _user_id_param],
-    actor: User = Depends(require_role("admin")),
-) -> None:
-    result = await db.execute(
-        delete(UserIdentity).where(
-            UserIdentity.user_id == id, UserIdentity.provider == "google"
-        )
-    )
-    if result.rowcount == 0:
-        raise HTTPException(status_code=404, detail="identity_not_linked")
-    await db.execute(
-        update(User)
-        .where(User.id == id)
-        .values(last_sign_in_method=None, last_sign_in_at=None)
-    )
-    await _record_audit(
-        db,
-        actor_id=actor.id,
-        action="user.identity.unlink",
-        target_type="user",
-        target_id=id,
-        detail="provider=google",
-    )
-
-
 # ---------------------------------------------------------------------------
 # Email outbox + audit log
 # ---------------------------------------------------------------------------
@@ -619,20 +589,6 @@ async def admin_list_audit_log(
         "page": page,
         "limit": limit,
     }
-
-
-@router.get("/users/{id}/identities", response_model=list[UserIdentityOut])
-async def admin_list_identities(
-    db: DbDep,
-    id: Annotated[int, _user_id_param],
-    _: User = Depends(require_role("admin")),
-) -> list[UserIdentity]:
-    rows = (
-        await db.execute(
-            select(UserIdentity).where(UserIdentity.user_id == id)
-        )
-    ).scalars().all()
-    return list(rows)
 
 
 __all__ = ["router"]

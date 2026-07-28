@@ -39,12 +39,6 @@ services:
       - CENIDIM_ENV=dev
       - CENIDIM_LOG_FORMAT=json
 
-      # Google OAuth — same shape as the production compose.
-      - GOOGLE_CLIENT_ID=
-      - GOOGLE_CLIENT_SECRET=
-      - GOOGLE_REDIRECT_URL=http://localhost:8000/api/auth/google/callback
-      - FRONTEND_BASE_URL=http://localhost
-
       # Resend.
       - RESEND_API_KEY=
       - CENIDIM_EMAIL_FROM=no-reply@cenidim.local
@@ -70,6 +64,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    environment:
+      - CENIDIM_BACKEND_HOST=backend-fastapi
     ports:
       - "80:8080"
     restart: unless-stopped

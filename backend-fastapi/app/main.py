@@ -21,7 +21,6 @@ from app.observability import (
 )
 from app.routers import admin as admin_router
 from app.routers import auth as auth_router
-from app.routers import google_oauth as google_router
 from app.routers import public as public_router
 from app.security import issue_csrf_token
 from app.services.email import EmailService
@@ -132,7 +131,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router.router)
     app.include_router(public_router.router)
     app.include_router(admin_router.router)
-    app.include_router(google_router.router)
 
     # Tear down the DB engine on shutdown so connections close cleanly.
     @app.on_event("shutdown")

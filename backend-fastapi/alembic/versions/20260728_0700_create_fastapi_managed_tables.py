@@ -1,4 +1,4 @@
-"""create FastAPI-managed tables (audit_log, email_outbox, password_reset_tokens, refresh_token_revocations, user_identities)
+"""create FastAPI-managed tables (audit_log, email_outbox, password_reset_tokens, refresh_token_revocations)
 
 Revision ID: a1b2c3d4e5f6
 Revises: f6f8e399e38d
@@ -9,9 +9,8 @@ as a no-op when the Go-seeded legacy tables already exist, on the
 assumption that a separate code path would create the FastAPI-only
 tables. That code path never materialised, so a Go-seeded
 ``letras.db`` is missing ``audit_log``, ``email_outbox``,
-``password_reset_tokens``, ``refresh_token_revocations``, and
-``user_identities`` after the alembic stamp lands at
-``f6f8e399e38d``.
+``password_reset_tokens``, and ``refresh_token_revocations`` after
+the alembic stamp lands at ``f6f8e399e38d``.
 
 The first authenticated request that touches
 ``refresh_token_revocations`` (e.g. ``POST /api/auth/refresh``) then
@@ -19,7 +18,7 @@ crashes with::
 
     sqlalchemy.exc.OperationalError: no such table: refresh_token_revocations
 
-This migration is purely additive: it creates the five FastAPI-only
+This migration is purely additive: it creates the four FastAPI-only
 tables IF they do not already exist (so a fresh DB, where the
 original migration created them, is a no-op; and a Go-seeded DB
 gets them).
@@ -50,7 +49,6 @@ _FASTAPI_TABLES = frozenset(
         "email_outbox",
         "password_reset_tokens",
         "refresh_token_revocations",
-        "user_identities",
     }
 )
 
@@ -187,35 +185,6 @@ def upgrade() -> None:
             unique=False,
         )
 
-    if "user_identities" not in existing:
-        op.create_table(
-            "user_identities",
-            sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-            sa.Column("user_id", sa.Integer(), nullable=False),
-            sa.Column("provider", sa.String(length=32), nullable=False),
-            sa.Column("subject", sa.String(), nullable=False),
-            sa.Column("email_at_link", sa.String(), nullable=False),
-            sa.Column(
-                "linked_at",
-                sa.DateTime(),
-                server_default=sa.text("(CURRENT_TIMESTAMP)"),
-                nullable=False,
-            ),
-            sa.ForeignKeyConstraint(
-                ["user_id"], ["users.id"], ondelete="CASCADE"
-            ),
-            sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "provider", "subject", name="uq_user_identities_provider_subject"
-            ),
-        )
-        op.create_index(
-            "ix_user_identities_user_id",
-            "user_identities",
-            ["user_id"],
-            unique=False,
-        )
-
 
 def downgrade() -> None:
     bind = op.get_bind()
@@ -225,7 +194,6 @@ def downgrade() -> None:
     # Drop the FastAPI-only tables; leave the legacy Go-seeded tables
     # alone (the Go db-init recreates them on next boot).
     for table in (
-        "user_identities",
         "refresh_token_revocations",
         "password_reset_tokens",
         "email_outbox",

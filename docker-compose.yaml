@@ -44,15 +44,6 @@ services:
       # Structured logging (json default; set to "text" for human-readable).
       - CENIDIM_LOG_FORMAT=json
 
-      # Google OAuth — Phase 7 hides it from the login page; set
-      # CENIDIM_ADMIN_EMAILS to enable admin-promotion on sign-in.
-      # The link lives at /api/auth/google/* and is intentionally NOT
-      # surfaced on the public dashboard.
-      - GOOGLE_CLIENT_ID=
-      - GOOGLE_CLIENT_SECRET=
-      - GOOGLE_REDIRECT_URL=http://localhost:8000/api/auth/google/callback
-      - FRONTEND_BASE_URL=http://localhost
-
       # Resend — leave blank to use the dev outbox path. The outbox
       # is exposed at /api/admin/emails so operators can inspect
       # sends in development.
@@ -85,6 +76,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    environment:
+      - CENIDIM_BACKEND_HOST=backend
     ports:
       - "80:8080"
     restart: unless-stopped

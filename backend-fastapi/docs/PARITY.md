@@ -35,10 +35,7 @@ truth for the FastAPI contract; CI guards drift via
 | (new) | `POST` | `/api/auth/logout` | `app.routers.auth.logout` |
 | (admin) | `GET` | `/api/admin/emails` | `app.routers.admin.admin_list_emails` |
 | (admin) | `GET` | `/api/admin/audit` | `app.routers.admin.admin_list_audit_log` |
-| (admin) | `DELETE` | `/api/admin/users/{id}/identity` | `app.routers.admin.admin_unlink_identity` |
-| (admin) | `GET` | `/api/admin/users/{id}/identities` | `app.routers.admin.admin_list_identities` |
-| (google) | `GET` | `/api/auth/google/start` | `app.routers.google_oauth.google_auth_start` |
-| (google) | `GET` | `/api/auth/google/callback` | `app.routers.google_oauth.google_auth_callback` |
+| (admin) | `DELETE` | `/api/admin/users/{id}` | `app.routers.admin.admin_delete_user` |
 
 ## Request shape notes
 

@@ -65,13 +65,6 @@ class ForgotPasswordResponse(BaseModel):
     dev_link: str | None = None
 
 
-class LinkGoogleIdentityRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    user_id: int
-    subject: str
-    email_at_link: EmailStr
-
-
 def user_to_out(user: User) -> UserOut:
     return UserOut.model_validate(user)
 
@@ -80,7 +73,6 @@ __all__ = [
     "AuthResponse",
     "ForgotPasswordRequest",
     "ForgotPasswordResponse",
-    "LinkGoogleIdentityRequest",
     "LoginRequest",
     "RegisterRequest",
     "ResetPasswordRequest",

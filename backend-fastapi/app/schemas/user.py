@@ -63,16 +63,6 @@ class UserCreatedResponse(BaseModel):
     message: str
 
 
-class UserIdentityOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    provider: str
-    subject: str
-    email_at_link: str
-    linked_at: datetime
-
-
 def user_to_out(user: User) -> UserOut:
     return UserOut.model_validate(user)
 
@@ -83,7 +73,6 @@ __all__ = [
     "UserCreateIn",
     "UserCreateOut",
     "UserCreatedResponse",
-    "UserIdentityOut",
     "UserOut",
     "UserUpdateIn",
     "UsernameStr",

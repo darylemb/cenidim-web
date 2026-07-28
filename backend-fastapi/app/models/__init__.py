@@ -13,7 +13,6 @@ from app.models.refresh_revocation import RefreshTokenRevocation
 from app.models.song import Song
 from app.models.song_stats import SongStats
 from app.models.user import User
-from app.models.user_identity import UserIdentity
 
 __all__ = [
     "AuditLog",
@@ -26,5 +25,4 @@ __all__ = [
     "SongStats",
     "TimestampMixin",
     "User",
-    "UserIdentity",
 ]

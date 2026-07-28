@@ -7,7 +7,6 @@ from tests.conftest import (
     login_as,
     make_admin,
     make_email_outbox,
-    make_identity,
     make_user,
 )
 
@@ -366,25 +365,6 @@ async def test_admin_cannot_delete_last_admin(db_session, app_client):
     response = await app_client.delete("/api/admin/users/1")
     assert response.status_code == 400
     assert "last admin" in response.json()["detail"].lower()
-
-
-@pytest.mark.asyncio
-async def test_admin_unlink_identity(db_session, app_client):
-    await make_admin()
-    await make_identity(user_id=1, subject="google-subject-123")
-    await login_as(app_client, "admin", "admin1234")
-    response = await app_client.delete("/api/admin/users/1/identity")
-    assert response.status_code == 204
-    response = await app_client.delete("/api/admin/users/1/identity")
-    assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_admin_unlink_identity_invalid_id(app_client):
-    await make_admin()
-    await login_as(app_client, "admin", "admin1234")
-    response = await app_client.delete("/api/admin/users/notint/identity")
-    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

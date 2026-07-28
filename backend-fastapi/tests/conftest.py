@@ -22,7 +22,7 @@ from httpx import ASGITransport, AsyncClient
 from app import db as db_module
 from app.config import Settings
 from app.main import create_app
-from app.models import Base, EmailOutbox, User, UserIdentity
+from app.models import Base, EmailOutbox, User
 from app.security import hash_password
 from app.services.email import EmailService
 
@@ -111,24 +111,6 @@ async def make_admin() -> None:
     )
 
 
-async def make_identity(
-    *, user_id: int, provider: str = "google", subject: str = "google-subject"
-) -> UserIdentity:
-    """Persist a ``user_identities`` row directly."""
-    identity = UserIdentity(
-        user_id=user_id,
-        provider=provider,
-        subject=subject,
-        email_at_link="admin@cenidim.example",
-    )
-    sm = db_module.session.get_sessionmaker()
-    async with sm() as session:
-        session.add(identity)
-        await session.commit()
-        await session.refresh(identity)
-    return identity
-
-
 async def make_email_outbox(
     *,
     to_addr: str = "bob@cenidim.example",
@@ -204,7 +186,6 @@ __all__ = [
     "login_as",
     "make_admin",
     "make_email_outbox",
-    "make_identity",
     "make_user",
     "settings",
 ]

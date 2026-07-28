@@ -178,7 +178,6 @@
               <th>Usuario</th>
               <th>Correo</th>
               <th>Rol</th>
-              <th>Identidades</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -191,32 +190,8 @@
                 <span :class="['role-badge', `role-${u.role}`]">{{ u.role }}</span>
               </td>
               <td>
-                <span v-if="(userIdentities.get(u.id) || []).length === 0" class="identity-empty">
-                  ninguna
-                </span>
-                <ul v-else class="identity-list">
-                  <li
-                    v-for="ident in userIdentities.get(u.id) || []"
-                    :key="ident.id"
-                    :data-testid="`identity-${u.id}-${ident.provider}`"
-                  >
-                    <strong>{{ ident.provider }}</strong>
-                    <span class="identity-subject">{{ ident.subject }}</span>
-                  </li>
-                </ul>
-              </td>
-              <td>
                 <div class="admin-actions">
                   <button class="btn-secondary btn-sm" @click="openUserForm(u)">Editar</button>
-                  <button
-                    v-for="ident in userIdentities.get(u.id) || []"
-                    :key="`unlink-${ident.id}`"
-                    class="btn-warning btn-sm"
-                    :data-testid="`unlink-${u.id}-${ident.provider}`"
-                    @click="confirmUnlinkIdentity(u.id, ident)"
-                  >
-                    Desvincular {{ ident.provider }}
-                  </button>
                   <button class="btn-danger btn-sm" @click="confirmDeleteUser(u.id)">
                     Eliminar
                   </button>
@@ -252,7 +227,7 @@
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { apiService } from '@/services/api';
-import type { Fonograma, Song, User, UserIdentity } from '@/types';
+import type { Fonograma, Song, User } from '@/types';
 import SortableHeader from '@/components/SortableHeader.vue';
 import ConfirmModal from '@/components/ConfirmModal.vue';
 import AdminFormModal from '@/components/AdminFormModal.vue';
@@ -263,7 +238,6 @@ const activeTab = ref<'fonogramas' | 'songs' | 'users'>('fonogramas');
 const fonogramas = ref<Fonograma[]>([]);
 const songs = ref<Song[]>([]);
 const users = ref<User[]>([]);
-const userIdentities = ref<Map<number, UserIdentity[]>>(new Map());
 const fonoPage = ref(1);
 const songPage = ref(1);
 const fonoSortKey = ref('');
@@ -274,7 +248,6 @@ const hasMoreFonos = ref(false);
 const hasMoreSongs = ref(false);
 const confirmTarget = ref<
   | { type: 'fonograma' | 'song' | 'user'; id: number }
-  | { type: 'identity'; userId: number; provider: string; subject: string }
   | null
 >(null);
 const confirmMessage = ref('');
@@ -331,27 +304,9 @@ async function loadSongs() {
 async function loadUsers() {
   try {
     users.value = await apiService.adminListUsers();
-    await loadAllIdentities();
   } catch (e) {
     console.error(e);
   }
-}
-
-async function loadAllIdentities() {
-  const next = new Map<number, UserIdentity[]>();
-  await Promise.all(
-    users.value.map(async (u) => {
-      try {
-        const rows = await apiService.adminListIdentities(u.id);
-        if (rows.length > 0) {
-          next.set(u.id, rows);
-        }
-      } catch (e) {
-        console.warn(`Could not load identities for user ${u.id}`, e);
-      }
-    }),
-  );
-  userIdentities.value = next;
 }
 
 function fonoSort(key: string) {
@@ -426,16 +381,6 @@ function confirmDeleteUser(id: number) {
   confirmMessage.value = '¿Eliminar este usuario?';
 }
 
-function confirmUnlinkIdentity(userId: number, ident: UserIdentity) {
-  confirmTarget.value = {
-    type: 'identity',
-    userId,
-    provider: ident.provider,
-    subject: ident.subject,
-  };
-  confirmMessage.value = `¿Desvincular la identidad ${ident.provider} (${ident.subject}) de este usuario?`;
-}
-
 async function executeDelete() {
   if (!confirmTarget.value) return;
   confirmLoading.value = true;
@@ -449,23 +394,6 @@ async function executeDelete() {
     } else if (confirmTarget.value.type === 'user') {
       await apiService.adminDeleteUser(confirmTarget.value.id);
       loadUsers();
-    } else if (confirmTarget.value.type === 'identity') {
-      await apiService.adminUnlinkIdentity(confirmTarget.value.userId);
-      // Refresh that user's identity row only (cheaper than re-listing
-      // every user).
-      const userId = confirmTarget.value.userId;
-      try {
-        const rows = await apiService.adminListIdentities(userId);
-        if (rows.length === 0) {
-          userIdentities.value.delete(userId);
-        } else {
-          userIdentities.value.set(userId, rows);
-        }
-        userIdentities.value = new Map(userIdentities.value);
-      } catch {
-        // Fall back to a full reload on error.
-        await loadAllIdentities();
-      }
     }
   } catch (e) {
     console.error(e);

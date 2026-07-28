@@ -31,7 +31,7 @@ the nginx proxy; no rebuild needed.
 | Healthcheck | `./healthcheck` (Go binary) | `python -c "...urlopen('/healthz')..."` |
 | DB init | `backend/Dockerfile.init` (Go CLI) | `alembic upgrade head` |
 | Login form | `username + password` | unchanged |
-| Google OAuth | visible on login page | **hidden** (admin-only; Phase 8) |
+| Google OAuth | visible on login page | **removed** (no SSO in this deployment) |
 | Metrics | none | `GET /metrics` (Prometheus) |
 | Logs | plain text to stderr | structured JSON to stdout |
 

@@ -46,12 +46,6 @@ services:
       - CENIDIM_LOG_FORMAT=json
       - CENIDIM_WORKERS=${CENIDIM_WORKERS:-2}
 
-      # Google OAuth — see docs/CUTOVER.md. The dashboard login
-      # page hides the Google button in Phase 7; admins can still
-      # wire their own keys for SSO use.
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL:-https://cenidim.example.com/api/auth/google/callback}
       - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-https://cenidim.example.com}
 
       # Resend — leave blank to use the dev outbox path.

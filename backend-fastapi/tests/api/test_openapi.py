@@ -56,9 +56,6 @@ def test_openapi_spec_covers_key_endpoints(tmp_path):
     assert "/api/admin/users" in paths
     assert "/api/admin/emails" in paths
     assert "/api/admin/audit" in paths
-    # Google OAuth
-    assert "/api/auth/google/start" in paths
-    assert "/api/auth/google/callback" in paths
     # Health
     assert "/healthz" in paths
 

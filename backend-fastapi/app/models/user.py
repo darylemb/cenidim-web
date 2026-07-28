@@ -17,7 +17,6 @@ from app.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.password_reset_token import PasswordResetToken
-    from app.models.user_identity import UserIdentity
 
 
 class User(Base, TimestampMixin):
@@ -32,10 +31,6 @@ class User(Base, TimestampMixin):
     last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    identities: Mapped[list[UserIdentity]] = relationship(
-        back_populates="user",
-        cascade="all, delete-orphan",
-    )
     reset_tokens: Mapped[list[PasswordResetToken]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
