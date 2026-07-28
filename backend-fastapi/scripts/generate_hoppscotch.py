@@ -20,6 +20,10 @@ of ``HoppRESTHeaders`` (NOT an object). The script targets v1
 because that's the earliest complete shape that the version walker
 can promote all the way to v17 without further input from us.
 
+Variable interpolation: Hoppscotch uses ``<<var>>`` (double angle
+brackets), NOT ``{{var}}`` — the latter is the Postman syntax.
+See https://docs.hoppscotch.io/documentation/features/environments
+
 Spec reference: https://docs.hoppscotch.io/cli/rest-collection-spec
 
 Usage:
@@ -90,7 +94,10 @@ def _request(path: str, method: str, op: dict[str, Any]) -> dict[str, Any]:
         "v": "1",
         "name": _path_label(path, method, op),
         "method": method.upper(),
-        "endpoint": f"{{{{BASE_URL}}}}{path}",
+        # Hoppscotch uses ``<<var>>`` for variable interpolation;
+        # ``{{var}}`` is the Postman syntax and Hoppscotch treats
+        # the braces as literal characters.
+        "endpoint": f"<<BASE_URL>>{path}",
         "params": [
             _param(p) for p in op.get("parameters", []) if p.get("in") == "query"
         ],

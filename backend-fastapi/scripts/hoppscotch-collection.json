@@ -11,7 +11,7 @@
           "v": "1",
           "name": "GET Admin List Audit Log",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/admin/audit",
+          "endpoint": "<<BASE_URL>>/api/admin/audit",
           "params": [
             {
               "key": "page",
@@ -60,7 +60,7 @@
           "v": "1",
           "name": "GET Admin List Emails",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/admin/emails",
+          "endpoint": "<<BASE_URL>>/api/admin/emails",
           "params": [
             {
               "key": "page",
@@ -103,7 +103,7 @@
           "v": "1",
           "name": "GET Admin List Fonogramas",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/admin/fonogramas",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas",
           "params": [
             {
               "key": "page",
@@ -140,7 +140,7 @@
           "v": "1",
           "name": "POST Admin Create Fonograma",
           "method": "POST",
-          "endpoint": "{{BASE_URL}}/api/admin/fonogramas",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas",
           "params": [],
           "headers": [
             {
@@ -164,7 +164,7 @@
           "v": "1",
           "name": "GET Admin Get Fonograma",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/admin/fonogramas/{id}",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas/{id}",
           "params": [],
           "headers": [
             {
@@ -188,7 +188,7 @@
           "v": "1",
           "name": "PUT Admin Update Fonograma",
           "method": "PUT",
-          "endpoint": "{{BASE_URL}}/api/admin/fonogramas/{id}",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas/{id}",
           "params": [],
           "headers": [
             {
@@ -212,7 +212,7 @@
           "v": "1",
           "name": "DELETE Admin Delete Fonograma",
           "method": "DELETE",
-          "endpoint": "{{BASE_URL}}/api/admin/fonogramas/{id}",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas/{id}",
           "params": [],
           "headers": [
             {
@@ -236,7 +236,7 @@
           "v": "1",
           "name": "GET Admin List Songs",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/admin/songs",
+          "endpoint": "<<BASE_URL>>/api/admin/songs",
           "params": [
             {
               "key": "fonograma_id",
@@ -279,7 +279,7 @@
           "v": "1",
           "name": "POST Admin Create Song",
           "method": "POST",
-          "endpoint": "{{BASE_URL}}/api/admin/songs",
+          "endpoint": "<<BASE_URL>>/api/admin/songs",
           "params": [],
           "headers": [
             {
@@ -303,7 +303,7 @@
           "v": "1",
           "name": "PUT Admin Update Song",
           "method": "PUT",
-          "endpoint": "{{BASE_URL}}/api/admin/songs/{id}",
+          "endpoint": "<<BASE_URL>>/api/admin/songs/{id}",
           "params": [],
           "headers": [
             {
@@ -327,7 +327,7 @@
           "v": "1",
           "name": "DELETE Admin Delete Song",
           "method": "DELETE",
-          "endpoint": "{{BASE_URL}}/api/admin/songs/{id}",
+          "endpoint": "<<BASE_URL>>/api/admin/songs/{id}",
           "params": [],
           "headers": [
             {
@@ -351,7 +351,7 @@
           "v": "1",
           "name": "GET Admin List Users",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/admin/users",
+          "endpoint": "<<BASE_URL>>/api/admin/users",
           "params": [],
           "headers": [
             {
@@ -375,7 +375,7 @@
           "v": "1",
           "name": "POST Admin Create User",
           "method": "POST",
-          "endpoint": "{{BASE_URL}}/api/admin/users",
+          "endpoint": "<<BASE_URL>>/api/admin/users",
           "params": [],
           "headers": [
             {
@@ -399,7 +399,7 @@
           "v": "1",
           "name": "PUT Admin Update User",
           "method": "PUT",
-          "endpoint": "{{BASE_URL}}/api/admin/users/{id}",
+          "endpoint": "<<BASE_URL>>/api/admin/users/{id}",
           "params": [],
           "headers": [
             {
@@ -423,7 +423,7 @@
           "v": "1",
           "name": "DELETE Admin Delete User",
           "method": "DELETE",
-          "endpoint": "{{BASE_URL}}/api/admin/users/{id}",
+          "endpoint": "<<BASE_URL>>/api/admin/users/{id}",
           "params": [],
           "headers": [
             {
@@ -459,7 +459,7 @@
           "v": "1",
           "name": "POST Forgot",
           "method": "POST",
-          "endpoint": "{{BASE_URL}}/api/auth/forgot",
+          "endpoint": "<<BASE_URL>>/api/auth/forgot",
           "params": [],
           "headers": [
             {
@@ -483,7 +483,7 @@
           "v": "1",
           "name": "POST Login",
           "method": "POST",
-          "endpoint": "{{BASE_URL}}/api/auth/login",
+          "endpoint": "<<BASE_URL>>/api/auth/login",
           "params": [],
           "headers": [
             {
@@ -507,7 +507,7 @@
           "v": "1",
           "name": "POST Logout",
           "method": "POST",
-          "endpoint": "{{BASE_URL}}/api/auth/logout",
+          "endpoint": "<<BASE_URL>>/api/auth/logout",
           "params": [],
           "headers": [
             {
@@ -531,7 +531,7 @@
           "v": "1",
           "name": "GET Me",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/auth/me",
+          "endpoint": "<<BASE_URL>>/api/auth/me",
           "params": [],
           "headers": [
             {
@@ -555,7 +555,7 @@
           "v": "1",
           "name": "POST Refresh",
           "method": "POST",
-          "endpoint": "{{BASE_URL}}/api/auth/refresh",
+          "endpoint": "<<BASE_URL>>/api/auth/refresh",
           "params": [],
           "headers": [
             {
@@ -579,7 +579,7 @@
           "v": "1",
           "name": "POST Register",
           "method": "POST",
-          "endpoint": "{{BASE_URL}}/api/auth/register",
+          "endpoint": "<<BASE_URL>>/api/auth/register",
           "params": [],
           "headers": [
             {
@@ -603,7 +603,7 @@
           "v": "1",
           "name": "POST Reset",
           "method": "POST",
-          "endpoint": "{{BASE_URL}}/api/auth/reset",
+          "endpoint": "<<BASE_URL>>/api/auth/reset",
           "params": [],
           "headers": [
             {
@@ -639,7 +639,7 @@
           "v": "1",
           "name": "GET Search Songs",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/search",
+          "endpoint": "<<BASE_URL>>/api/search",
           "params": [
             {
               "key": "query",
@@ -742,7 +742,7 @@
           "v": "1",
           "name": "GET Get Song Detail",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/song/{song_id}",
+          "endpoint": "<<BASE_URL>>/api/song/{song_id}",
           "params": [],
           "headers": [
             {
@@ -778,7 +778,7 @@
           "v": "1",
           "name": "GET Get Stats",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/stats",
+          "endpoint": "<<BASE_URL>>/api/stats",
           "params": [
             {
               "key": "query",
@@ -821,7 +821,7 @@
           "v": "1",
           "name": "GET Get Timeline",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/timeline",
+          "endpoint": "<<BASE_URL>>/api/timeline",
           "params": [
             {
               "key": "query",
@@ -870,7 +870,7 @@
           "v": "1",
           "name": "GET Get Word Cloud",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/api/word-cloud",
+          "endpoint": "<<BASE_URL>>/api/word-cloud",
           "params": [
             {
               "key": "query",
@@ -913,7 +913,7 @@
           "v": "1",
           "name": "GET Healthz",
           "method": "GET",
-          "endpoint": "{{BASE_URL}}/healthz",
+          "endpoint": "<<BASE_URL>>/healthz",
           "params": [],
           "headers": [
             {
