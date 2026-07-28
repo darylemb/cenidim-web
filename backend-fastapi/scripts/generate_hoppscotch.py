@@ -13,16 +13,31 @@ exports and imports). Key differences from v1:
 Spec reference: https://docs.hoppscotch.io/cli/rest-collection-spec
 
 Usage:
+
+    # from anywhere in the repo
+    uv run --project backend-fastapi python backend-fastapi/scripts/generate_hoppscotch.py
+
+    # or from backend-fastapi/
+    cd backend-fastapi
     uv run python scripts/generate_hoppscotch.py
 """
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
-from app.main import create_app
-from app.config import Settings
+# Make the FastAPI app importable regardless of where the script is
+# invoked from. backend-fastapi/scripts/ -> backend-fastapi/ is one
+# level up.
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_BACKEND_DIR = _SCRIPT_DIR.parent
+if str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
+
+from app.main import create_app  # noqa: E402
+from app.config import Settings  # noqa: E402
 
 
 def _param(p: dict[str, Any]) -> dict[str, Any]:
