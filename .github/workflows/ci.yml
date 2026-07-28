@@ -143,6 +143,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Build + boot the FastAPI overlay stack
         run: docker compose -f docker-compose-fastapi.yaml up -d --build
       - name: Health check
@@ -155,14 +158,15 @@ jobs:
         # Cross-checks every endpoint against the on-disk SQLite
         # catalog so API counts and DB counts cannot diverge silently.
         # Letters.db lives at /data/letras.db inside the backend
-        # container; we exec into it to grab the file.
+        # container; we cp it out to /tmp so the verifier script can
+        # sqlite3-connect to it from the runner host.
         run: |
           mkdir -p /tmp/verifier-db
           docker compose -f docker-compose-fastapi.yaml cp \
             backend-fastapi:/data/letras.db /tmp/verifier-db/letras.db
           cd backend-fastapi
-          uv sync --frozen
-          PYTHONPATH=. uv run python scripts/verify_api.py \
+          pip install --quiet httpx
+          PYTHONPATH=. python scripts/verify_api.py \
             --base http://localhost:8000 \
             --db /tmp/verifier-db/letras.db
       - name: Tear down
