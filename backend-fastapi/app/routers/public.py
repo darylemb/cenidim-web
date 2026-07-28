@@ -241,7 +241,7 @@ def _parse_year_filter(query: str) -> tuple[int | None, int | None]:
 async def get_timeline(
     db: DbDep,
     query: Annotated[str, Query(max_length=500)] = "",
-    limit: Annotated[int, Query(ge=1, le=5000)] = 1000,
+    limit: Annotated[int, Query(ge=1, le=5000)] = 5000,
 ) -> TimelineData:
     """All years present in the catalog + per-year song lists.
 
@@ -257,7 +257,20 @@ async def get_timeline(
         stmt = stmt.where(func.cast(Fonograma.anio, Integer) >= year_from)
     if year_to is not None:
         stmt = stmt.where(func.cast(Fonograma.anio, Integer) <= year_to)
-    stmt = stmt.order_by(func.cast(Fonograma.anio, Integer).asc()).limit(limit)
+    # Sort "s/d" / empty / NULL years AFTER the real years. SQLite's
+    # ``CAST(... AS INTEGER)`` maps all of them to 0, which would
+    # otherwise sort them first and crowd the ``limit`` window with
+    # the no-year bucket, hiding the real decades entirely.
+    is_blank_year = case(
+        (Fonograma.anio.is_(None), 1),
+        (Fonograma.anio == "", 1),
+        (Fonograma.anio == "s/d", 1),
+        else_=0,
+    )
+    stmt = (
+        stmt.order_by(is_blank_year.asc(), func.cast(Fonograma.anio, Integer).asc())
+        .limit(limit)
+    )
     rows = (await db.execute(stmt)).all()
 
     timeline: dict[str, list[dict]] = {}
