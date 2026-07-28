@@ -238,18 +238,34 @@ def _parse_year_filter(query: str) -> tuple[int | None, int | None]:
     return year_from, year_to
 
 
+def _get_request(request: Request) -> Request:
+    return request
+
+
 @router.get("/timeline", response_model=TimelineData)
 async def get_timeline(
-    db: DbDep,
-    query: Annotated[str, Query(max_length=500)] = "",
-    limit: Annotated[int, Query(ge=1, le=5000)] = 5000,
+    db: DbDep = ...,
+    request: Request = Depends(_get_request),
+    query: str = Query("", max_length=500),
+    limit: int = Query(5000, ge=1, le=5000),
+    year_from: YearFromQ = None,
+    year_to: YearToQ = None,
+    clasificacion: ClasificacionList = None,
+    tema: TemaList = None,
+    album: AlbumQ = None,
 ) -> TimelineData:
     """All years present in the catalog + per-year song lists.
 
     The ``s/d`` bucket (no year) is omitted to keep the response
     compact; the dashboard surfaces it via a separate badge.
     """
-    year_from, year_to = _parse_year_filter(query)
+    # Back-compat: pull year/clas/theme tokens from the shared
+    # ``query`` blob when not supplied as explicit params.
+    legacy_year_from, legacy_year_to = _parse_year_filter(query)
+    year_from = year_from if year_from is not None else legacy_year_from
+    year_to = year_to if year_to is not None else legacy_year_to
+    if not tema:
+        tema = _alias_theme_from_request(request)
 
     stmt = select(Song, Fonograma, Fonograma.anio).join(
         Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
@@ -258,6 +274,21 @@ async def get_timeline(
         stmt = stmt.where(func.cast(Fonograma.anio, Integer) >= year_from)
     if year_to is not None:
         stmt = stmt.where(func.cast(Fonograma.anio, Integer) <= year_to)
+    if album:
+        stmt = stmt.where(Fonograma.titulo == album)
+    if clasificacion:
+        _clases = [c for c in clasificacion.split(",") if c]
+        if _clases:
+            stmt = stmt.where(
+                func.coalesce(Song.clasificacion, "ESPAÑOL_ESTANDAR").in_(
+                    _clases
+                )
+            )
+    if tema:
+        from sqlalchemy import or_ as _or
+        _temas = [t for t in tema.split(",") if t]
+        if _temas:
+            stmt = stmt.where(_or(*(Song.tema == t for t in _temas)))
     # Sort "s/d" / empty / NULL years AFTER the real years. SQLite's
     # ``CAST(... AS INTEGER)`` maps all of them to 0, which would
     # otherwise sort them first and crowd the ``limit`` window with
@@ -317,10 +348,6 @@ def _alias_theme_from_request(request: "Request") -> str | None:
         if tok.startswith("theme="):
             return tok.split("=", 1)[1]
     return None
-
-
-def _get_request(request: Request) -> Request:
-    return request
 
 
 @router.get("/stats", response_model=StatsResponse)
@@ -609,20 +636,52 @@ def _extract_words(lyrics: str) -> list[str]:
 
 @router.get("/word-cloud", response_model=WordCloudResponse)
 async def get_word_cloud(
-    db: DbDep,
-    query: Annotated[str, Query(max_length=500)] = "",
+    db: DbDep = ...,
+    request: Request = Depends(_get_request),
+    query: str = Query("", max_length=500),
+    year_from: YearFromQ = None,
+    year_to: YearToQ = None,
+    clasificacion: ClasificacionList = None,
+    tema: TemaList = None,
+    album: AlbumQ = None,
 ) -> WordCloudResponse:
     """Top 500 most-frequent non-stop-word tokens across the catalog.
 
-    Theme/year filters reuse the same parser as /api/search and /api/stats.
+    Theme / classification / album / year filters mirror the same
+    filter pipeline as ``/api/search`` and ``/api/stats`` so the
+    dashboard word cloud updates when the user narrows the year
+    range or toggles a chip.
     """
-    year_from, _ = _parse_year_filter(query)
+    # Back-compat: pull year/clas/theme tokens from the shared
+    # ``query`` blob when not supplied as explicit params.
+    legacy_year_from, legacy_year_to = _parse_year_filter(query)
+    year_from = year_from if year_from is not None else legacy_year_from
+    year_to = year_to if year_to is not None else legacy_year_to
+    if not tema:
+        tema = _alias_theme_from_request(request)
 
     stmt = select(Song.lyrics).join(
         Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
     )
     if year_from is not None:
         stmt = stmt.where(func.cast(Fonograma.anio, Integer) >= year_from)
+    if year_to is not None:
+        stmt = stmt.where(func.cast(Fonograma.anio, Integer) <= year_to)
+    if album:
+        stmt = stmt.where(Fonograma.titulo == album)
+    if clasificacion:
+        _clases = [c for c in clasificacion.split(",") if c]
+        if _clases:
+            stmt = stmt.where(
+                func.coalesce(Song.clasificacion, "ESPAÑOL_ESTANDAR").in_(
+                    _clases
+                )
+            )
+    if tema:
+        from sqlalchemy import or_ as _or
+        _temas = [t for t in tema.split(",") if t]
+        if _temas:
+            stmt = stmt.where(_or(*(Song.tema == t for t in _temas)))
     stmt = stmt.limit(_MAX_WORDS)
     rows = (await db.execute(stmt)).all()
 

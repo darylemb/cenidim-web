@@ -532,6 +532,95 @@
               "default": 5000,
               "title": "Limit"
             }
+          },
+          {
+            "name": "year_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year From"
+            }
+          },
+          {
+            "name": "year_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year To"
+            }
+          },
+          {
+            "name": "clasificacion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated clasificacion list",
+              "title": "Clasificacion"
+            },
+            "description": "Comma-separated clasificacion list"
+          },
+          {
+            "name": "tema",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated theme list; use __none__ for unclassified",
+              "title": "Tema"
+            },
+            "description": "Comma-separated theme list; use __none__ for unclassified"
+          },
+          {
+            "name": "album",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Album"
+            }
           }
         ],
         "responses": {
@@ -698,7 +787,7 @@
           "public"
         ],
         "summary": "Get Word Cloud",
-        "description": "Top 500 most-frequent non-stop-word tokens across the catalog.\n\nTheme/year filters reuse the same parser as /api/search and /api/stats.",
+        "description": "Top 500 most-frequent non-stop-word tokens across the catalog.\n\nTheme / classification / album / year filters mirror the same\nfilter pipeline as ``/api/search`` and ``/api/stats`` so the\ndashboard word cloud updates when the user narrows the year\nrange or toggles a chip.",
         "operationId": "get_word_cloud_api_word_cloud_get",
         "parameters": [
           {
@@ -710,6 +799,95 @@
               "maxLength": 500,
               "default": "",
               "title": "Query"
+            }
+          },
+          {
+            "name": "year_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year From"
+            }
+          },
+          {
+            "name": "year_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year To"
+            }
+          },
+          {
+            "name": "clasificacion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated clasificacion list",
+              "title": "Clasificacion"
+            },
+            "description": "Comma-separated clasificacion list"
+          },
+          {
+            "name": "tema",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated theme list; use __none__ for unclassified",
+              "title": "Tema"
+            },
+            "description": "Comma-separated theme list; use __none__ for unclassified"
+          },
+          {
+            "name": "album",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Album"
             }
           }
         ],
