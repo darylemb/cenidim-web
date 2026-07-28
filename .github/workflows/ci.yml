@@ -150,13 +150,7 @@ jobs:
       - name: Smoke script
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
-          backend-fastapi/scripts/smoke.sh http://localhost:8000 || (
-            echo "--- FastAPI logs on smoke failure ---"
-            docker compose -f docker-compose-fastapi.yaml logs backend-fastapi 2>&1 | tail -80
-            echo "--- response body of /api/search ---"
-            curl -s http://localhost:8000/api/search | head -c 500
-            exit 1
-          )
+          backend-fastapi/scripts/smoke.sh http://localhost:8000
       - name: Tear down
         if: always()
         run: docker compose -f docker-compose-fastapi.yaml down
