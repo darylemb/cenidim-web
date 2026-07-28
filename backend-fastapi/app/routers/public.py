@@ -42,6 +42,7 @@ from app.services.filters import (
     TemaList,
     YearFromQ,
     YearToQ,
+    normalize_year,
     parse_int_or_none,
 )
 
@@ -275,12 +276,16 @@ async def get_timeline(
 
     timeline: dict[str, list[dict]] = {}
     for song, fonograma, year in rows:
-        key = year or "s/d"
+        # Normalize the dirty ``anio`` column so "[1982]" / multi-year
+        # strings don't leak into the timeline keys. ``s/d`` /
+        # empty / NULL collapse to the "s/d" bucket.
+        key = normalize_year(year) or "s/d"
         timeline.setdefault(key, []).append(song_to_out(song, fonograma).model_dump())
 
     years_sorted = sorted(
         (y for y in timeline.keys() if y != "s/d"),
-        key=lambda y: (int(y) if y.isdigit() else 9999),
+        # All keys here are already 4-digit strings.
+        key=lambda y: int(y),
     )
     if "s/d" in timeline:
         years_sorted.append("s/d")
@@ -303,26 +308,47 @@ async def get_timeline(
 async def get_stats(
     db: DbDep,
     query: Annotated[str, Query(max_length=500)] = "",
+    year_from: YearFromQ = None,
+    year_to: YearToQ = None,
+    clasificacion: ClasificacionList = None,
+    tema: TemaList = None,
+    album: AlbumQ = None,
 ) -> StatsResponse:
     """Aggregate metrics for the dashboard with the same shared
     filter logic as /api/search. Theme/classification are normalized
-    via ``canonical_tema``.
+    via ``canonical_tema``. ``year_from`` and ``year_to`` are
+    accepted as both query params (``?year_from=1970``) and as
+    tokens embedded in ``query`` (legacy Go-backend convention).
     """
-    year_from, _ = _parse_year_filter(query)
+    # Back-compat: pull year/clas/theme tokens from the shared
+    # ``query`` blob when not supplied as explicit params.
+    legacy_year_from, legacy_year_to = _parse_year_filter(query)
+    year_from = year_from if year_from is not None else legacy_year_from
+    year_to = year_to if year_to is not None else legacy_year_to
 
-    base_count = select(func.count()).select_from(Song).join(
-        Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
-    )
-    if year_from is not None:
-        base_count = base_count.where(
-            func.cast(Fonograma.anio, Integer) >= year_from
+    # Reusable clause that joins fonograma + applies the year filter.
+    # ``anio`` is TEXT; we CAST to Integer so the inequality uses
+    # numeric ordering rather than lexicographic ('10' < '2').
+    def _joined_base():
+        s = select(Song).join(
+            Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
         )
+        if year_from is not None:
+            s = s.where(func.cast(Fonograma.anio, Integer) >= year_from)
+        if year_to is not None:
+            s = s.where(func.cast(Fonograma.anio, Integer) <= year_to)
+        return s
+
+    base_count = select(func.count()).select_from(
+        _joined_base().subquery()
+    )
     total_songs = (await db.execute(base_count)).scalar_one()
 
-    # Year buckets.
+    # Year buckets — group by normalized year so "[1982]" and
+    # "s/d" don't leak into the chart.
     year_stmt = (
         select(
-            func.coalesce(Fonograma.anio, "Unknown").label("y"),
+            Fonograma.anio.label("raw"),
             func.count().label("n"),
         )
         .select_from(Song)
@@ -332,8 +358,17 @@ async def get_stats(
         year_stmt = year_stmt.where(
             func.cast(Fonograma.anio, Integer) >= year_from
         )
+    if year_to is not None:
+        year_stmt = year_stmt.where(
+            func.cast(Fonograma.anio, Integer) <= year_to
+        )
     year_stmt = year_stmt.group_by(Fonograma.anio)
-    songs_by_year = {row.y: row.n for row in (await db.execute(year_stmt)).all()}
+    songs_by_year: dict[str, int] = {}
+    for row in (await db.execute(year_stmt)).all():
+        ny = normalize_year(row.raw)
+        if ny is None:
+            continue  # s/d, empty, NULL — surfaced via songs_without_year
+        songs_by_year[ny] = songs_by_year.get(ny, 0) + row.n
 
     # Classification buckets (null -> 'ESPAÑOL_ESTANDAR').
     clas_stmt = (
@@ -348,6 +383,10 @@ async def get_stats(
         clas_stmt = clas_stmt.where(
             func.cast(Fonograma.anio, Integer) >= year_from
         )
+    if year_to is not None:
+        clas_stmt = clas_stmt.where(
+            func.cast(Fonograma.anio, Integer) <= year_to
+        )
     clas_stmt = clas_stmt.group_by(Song.clasificacion)
     songs_by_clas = {row.c: row.n for row in (await db.execute(clas_stmt)).all()}
 
@@ -361,6 +400,10 @@ async def get_stats(
     if year_from is not None:
         theme_stmt = theme_stmt.where(
             func.cast(Fonograma.anio, Integer) >= year_from
+        )
+    if year_to is not None:
+        theme_stmt = theme_stmt.where(
+            func.cast(Fonograma.anio, Integer) <= year_to
         )
     theme_stmt = theme_stmt.group_by(Song.tema).order_by(func.count().desc())
     songs_by_theme: dict[str, int] = {}
@@ -382,24 +425,40 @@ async def get_stats(
     albums_stmt = select(func.count(func.distinct(Song.fonograma_id))).select_from(
         Song
     )
-    if year_from is not None:
+    if year_from is not None or year_to is not None:
         albums_stmt = albums_stmt.join(
             Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
-        ).where(func.cast(Fonograma.anio, Integer) >= year_from)
+        )
+        if year_from is not None:
+            albums_stmt = albums_stmt.where(
+                func.cast(Fonograma.anio, Integer) >= year_from
+            )
+        if year_to is not None:
+            albums_stmt = albums_stmt.where(
+                func.cast(Fonograma.anio, Integer) <= year_to
+            )
     total_albums = (await db.execute(albums_stmt)).scalar_one() or 0
 
     # Lyrics length averages.
     lyrics_stmt = select(Song.lyrics).select_from(Song)
-    if year_from is not None:
+    if year_from is not None or year_to is not None:
         lyrics_stmt = lyrics_stmt.join(
             Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
-        ).where(func.cast(Fonograma.anio, Integer) >= year_from)
+        )
+        if year_from is not None:
+            lyrics_stmt = lyrics_stmt.where(
+                func.cast(Fonograma.anio, Integer) >= year_from
+            )
+        if year_to is not None:
+            lyrics_stmt = lyrics_stmt.where(
+                func.cast(Fonograma.anio, Integer) <= year_to
+            )
     lyrics_rows = (await db.execute(lyrics_stmt)).all()
     lyrics_lens = [len(r[0]) for r in lyrics_rows if r[0]]
     songs_with_lyrics = sum(1 for L in lyrics_lens if L > 0)
     avg_lyrics = (sum(lyrics_lens) / len(lyrics_lens)) if lyrics_lens else 0.0
 
-    # Top albums (by track count).
+    # Top albums (by track count) — uses normalized year too.
     top_stmt = (
         select(
             Fonograma.titulo,
@@ -413,16 +472,38 @@ async def get_stats(
         top_stmt = top_stmt.where(
             func.cast(Fonograma.anio, Integer) >= year_from
         )
+    if year_to is not None:
+        top_stmt = top_stmt.where(
+            func.cast(Fonograma.anio, Integer) <= year_to
+        )
     top_stmt = top_stmt.group_by(Fonograma.clave_fonograma).order_by(
         func.count().desc()
     ).limit(10)
     top_albums = [
-        AlbumCount(album=row.titulo, year=row.anio, count=row.n)
+        AlbumCount(
+            album=row.titulo,
+            year=normalize_year(row.anio) or "",
+            count=row.n,
+        )
         for row in (await db.execute(top_stmt)).all()
     ]
 
-    # OOV / indigena buckets from song_stats.
-    oov_rows = (await db.execute(select(SongStats.pct_oov))).all()
+    # OOV / indigena buckets from song_stats — these don't have a
+    # fonograma_id so the year filter needs a join.
+    oov_stmt = select(SongStats.pct_oov).join(
+        Song, SongStats.song_id == Song.id
+    ).join(
+        Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
+    )
+    if year_from is not None:
+        oov_stmt = oov_stmt.where(
+            func.cast(Fonograma.anio, Integer) >= year_from
+        )
+    if year_to is not None:
+        oov_stmt = oov_stmt.where(
+            func.cast(Fonograma.anio, Integer) <= year_to
+        )
+    oov_rows = (await db.execute(oov_stmt)).all()
     by_oov = {"BAJA": 0, "MEDIA": 0, "ALTA": 0}
     for (pct,) in oov_rows:
         if pct is None:
@@ -433,7 +514,21 @@ async def get_stats(
             by_oov["MEDIA"] += 1
         else:
             by_oov["ALTA"] += 1
-    indigena_rows = (await db.execute(select(SongStats.contiene_indigena))).all()
+
+    indigena_stmt = (
+        select(SongStats.contiene_indigena)
+        .join(Song, SongStats.song_id == Song.id)
+        .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
+    )
+    if year_from is not None:
+        indigena_stmt = indigena_stmt.where(
+            func.cast(Fonograma.anio, Integer) >= year_from
+        )
+    if year_to is not None:
+        indigena_stmt = indigena_stmt.where(
+            func.cast(Fonograma.anio, Integer) <= year_to
+        )
+    indigena_rows = (await db.execute(indigena_stmt)).all()
     by_indigena = {"CON_INDIGENA": 0, "SIN_INDIGENA": 0}
     for (flag,) in indigena_rows:
         if flag:
@@ -441,18 +536,28 @@ async def get_stats(
         else:
             by_indigena["SIN_INDIGENA"] += 1
 
+    # Songs whose fonograma has no clean year ("s/d" / empty / NULL)
+    # — always exposed so the dashboard can render a "Sin año"
+    # KPI alongside the filtered set. We do NOT apply the year
+    # range filter here because "no year" is conceptually disjoint
+    # from "year between X and Y".
     sin_anio = (
         await db.execute(
             select(func.count())
             .select_from(Song)
             .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
-            .where(
-                Fonograma.anio.is_(None)
-                | (Fonograma.anio == "")
-                | (Fonograma.anio == "s/d")
-            )
+            .where(Fonograma.anio.is_(None) | (Fonograma.anio == ""))
         )
-    ).scalar_one()
+    ).scalar_one() + sum(
+        1
+        for (v,) in (
+            await db.execute(
+                select(Fonograma.anio)
+                .join(Song, Song.fonograma_id == Fonograma.clave_fonograma)
+            )
+        ).all()
+        if v == "s/d"
+    )
 
     return StatsResponse(
         total_songs=total_songs,

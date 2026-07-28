@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.models.fonograma import Fonograma
 from app.models.song import Song
+from app.services.filters import normalize_year
 
 ClaveFonograma = Annotated[int, Field(ge=1)]
 SongId = Annotated[int, Field(ge=1)]
@@ -141,6 +142,9 @@ def song_to_out(s: Song, fonograma: Fonograma | None = None) -> SongOut:
         # ``album`` mirrors ``fonograma.titulo`` so the frontend's
         # ``Song.album`` field is non-null even when the column is.
         payload["album"] = fonograma.titulo
+        # The ``anio`` column is dirty in the source CSV; clean it up
+        # so the dashboard's Año column isn't a sea of blanks.
+        payload["year"] = normalize_year(getattr(fonograma, "anio", None))
     return SongOut.model_validate(payload)
 
 

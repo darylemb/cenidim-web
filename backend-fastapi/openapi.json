@@ -564,7 +564,7 @@
           "public"
         ],
         "summary": "Get Stats",
-        "description": "Aggregate metrics for the dashboard with the same shared\nfilter logic as /api/search. Theme/classification are normalized\nvia ``canonical_tema``.",
+        "description": "Aggregate metrics for the dashboard with the same shared\nfilter logic as /api/search. Theme/classification are normalized\nvia ``canonical_tema``. ``year_from`` and ``year_to`` are\naccepted as both query params (``?year_from=1970``) and as\ntokens embedded in ``query`` (legacy Go-backend convention).",
         "operationId": "get_stats_api_stats_get",
         "parameters": [
           {
@@ -576,6 +576,95 @@
               "maxLength": 500,
               "default": "",
               "title": "Query"
+            }
+          },
+          {
+            "name": "year_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year From"
+            }
+          },
+          {
+            "name": "year_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 1900
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year To"
+            }
+          },
+          {
+            "name": "clasificacion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated clasificacion list",
+              "title": "Clasificacion"
+            },
+            "description": "Comma-separated clasificacion list"
+          },
+          {
+            "name": "tema",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated theme list; use __none__ for unclassified",
+              "title": "Tema"
+            },
+            "description": "Comma-separated theme list; use __none__ for unclassified"
+          },
+          {
+            "name": "album",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Album"
             }
           }
         ],
