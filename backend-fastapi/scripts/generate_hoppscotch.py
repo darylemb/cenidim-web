@@ -2,13 +2,23 @@
 
 Output: backend-fastapi/scripts/hoppscotch-collection.json
 
-Hoppscotch collection **v2** schema (the version the web UI
-exports and imports). Key differences from v1:
-  - ``headers`` is an OBJECT {key: value}, not an array
-  - ``params`` is still an array of {key, value, active, ...}
-  - ``v`` is the string ``"2"`` for collections, folders and requests
-  - request names must be non-empty strings (the web UI shows
-    "untitled" when v1 / missing-name fields slip through)
+Hoppscotch collection v2 schema (per hoppscotch-data/src/rest/v/1.ts,
+collection/v/2.ts, rest/v/5.ts). The web UI's import path validates
+each request against the latest ``HoppRESTRequest`` schema and then
+walks it through every version migration. The v2 collection itself
+needs:
+  - ``v: 2`` (literal number)
+  - ``name: string``
+  - ``requests: []``  (can be empty when folders carry the requests)
+  - ``folders: []``  (can be empty)
+  - ``headers: []``  (REQUIRED, collection-level default headers)
+  - ``auth: { authType: "none", authActive: true }`` (REQUIRED)
+
+Each request needs v >= "1" with the HoppRESTAuth union
+(``authType`` + ``authActive: bool``, NOT ``active``) and an array
+of ``HoppRESTHeaders`` (NOT an object). The script targets v1
+because that's the earliest complete shape that the version walker
+can promote all the way to v17 without further input from us.
 
 Spec reference: https://docs.hoppscotch.io/cli/rest-collection-spec
 
@@ -40,8 +50,12 @@ from app.main import create_app  # noqa: E402
 from app.config import Settings  # noqa: E402
 
 
+# Hoppscotch auth/header shape expected by every version from v1+.
+NO_AUTH = {"authType": "none", "authActive": True}
+
+
 def _param(p: dict[str, Any]) -> dict[str, Any]:
-    """OpenAPI query parameter → Hoppscotch v2 param row."""
+    """OpenAPI query parameter → Hoppscotch v1+ param row."""
     schema = p.get("schema", {})
     return {
         "key": p["name"],
@@ -52,10 +66,11 @@ def _param(p: dict[str, Any]) -> dict[str, Any]:
 
 
 def _body(content: dict[str, Any]) -> dict[str, Any]:
-    """Render the request body in v2 shape."""
+    """Render the request body in HoppRESTReqBody shape."""
     json_content = content.get("application/json")
     if json_content is None:
-        return {"contentType": None, "body": ""}
+        # ``contentType: null, body: null`` is the GET / no-body branch.
+        return {"contentType": None, "body": None}
     example = json_content.get("example")
     return {
         "contentType": "application/json",
@@ -72,29 +87,41 @@ def _path_label(path: str, method: str, op: dict[str, Any]) -> str:
 
 def _request(path: str, method: str, op: dict[str, Any]) -> dict[str, Any]:
     return {
-        "v": "2",
+        "v": "1",
         "name": _path_label(path, method, op),
         "method": method.upper(),
         "endpoint": f"{{{{BASE_URL}}}}{path}",
-        "headers": {
-            # Always-on defaults so the request works out of the box;
-            # users can add more from the UI.
-            "Accept": "application/json",
-        },
         "params": [
             _param(p) for p in op.get("parameters", []) if p.get("in") == "query"
         ],
-        "auth": {"active": False, "authType": "none"},
+        # Headers is an ARRAY of {key, value, active} per HoppRESTHeaders
+        # schema. Pre-populating Accept means requests work out of the
+        # box; users can add more from the UI.
+        "headers": [
+            {"key": "Accept", "value": "application/json", "active": True},
+        ],
+        "preRequestScript": "",
+        "testScript": "",
+        # ``authActive: bool`` (not ``active``) — that's the bit that
+        # was making the UI show "untitled" in older exports.
+        "auth": {"authType": "none", "authActive": False},
         "body": _body(op.get("requestBody", {}).get("content", {})),
     }
 
 
 def _folder(name: str, requests: list[dict[str, Any]]) -> dict[str, Any]:
+    # Folders are themselves HoppCollection-shaped v2 records.
+    # NOTE: collection/folder ``v`` is the *number* 2; request ``v``
+    # is the *string* "1"+"17". Hoppscotch's getVersion() reads
+    # ``data.v`` as a number for collections and walks requests
+    # through verzod's entityRefUptoVersion.
     return {
-        "v": "2",
+        "v": 2,
         "name": name,
         "folders": [],
         "requests": requests,
+        "headers": [],
+        "auth": dict(NO_AUTH),
     }
 
 
@@ -124,11 +151,14 @@ def build_collection(base_url: str = "http://localhost:8000") -> dict[str, Any]:
         folders.append(_folder(label, requests))
 
     return {
-        "v": "2",
+        "v": 2,
         "name": "CENIDIM FastAPI",
         "folders": folders,
         "requests": [],
-        "auth": {"active": False, "authType": "none"},
+        # Collection-level default headers + auth (applied to every
+        # request that uses ``authType: "inherit"``).
+        "headers": [],
+        "auth": dict(NO_AUTH),
     }
 
 

@@ -1,20 +1,17 @@
 {
-  "v": "2",
+  "v": 2,
   "name": "CENIDIM FastAPI",
   "folders": [
     {
-      "v": "2",
+      "v": 2,
       "name": "Api/Admin",
       "folders": [],
       "requests": [
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Admin List Audit Log",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/admin/audit",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [
             {
               "key": "page",
@@ -41,23 +38,29 @@
               "description": ""
             }
           ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Admin List Emails",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/admin/emails",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [
             {
               "key": "page",
@@ -78,23 +81,29 @@
               "description": ""
             }
           ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Admin List Fonogramas",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/admin/fonogramas",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [
             {
               "key": "page",
@@ -109,27 +118,42 @@
               "description": ""
             }
           ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "POST Admin Create Fonograma",
           "method": "POST",
           "endpoint": "{{BASE_URL}}/api/admin/fonogramas",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
@@ -137,35 +161,47 @@
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Admin Get Fonograma",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/admin/fonogramas/{id}",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "PUT Admin Update Fonograma",
           "method": "PUT",
           "endpoint": "{{BASE_URL}}/api/admin/fonogramas/{id}",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
@@ -173,31 +209,34 @@
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "DELETE Admin Delete Fonograma",
           "method": "DELETE",
           "endpoint": "{{BASE_URL}}/api/admin/fonogramas/{id}",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Admin List Songs",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/admin/songs",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [
             {
               "key": "fonograma_id",
@@ -218,27 +257,42 @@
               "description": ""
             }
           ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "POST Admin Create Song",
           "method": "POST",
           "endpoint": "{{BASE_URL}}/api/admin/songs",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
@@ -246,17 +300,23 @@
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "PUT Admin Update Song",
           "method": "PUT",
           "endpoint": "{{BASE_URL}}/api/admin/songs/{id}",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
@@ -264,53 +324,71 @@
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "DELETE Admin Delete Song",
           "method": "DELETE",
           "endpoint": "{{BASE_URL}}/api/admin/songs/{id}",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Admin List Users",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/admin/users",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "POST Admin Create User",
           "method": "POST",
           "endpoint": "{{BASE_URL}}/api/admin/users",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
@@ -318,17 +396,23 @@
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "PUT Admin Update User",
           "method": "PUT",
           "endpoint": "{{BASE_URL}}/api/admin/users/{id}",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
@@ -336,42 +420,59 @@
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "DELETE Admin Delete User",
           "method": "DELETE",
           "endpoint": "{{BASE_URL}}/api/admin/users/{id}",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         }
-      ]
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
     },
     {
-      "v": "2",
+      "v": 2,
       "name": "Api/Auth",
       "folders": [],
       "requests": [
         {
-          "v": "2",
+          "v": "1",
           "name": "POST Forgot",
           "method": "POST",
           "endpoint": "{{BASE_URL}}/api/auth/forgot",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
@@ -379,17 +480,23 @@
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "POST Login",
           "method": "POST",
           "endpoint": "{{BASE_URL}}/api/auth/login",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
@@ -397,71 +504,95 @@
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "POST Logout",
           "method": "POST",
           "endpoint": "{{BASE_URL}}/api/auth/logout",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Me",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/auth/me",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "POST Refresh",
           "method": "POST",
           "endpoint": "{{BASE_URL}}/api/auth/refresh",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "POST Register",
           "method": "POST",
           "endpoint": "{{BASE_URL}}/api/auth/register",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
@@ -469,38 +600,46 @@
           }
         },
         {
-          "v": "2",
+          "v": "1",
           "name": "POST Reset",
           "method": "POST",
           "endpoint": "{{BASE_URL}}/api/auth/reset",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": "application/json",
             "body": ""
           }
         }
-      ]
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
     },
     {
-      "v": "2",
+      "v": 2,
       "name": "Api/Search",
       "folders": [],
       "requests": [
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Search Songs",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/search",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [
             {
               "key": "query",
@@ -569,55 +708,77 @@
               "description": ""
             }
           ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         }
-      ]
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
     },
     {
-      "v": "2",
+      "v": 2,
       "name": "Api/Song",
       "folders": [],
       "requests": [
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Get Song Detail",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/song/{song_id}",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         }
-      ]
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
     },
     {
-      "v": "2",
+      "v": 2,
       "name": "Api/Stats",
       "folders": [],
       "requests": [
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Get Stats",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/stats",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [
             {
               "key": "query",
@@ -626,30 +787,41 @@
               "description": ""
             }
           ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         }
-      ]
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
     },
     {
-      "v": "2",
+      "v": 2,
       "name": "Api/Timeline",
       "folders": [],
       "requests": [
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Get Timeline",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/timeline",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [
             {
               "key": "query",
@@ -664,30 +836,41 @@
               "description": ""
             }
           ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         }
-      ]
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
     },
     {
-      "v": "2",
+      "v": 2,
       "name": "Api/Word-Cloud",
       "folders": [],
       "requests": [
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Get Word Cloud",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/api/word-cloud",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [
             {
               "key": "query",
@@ -696,46 +879,72 @@
               "description": ""
             }
           ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         }
-      ]
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
     },
     {
-      "v": "2",
+      "v": 2,
       "name": "Healthz",
       "folders": [],
       "requests": [
         {
-          "v": "2",
+          "v": "1",
           "name": "GET Healthz",
           "method": "GET",
           "endpoint": "{{BASE_URL}}/healthz",
-          "headers": {
-            "Accept": "application/json"
-          },
           "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
           "auth": {
-            "active": false,
-            "authType": "none"
+            "authType": "none",
+            "authActive": false
           },
           "body": {
             "contentType": null,
-            "body": ""
+            "body": null
           }
         }
-      ]
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
     }
   ],
   "requests": [],
+  "headers": [],
   "auth": {
-    "active": false,
-    "authType": "none"
+    "authType": "none",
+    "authActive": true
   }
 }
