@@ -135,16 +135,31 @@ def run(base: str, db_path: str, username: str, password: str) -> Report:
             # endpoint returns every row.
             r = _check_status(client, "GET", "/api/search?limit=5", want=200)
             data = r.json()
+            counts = db_counts(db_path)
             report.add(
                 "search shape (no filter)",
                 len(data["results"]) == 5 and data["total"] > 0,
                 f"total={data['total']}, returned {len(data['results'])}",
             )
-            counts = db_counts(db_path)
             report.add(
                 "search total == DB songs",
                 data["total"] == counts["songs"],
                 expected=str(counts["songs"]), actual=str(data["total"]),
+            )
+            # Joined fonograma fields must be populated on every row.
+            # ``album`` is the Fonograma.titulo copy; the rest must come
+            # from the joined Fonograma row, not be empty for songs
+            # that DO have an album.
+            first = data["results"][0]
+            joined_fields = ("album", "year", "subtitulo")
+            non_null = {f: first.get(f) for f in joined_fields}
+            any_populated = any(v for v in non_null.values())
+            report.add(
+                "search includes joined fonograma fields",
+                any_populated,
+                f"first song fonograma_id={first['fonograma_id']}: "
+                f"album={non_null['album']!r}, year={non_null['year']!r}, "
+                f"subtitulo={non_null['subtitulo']!r}",
             )
             r = _check_status(client, "GET", "/api/search?query=cri-cri&limit=5", want=200)
             filtered = r.json()
@@ -156,7 +171,12 @@ def run(base: str, db_path: str, username: str, password: str) -> Report:
             # Song detail
             first_id = data["results"][0]["id"]
             r = _check_status(client, "GET", f"/api/song/{first_id}", want=200)
-            report.add("song detail returns full payload", "title" in r.json())
+            detail = r.json()
+            report.add(
+                "song detail returns full payload + fonograma",
+                "title" in detail and detail.get("album"),
+                f"album={detail.get('album')!r}, year={detail.get('year')!r}",
+            )
         except AssertionError as exc:
             report.add("search/song", False, str(exc))
 

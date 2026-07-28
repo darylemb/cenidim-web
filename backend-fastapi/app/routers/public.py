@@ -91,7 +91,7 @@ async def search_songs(
     if year_from is not None and year_to is not None and year_from > year_to:
         raise HTTPException(status_code=400, detail="year_from must be <= year_to")
 
-    stmt = select(Song, Fonograma.titulo, Fonograma.anio).join(
+    stmt = select(Song, Fonograma).join(
         Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
     )
 
@@ -200,8 +200,8 @@ async def search_songs(
 
     rows = (await db.execute(stmt)).all()
     songs: list[SongOut] = []
-    for song, _album, _year in rows:
-        songs.append(song_to_out(song))
+    for song, fonograma in rows:
+        songs.append(song_to_out(song, fonograma))
     return {"results": [s.model_dump() for s in songs], "total": total}
 
 
@@ -250,7 +250,7 @@ async def get_timeline(
     """
     year_from, year_to = _parse_year_filter(query)
 
-    stmt = select(Song, Fonograma.titulo, Fonograma.anio).join(
+    stmt = select(Song, Fonograma, Fonograma.anio).join(
         Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
     )
     if year_from is not None:
@@ -274,9 +274,9 @@ async def get_timeline(
     rows = (await db.execute(stmt)).all()
 
     timeline: dict[str, list[dict]] = {}
-    for song, _album, year in rows:
+    for song, fonograma, year in rows:
         key = year or "s/d"
-        timeline.setdefault(key, []).append(song_to_out(song).model_dump())
+        timeline.setdefault(key, []).append(song_to_out(song, fonograma).model_dump())
 
     years_sorted = sorted(
         (y for y in timeline.keys() if y != "s/d"),

@@ -251,14 +251,6 @@ async def admin_delete_fonograma(
 # ---------------------------------------------------------------------------
 
 
-def _row_to_admin_song(song: Song, album: str | None, year: str | None) -> dict[str, Any]:
-    """Compose the admin song JSON shape (joined view)."""
-    out = song_to_out(song).model_dump()
-    out["album"] = album
-    out["year"] = year
-    return out
-
-
 @router.get("/songs", response_model=PaginatedResponse)
 async def admin_list_songs(
     db: DbDep,
@@ -268,7 +260,7 @@ async def admin_list_songs(
     limit: int = Query(50, ge=1, le=500),
 ) -> dict[str, Any]:
     base = (
-        select(Song, Fonograma.titulo, Fonograma.anio)
+        select(Song, Fonograma)
         .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
     )
     count_q = select(func.count()).select_from(Song)
@@ -283,7 +275,7 @@ async def admin_list_songs(
             .limit(limit)
         )
     ).all()
-    results = [_row_to_admin_song(r[0], r[1], r[2]) for r in rows]
+    results = [song_to_out(song, fonograma).model_dump() for song, fonograma in rows]
     return {
         "results": results,
         "total": total,

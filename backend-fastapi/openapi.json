@@ -1885,6 +1885,149 @@
             ],
             "title": "Personajes"
           },
+          "album": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Album"
+          },
+          "subtitulo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitulo"
+          },
+          "interprete_principal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interprete Principal"
+          },
+          "interpretes_invitados": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interpretes Invitados"
+          },
+          "interprete_participante": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interprete Participante"
+          },
+          "soporte_fisico": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soporte Fisico"
+          },
+          "editora": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editora"
+          },
+          "numero_catalogo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Catalogo"
+          },
+          "ciudad_edicion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ciudad Edicion"
+          },
+          "pais_edicion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pais Edicion"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "pistas": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pistas"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -1903,7 +2046,8 @@
           "title",
           "created_at"
         ],
-        "title": "SongOut"
+        "title": "SongOut",
+        "description": "One row in the public catalog + admin song endpoints.\n\nFlat shape: every fonograma field the UI needs (album title,\nsubt\u00edtulo, int\u00e9rpretes, a\u00f1o, editora, \u2026) is exposed at the\ntop level so the frontend can render a single ``Song`` object\nwithout an extra fetch. The JOIN against ``fonogramas`` lives\nin the public/admin routers."
       },
       "SongUpdateIn": {
         "properties": {
