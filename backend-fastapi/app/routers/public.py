@@ -179,17 +179,27 @@ async def search_songs(
         "clave": Fonograma.clave_fonograma,
     }[order_by]
     if order_by == "year":
-        # ``anio`` is TEXT; cast for sort so '10' < '2' numeric.
-        sort_field_cast = func.cast(Fonograma.anio, Integer)
+        # ``anio`` is TEXT and has dirty values like ``[1982]`` or
+        # ``1965 (disco 1)...`` that ``CAST(... AS INTEGER)`` would
+        # collapse to 0. The ``normalize_year`` SQLite UDF registered
+        # in app/db/session.py mirrors the Python helper so SQL
+        # ORDER BY and the JSON response agree (``[1982]`` sorts next
+        # to ``1982``, not before every real year).
+        # The UDF returns 0 for null/empty/s-d, but we want those rows
+        # last regardless of direction. The is_null case (0/1) is
+        # added to ORDER BY so they sort at the end; the year sort key
+        # is added on top.
+        sort_field_cast = func.normalize_year(Fonograma.anio)
         is_null = case(
             (Fonograma.anio.is_(None), 1),
             (Fonograma.anio == "", 1),
             (Fonograma.anio == "s/d", 1),
             else_=0,
         )
-        sort_col = (
-            sort_field_cast.asc() if order_dir == "asc" else sort_field_cast.desc()
-        )
+        if order_dir == "asc":
+            sort_col = sort_field_cast.asc()
+        else:
+            sort_col = sort_field_cast.desc()
     else:
         is_null = case(
             (sort_field.is_(None), 1),

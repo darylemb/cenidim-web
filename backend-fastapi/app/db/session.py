@@ -7,8 +7,10 @@ expose a helper that swaps the engine for an in-memory aiosqlite DB
 """
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (  # noqa: F401
     AsyncEngine,
     AsyncSession,
@@ -17,6 +19,26 @@ from sqlalchemy.ext.asyncio import (  # noqa: F401
 )
 
 from app.config import Settings, get_settings
+
+# SQLite's ``CAST('text' AS INTEGER)`` returns 0 for any string that
+# doesn't start with a digit. The CSV's ``anio`` column has dirty
+# values like ``[1982]`` and ``1965 (disco 1)...`` that would all
+# collapse to 0 and sort before every real year. Register a Python
+# UDF that mirrors the ``normalize_year`` helper in
+# ``app.services.filters`` so SQL ORDER BY agrees with the JSON
+# response.
+_NORMALIZE_YEAR_RE = re.compile(r"(\d{4})")
+
+
+def _normalize_year_py(raw: object) -> int:
+    if raw is None:
+        return 0
+    s = str(raw).strip()
+    if not s or s.lower() == "s/d":
+        return 0
+    m = _NORMALIZE_YEAR_RE.search(s)
+    return int(m.group(1)) if m else 0
+
 
 # Module-level state. The engine + sessionmaker are set in
 # ``init_engine()`` at app startup. Tests that need a fresh
@@ -43,10 +65,26 @@ def init_engine(settings: Settings | None = None) -> AsyncEngine:
         pool_size=settings.db_pool_size,
     )
     _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
+
+    @event.listens_for(_engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, _):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        # Register a Python UDF that normalizes the dirty ``anio``
+        # column the same way the Python ``normalize_year`` helper
+        # does. SQL ORDER BY uses this so ``[1982]`` sorts next to
+        # the clean ``1982`` rows, not as 0.
+        dbapi_connection.create_function(
+            "normalize_year", 1, _normalize_year_py, deterministic=True
+        )
+        cursor.close()
+
     return _engine
 
 
-def init_in_memory_engine() -> AsyncEngine:
+def init_in_memory_engine() -> Engine:
     """Create an in-memory engine (test-only).
 
     Uses ``StaticPool`` so every connection shares the same underlying
@@ -63,6 +101,18 @@ def init_in_memory_engine() -> AsyncEngine:
         poolclass=StaticPool,
     )
     _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
+
+    @event.listens_for(_engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, _):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        dbapi_connection.create_function(
+            "normalize_year", 1, _normalize_year_py, deterministic=True
+        )
+        cursor.close()
+
     return _engine
 
 
