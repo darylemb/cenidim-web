@@ -105,10 +105,16 @@ class Settings(BaseSettings):
         )
         if isinstance(raw, str) and raw.strip():
             return [o.strip() for o in raw.split(",") if o.strip()]
+        # Default: the local web trio plus the common Hoppscotch
+        # desktop app origins (Electron uses ``app://``, browsers
+        # fall back to ``file://``). Operators who need a stricter
+        # allow-list in prod should set ``CORS_ALLOWED_ORIGINS``.
         return [
             "http://localhost",
             "http://localhost:3000",
             "http://localhost:8000",
+            "app://hoppscotch",
+            "file://",
         ]
 
 
