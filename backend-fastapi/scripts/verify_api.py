@@ -312,7 +312,7 @@ def run(base: str, db_path: str, username: str, password: str) -> Report:
         except AssertionError as exc:
             report.add("forgot/reset", False, str(exc))
 
-        print("\n[auth] /api/auth/register (dedicated viewer, then delete via DB)")
+        print("\n[auth] /api/auth/register (dedicated viewer, then delete via admin)")
         try:
             new_user = "verifyviewer1"
             # Use a non-reserved domain (``.local`` is reserved by
@@ -322,6 +322,7 @@ def run(base: str, db_path: str, username: str, password: str) -> Report:
                 client, "POST", "/api/auth/register", want=201,
                 json_body={"username": new_user, "email": new_email, "password": "Test1234"},
             )
+            new_user_id = r.json()["user"]["id"]
             report.add("register returns viewer tier", r.json()["user"]["role"] == "viewer")
             # Login as the new user to confirm credentials work.
             r = _check_status(
@@ -329,11 +330,24 @@ def run(base: str, db_path: str, username: str, password: str) -> Report:
                 json_body={"username": new_user, "password": "Test1234"},
             )
             report.add("registered user can log in", "token" in r.json())
-            # Clean up so reruns work.
-            conn = sqlite3.connect(db_path)
-            conn.execute("DELETE FROM users WHERE username = ?", (new_user,))
-            conn.commit()
-            conn.close()
+            # Clean up via the admin DELETE endpoint so the row is
+            # removed from the live container DB (not just from a
+            # ``docker cp`` snapshot). Falling back to raw sqlite3
+            # would leave the container's aiosqlite connection holding
+            # an extra user for the next admin check. The client is
+            # currently carrying the viewer's session cookies, so we
+            # re-login as admin first to authorise the DELETE.
+            _check_status(
+                client, "POST", "/api/auth/login", want=200,
+                json_body={"username": username, "password": password},
+            )
+            token = client.cookies.get("cenidim_session")
+            admin_auth = {"Authorization": f"Bearer {client.post('/api/auth/login', json={'username': username, 'password': password}).json()['token']}"}
+            _check_status(
+                client, "DELETE", f"/api/admin/users/{new_user_id}", want=200,
+                headers=admin_auth,
+            )
+            report.add("register cleanup via DELETE", True)
         except AssertionError as exc:
             report.add("register", False, str(exc))
 
