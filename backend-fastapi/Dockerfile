@@ -80,8 +80,6 @@ COPY backend-fastapi/app ./app
 COPY backend-fastapi/alembic.ini ./alembic.ini
 COPY backend-fastapi/alembic ./alembic
 
-USER app
-
 EXPOSE 8000
 
 # The CMD honours $CENIDIM_WORKERS (default 2); Coolify / k8s override.
@@ -89,7 +87,7 @@ EXPOSE 8000
 # The entrypoint script does the chown + alembic as root (the
 # letras.db volume is created by the root-only Go db-init
 # container) and then drops to the non-root \`app\` user via
-# \`su\` for the uvicorn process.
+# \`setpriv\` for the uvicorn process.
 COPY backend-fastapi/scripts/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD []

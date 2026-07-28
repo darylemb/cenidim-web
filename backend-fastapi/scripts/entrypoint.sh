@@ -21,7 +21,7 @@ chmod 0666 /data/letras.db 2>/dev/null || true
 
 # Drop to the non-root `app` user via setpriv, then exec uvicorn.
 if [ "$(id -u)" = "0" ]; then
-    exec setpriv --reuid="$(id -u app)" --regid="$(id -g app)" -- \
+    exec setpriv --reuid="$(id -u app)" --regid="$(id -g app)" --clear-groups -- \
         .venv/bin/uvicorn app.main:app \
         --host 0.0.0.0 --port 8000 \
         --workers ${CENIDIM_WORKERS:-2}
