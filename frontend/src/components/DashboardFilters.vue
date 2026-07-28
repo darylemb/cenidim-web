@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFiltersStore } from '@/stores/filters'
 import { swatchFor } from '@/config/themes'
@@ -136,13 +136,56 @@ function toggleClasificacion(value: string) {
   applyFilters()
 }
 
-function onAlbumChange() {
+// Debounced auto-apply for the year inputs. The user types a 4-digit
+// year, the input fires @input on every keystroke, the timer resets,
+// and 300 ms after the last keystroke the filter is committed. Enter
+// (keyup.enter) bypasses the debounce and commits immediately.
+//
+// We accept the Event directly so we can read event.target.value
+// (the raw input string) instead of the v-model mirror — which
+// only updates on `change` for type=number inputs (the browser
+// coerces a `number` v-model to numeric and skips string trim().
+let yearDebounceTimer: number | undefined
+function _syncFromInputs() {
+  // ``localYearFrom`` / ``localYearTo`` are kept in sync with the
+  // DOM <input> elements by ``v-model.lazy``. After ``change`` or
+  // ``Enter`` they hold the string the user typed (or '' for an
+  // empty field). The commit path normalises these to ints.
   applyFilters()
 }
-
-function onYearBlur() {
-  applyFilters()
+function scheduleYearApply() {
+  if (yearDebounceTimer != null) {
+    window.clearTimeout(yearDebounceTimer)
+  }
+  yearDebounceTimer = window.setTimeout(() => {
+    yearDebounceTimer = undefined
+    _syncFromInputs()
+  }, 300)
 }
+function commitYearsNow(e?: Event) {
+  if (yearDebounceTimer != null) {
+    window.clearTimeout(yearDebounceTimer)
+    yearDebounceTimer = undefined
+  }
+  // On Enter / blur: pull the latest value from the event target
+  // before v-model.lazy catches up. That way the commit is
+  // immediate, not waiting for the next render to read the
+  // (still-stale) localYearFrom.
+  if (e && e.target instanceof HTMLInputElement) {
+    const t = e.target as HTMLInputElement
+    if (t.dataset.which === "yearFrom") {
+      localYearFrom.value = t.value
+    } else if (t.dataset.which === "yearTo") {
+      localYearTo.value = t.value
+    }
+  }
+  _syncFromInputs()
+}
+onUnmounted(() => {
+  if (yearDebounceTimer != null) {
+    window.clearTimeout(yearDebounceTimer)
+  }
+})
 </script>
 
 <template>
@@ -162,7 +205,17 @@ function onYearBlur() {
       </button>
     </header>
 
-    <div class="filters__body">
+    <!-- Wrapping the body in a <form> makes Enter commit filters
+         globally — pressing Enter in any input below triggers
+         applyFilters() (the same handler as a chip click), which
+         re-fetches /api/stats with the current local mirror state.
+         The @submit.prevent stops the browser from reloading the
+         page. We keep the explicit @change / @click handlers on the
+         individual fields so they still fire on blur or click. -->
+    <form
+      class="filters__body"
+      @submit.prevent="applyFilters"
+    >
       <!-- Year range.
            Reviewer feedback (01/jul/2026) flagged that the "Hasta"
            input appeared to clear itself after blur, leaving the
@@ -179,7 +232,7 @@ function onYearBlur() {
           <label class="filter-input-wrap">
             <span class="filter-input-label">Desde</span>
             <input
-              v-model="localYearFrom"
+              v-model.lazy="localYearFrom"
               type="number"
               inputmode="numeric"
               min="1900"
@@ -187,14 +240,17 @@ function onYearBlur() {
               step="1"
               class="filter-input mono"
               placeholder="1980"
-              @change="onYearBlur"
+              data-which="yearFrom"
+              @input="scheduleYearApply"
+              @change="commitYearsNow($event)"
+              @keyup.enter="commitYearsNow($event)"
             />
           </label>
           <span class="filter-input-sep" aria-hidden="true">—</span>
           <label class="filter-input-wrap">
             <span class="filter-input-label">Hasta</span>
             <input
-              v-model="localYearTo"
+              v-model.lazy="localYearTo"
               type="number"
               inputmode="numeric"
               min="1900"
@@ -202,7 +258,10 @@ function onYearBlur() {
               step="1"
               class="filter-input mono"
               placeholder="1985"
-              @change="onYearBlur"
+              data-which="yearTo"
+              @input="scheduleYearApply"
+              @change="commitYearsNow($event)"
+              @keyup.enter="commitYearsNow($event)"
             />
           </label>
         </div>
@@ -294,7 +353,8 @@ function onYearBlur() {
           type="text"
           class="filter-input"
           placeholder="Título del álbum"
-          @change="onAlbumChange"
+          @change="applyFilters"
+          @keyup.enter="applyFilters"
         />
       </fieldset>
 
@@ -307,9 +367,10 @@ function onYearBlur() {
           class="filter-input"
           placeholder="Palabra en título, álbum o letra"
           @input="applyFilters"
+          @keyup.enter="applyFilters"
         />
       </fieldset>
-    </div>
+    </form>
   </section>
 </template>
 

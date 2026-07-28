@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import Annotated
+from typing import Annotated, TYPE_CHECKING
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import Integer, case, func, select
 
 from app.deps import DbDep
@@ -304,10 +304,30 @@ async def get_timeline(
 # ---------------------------------------------------------------------------
 
 
+def _alias_theme_from_request(request: "Request") -> str | None:
+    """Pull ``theme=`` (English) as an alias for ``?tema=`` (Spanish).
+
+    The Pinia filter store in the Vue dashboard composes the
+    dashboard query as ``?theme=Cuentos`` for backward-compat with
+    the Go (Gin) backend. The original FastAPI routes accept only
+    ``?tema=``. Accept both for one release so the frontend has
+    time to standardise on one of them.
+    """
+    for tok in request.url.query.split("&"):
+        if tok.startswith("theme="):
+            return tok.split("=", 1)[1]
+    return None
+
+
+def _get_request(request: Request) -> Request:
+    return request
+
+
 @router.get("/stats", response_model=StatsResponse)
 async def get_stats(
-    db: DbDep,
-    query: Annotated[str, Query(max_length=500)] = "",
+    request: Request = Depends(_get_request),
+    db: DbDep = ...,
+    query: str = Query("", max_length=500),
     year_from: YearFromQ = None,
     year_to: YearToQ = None,
     clasificacion: ClasificacionList = None,
@@ -326,6 +346,10 @@ async def get_stats(
     year_from = year_from if year_from is not None else legacy_year_from
     year_to = year_to if year_to is not None else legacy_year_to
 
+    # Accept ``?theme=`` as an alias for ``?tema=``.
+    if not tema:
+        tema = _alias_theme_from_request(request)
+
     # Reusable clause that joins fonograma + applies the year filter.
     # ``anio`` is TEXT; we CAST to Integer so the inequality uses
     # numeric ordering rather than lexicographic ('10' < '2').
@@ -339,8 +363,37 @@ async def get_stats(
             s = s.where(func.cast(Fonograma.anio, Integer) <= year_to)
         return s
 
+    # Apply the same year + tema + clasification + album filters
+    # to every bucket below. Tema is OR-ed (any match counts) and
+    # canonicalized at the bottom of the response. ``album`` is
+    # the FONOGRAMA.titulo (not the song's).
+    #
+    # ``clasificacion`` and ``tema`` arrive as comma-separated
+    # strings per the ClasificacionList / TemaList filter types,
+    # so we split on ``,`` before applying.
+    _clases = [c for c in (clasificacion or "").split(",") if c]
+    _temas = [t for t in (tema or "").split(",") if t]
+
+    def _apply_filters(stmt):
+        if year_from is not None:
+            stmt = stmt.where(func.cast(Fonograma.anio, Integer) >= year_from)
+        if year_to is not None:
+            stmt = stmt.where(func.cast(Fonograma.anio, Integer) <= year_to)
+        if album:
+            stmt = stmt.where(Fonograma.titulo == album)
+        if _clases:
+            stmt = stmt.where(
+                func.coalesce(Song.clasificacion, "ESPAÑOL_ESTANDAR").in_(
+                    _clases
+                )
+            )
+        if _temas:
+            from sqlalchemy import or_ as _or
+            stmt = stmt.where(_or(*(Song.tema == t for t in _temas)))
+        return stmt
+
     base_count = select(func.count()).select_from(
-        _joined_base().subquery()
+        _apply_filters(_joined_base()).subquery()
     )
     total_songs = (await db.execute(base_count)).scalar_one()
 
@@ -354,6 +407,7 @@ async def get_stats(
         .select_from(Song)
         .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
     )
+    year_stmt = _apply_filters(year_stmt)
     if year_from is not None:
         year_stmt = year_stmt.where(
             func.cast(Fonograma.anio, Integer) >= year_from
@@ -379,14 +433,7 @@ async def get_stats(
         .select_from(Song)
         .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
     )
-    if year_from is not None:
-        clas_stmt = clas_stmt.where(
-            func.cast(Fonograma.anio, Integer) >= year_from
-        )
-    if year_to is not None:
-        clas_stmt = clas_stmt.where(
-            func.cast(Fonograma.anio, Integer) <= year_to
-        )
+    clas_stmt = _apply_filters(clas_stmt)
     clas_stmt = clas_stmt.group_by(Song.clasificacion)
     songs_by_clas = {row.c: row.n for row in (await db.execute(clas_stmt)).all()}
 
@@ -397,14 +444,7 @@ async def get_stats(
         .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
         .where(Song.tema.is_not(None), Song.tema != "")
     )
-    if year_from is not None:
-        theme_stmt = theme_stmt.where(
-            func.cast(Fonograma.anio, Integer) >= year_from
-        )
-    if year_to is not None:
-        theme_stmt = theme_stmt.where(
-            func.cast(Fonograma.anio, Integer) <= year_to
-        )
+    theme_stmt = _apply_filters(theme_stmt)
     theme_stmt = theme_stmt.group_by(Song.tema).order_by(func.count().desc())
     songs_by_theme: dict[str, int] = {}
     for theme, count in (await db.execute(theme_stmt)).all():
@@ -425,34 +465,20 @@ async def get_stats(
     albums_stmt = select(func.count(func.distinct(Song.fonograma_id))).select_from(
         Song
     )
-    if year_from is not None or year_to is not None:
+    if any([year_from, year_to, album, clasificacion, tema]):
         albums_stmt = albums_stmt.join(
             Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
         )
-        if year_from is not None:
-            albums_stmt = albums_stmt.where(
-                func.cast(Fonograma.anio, Integer) >= year_from
-            )
-        if year_to is not None:
-            albums_stmt = albums_stmt.where(
-                func.cast(Fonograma.anio, Integer) <= year_to
-            )
+    albums_stmt = _apply_filters(albums_stmt)
     total_albums = (await db.execute(albums_stmt)).scalar_one() or 0
 
     # Lyrics length averages.
     lyrics_stmt = select(Song.lyrics).select_from(Song)
-    if year_from is not None or year_to is not None:
+    if any([year_from, year_to, album, clasificacion, tema]):
         lyrics_stmt = lyrics_stmt.join(
             Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
         )
-        if year_from is not None:
-            lyrics_stmt = lyrics_stmt.where(
-                func.cast(Fonograma.anio, Integer) >= year_from
-            )
-        if year_to is not None:
-            lyrics_stmt = lyrics_stmt.where(
-                func.cast(Fonograma.anio, Integer) <= year_to
-            )
+    lyrics_stmt = _apply_filters(lyrics_stmt)
     lyrics_rows = (await db.execute(lyrics_stmt)).all()
     lyrics_lens = [len(r[0]) for r in lyrics_rows if r[0]]
     songs_with_lyrics = sum(1 for L in lyrics_lens if L > 0)
@@ -468,14 +494,7 @@ async def get_stats(
         .select_from(Song)
         .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
     )
-    if year_from is not None:
-        top_stmt = top_stmt.where(
-            func.cast(Fonograma.anio, Integer) >= year_from
-        )
-    if year_to is not None:
-        top_stmt = top_stmt.where(
-            func.cast(Fonograma.anio, Integer) <= year_to
-        )
+    top_stmt = _apply_filters(top_stmt)
     top_stmt = top_stmt.group_by(Fonograma.clave_fonograma).order_by(
         func.count().desc()
     ).limit(10)
@@ -495,14 +514,7 @@ async def get_stats(
     ).join(
         Fonograma, Song.fonograma_id == Fonograma.clave_fonograma
     )
-    if year_from is not None:
-        oov_stmt = oov_stmt.where(
-            func.cast(Fonograma.anio, Integer) >= year_from
-        )
-    if year_to is not None:
-        oov_stmt = oov_stmt.where(
-            func.cast(Fonograma.anio, Integer) <= year_to
-        )
+    oov_stmt = _apply_filters(oov_stmt)
     oov_rows = (await db.execute(oov_stmt)).all()
     by_oov = {"BAJA": 0, "MEDIA": 0, "ALTA": 0}
     for (pct,) in oov_rows:
@@ -520,14 +532,7 @@ async def get_stats(
         .join(Song, SongStats.song_id == Song.id)
         .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
     )
-    if year_from is not None:
-        indigena_stmt = indigena_stmt.where(
-            func.cast(Fonograma.anio, Integer) >= year_from
-        )
-    if year_to is not None:
-        indigena_stmt = indigena_stmt.where(
-            func.cast(Fonograma.anio, Integer) <= year_to
-        )
+    indigena_stmt = _apply_filters(indigena_stmt)
     indigena_rows = (await db.execute(indigena_stmt)).all()
     by_indigena = {"CON_INDIGENA": 0, "SIN_INDIGENA": 0}
     for (flag,) in indigena_rows:
