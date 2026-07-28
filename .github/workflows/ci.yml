@@ -151,6 +151,20 @@ jobs:
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
           backend-fastapi/scripts/smoke.sh http://localhost:8000
+      - name: End-to-end API verifier
+        # Cross-checks every endpoint against the on-disk SQLite
+        # catalog so API counts and DB counts cannot diverge silently.
+        # Letters.db lives at /data/letras.db inside the backend
+        # container; we exec into it to grab the file.
+        run: |
+          mkdir -p /tmp/verifier-db
+          docker compose -f docker-compose-fastapi.yaml cp \
+            backend-fastapi:/data/letras.db /tmp/verifier-db/letras.db
+          cd backend-fastapi
+          uv sync --frozen
+          PYTHONPATH=. uv run python scripts/verify_api.py \
+            --base http://localhost:8000 \
+            --db /tmp/verifier-db/letras.db
       - name: Tear down
         if: always()
         run: docker compose -f docker-compose-fastapi.yaml down
