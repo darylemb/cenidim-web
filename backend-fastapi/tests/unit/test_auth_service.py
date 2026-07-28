@@ -102,6 +102,98 @@ async def test_authenticate_rejects_bad_password(db_session, settings):
 
 
 @pytest.mark.asyncio
+async def test_authenticate_accepts_legacy_go_bcrypt_hash_and_rehashes(
+    db_session, settings
+):
+    """Users seeded by the Go db-init have raw ``bcrypt(plain)`` hashes.
+
+    ``authenticate`` must accept them so the cut-over does not lock
+    out the admin. On a legacy match the hash is upgraded to the
+    FastAPI scheme so the next login uses the fast path.
+    """
+    import bcrypt as _bcrypt
+
+    from app.models.user import User
+    from app.security import hash_password, verify_password
+
+    plain = "LegacyGoPass123"
+    legacy_hash = _bcrypt.hashpw(
+        plain.encode("utf-8"), _bcrypt.gensalt(rounds=4)
+    ).decode("ascii")
+
+    async with _session() as session:
+        session.add(
+            User(
+                username="legacyuser",
+                email="legacy@cenidim.example",
+                password_hash=legacy_hash,
+                role="viewer",
+            )
+        )
+        await session.commit()
+
+        user = await authenticate(
+            session, username="legacyuser", password=plain
+        )
+        assert user.username == "legacyuser"
+
+        # The legacy match must have triggered an opportunistic rehash.
+        assert user.password_hash != legacy_hash
+        assert user.password_hash.startswith("$2")
+        assert verify_password(plain, user.password_hash) is True
+        # And the upgrade must persist so the next login uses the fast path.
+        await session.commit()
+        await session.refresh(user)
+        assert verify_password(plain, user.password_hash) is True
+
+    async with _session() as session:
+        # A second login must succeed via the new hash (no legacy
+        # fallback needed).
+        user = await authenticate(
+            session, username="legacyuser", password=plain
+        )
+        assert user.username == "legacyuser"
+        assert user.password_hash == hash_password(plain) or user.password_hash.startswith(
+            "$2"
+        )
+
+
+@pytest.mark.asyncio
+async def test_authenticate_legacy_fallback_rejects_wrong_password(
+    db_session, settings
+):
+    """The legacy fallback must NOT widen the false-positive window.
+
+    A wrong password against a legacy hash still fails 401, even
+    though the verifier path differs.
+    """
+    import bcrypt as _bcrypt
+
+    from app.models.user import User
+
+    legacy_hash = _bcrypt.hashpw(
+        b"CorrectPassword1", _bcrypt.gensalt(rounds=4)
+    ).decode("ascii")
+
+    async with _session() as session:
+        session.add(
+            User(
+                username="legacyguard",
+                email="legacyguard@cenidim.example",
+                password_hash=legacy_hash,
+                role="viewer",
+            )
+        )
+        await session.commit()
+
+        with pytest.raises(AuthError) as exc:
+            await authenticate(
+                session, username="legacyguard", password="WrongPassword1"
+            )
+        assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_issue_session_mints_both_tokens(db_session, settings):
     async with _session() as session:
         user = await register_user(

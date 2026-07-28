@@ -30,6 +30,26 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
+def verify_legacy_password(plain: str, hashed: str) -> bool:
+    """Verify a password against a legacy raw-bcrypt hash.
+
+    The Go backend (``backend/cmd/build-db`` /
+    ``backend/handlers/auth.go``) used
+    ``bcrypt.GenerateFromPassword(plain)`` directly. The FastAPI
+    service uses ``bcrypt(sha256(plain))`` so the two formats are
+    not interchangeable. Until every Go-created user has been
+    migrated, ``authenticate`` falls back to this helper; on a match
+    the caller is expected to re-hash the password with the new
+    scheme so the next login uses the fast path.
+
+    Returns ``False`` (and never raises) on malformed hashes.
+    """
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("ascii"))
+    except (ValueError, TypeError):
+        return False
+
+
 def generate_reset_token() -> tuple[str, str]:
     """Return (plaintext_token, hashed_for_db).
 
@@ -96,6 +116,7 @@ def verify_password_policy(plain: str) -> str | None:
 __all__ = [
     "hash_password",
     "verify_password",
+    "verify_legacy_password",
     "generate_reset_token",
     "hash_reset_token",
     "issue_jwt",

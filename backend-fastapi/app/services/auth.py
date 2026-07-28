@@ -18,6 +18,7 @@ from app.models.user import User
 from app.security import (
     hash_password,
     issue_jwt,
+    verify_legacy_password,
     verify_password,
     verify_password_policy,
 )
@@ -67,9 +68,23 @@ async def authenticate(
     user = (
         await db.execute(select(User).where(User.username == username))
     ).scalar_one_or_none()
-    if user is None or not verify_password(password, user.password_hash):
+    if user is None:
         raise AuthError(401, "Invalid credentials")
-    return user
+
+    if verify_password(password, user.password_hash):
+        return user
+
+    # Legacy fallback: the Go backend used ``bcrypt(plain)`` while
+    # the FastAPI service uses ``bcrypt(sha256(plain))``. Until
+    # every Go-created user is rehashed, accept the legacy hash so
+    # the cutover doesn't lock out the admin. On a legacy match we
+    # opportunistically rehash so the next login uses the fast path.
+    if verify_legacy_password(password, user.password_hash):
+        user.password_hash = hash_password(password)
+        await db.flush()
+        return user
+
+    raise AuthError(401, "Invalid credentials")
 
 
 def issue_session(user: User, settings: Settings) -> dict[str, tuple[str, datetime]]:
