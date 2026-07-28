@@ -39,11 +39,18 @@ _FASTAPI_TABLES = frozenset(
 
 @pytest.fixture
 def alembic_cfg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Config:
-    """Alembic config pointed at a fresh sqlite file."""
+    """Alembic config pointed at a fresh sqlite file.
+
+    We deliberately do NOT call ``Config(str(alembic.ini))`` because
+    the ini's ``[loggers]`` section triggers ``logging.fileConfig``,
+    which resets the root logger and breaks ``caplog`` for any
+    later test in the same session (see
+    test_enqueue_respects_provider_off_and_dev_print).
+    """
     db_path = tmp_path / "alembic_test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path}")
     repo_root = Path(__file__).resolve().parents[2]
-    cfg = Config(str(repo_root / "alembic.ini"))
+    cfg = Config()
     cfg.set_main_option("script_location", str(repo_root / "alembic"))
     return cfg
 
