@@ -89,6 +89,11 @@ jobs:
         run: PYTHONPATH=. uv run pytest tests/ -v
       - name: OpenAPI drift guard
         run: uv run python scripts/generate_openapi.py && git diff --exit-code -- openapi.json
+      - name: Debug before smoke
+        run: |
+          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi ls -la /data
+          echo '---applying alembic manually---'
+          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi python -c 'import sqlite3; c = sqlite3.connect("/data/letras.db"); print(c.execute("SELECT version_num FROM alembic_version").fetchone()); print("tables:", c.execute("SELECT name FROM sqlite_master WHERE type=\\"table\\"").fetchall())'
       - name: Smoke script syntax check
         run: bash -n scripts/smoke.sh
 
@@ -140,6 +145,11 @@ jobs:
       - name: Debug before smoke
         run: |
           docker compose -f docker-compose-fastapi.yaml logs backend-fastapi 2>&1 | head -200 || true
+      - name: Debug before smoke
+        run: |
+          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi ls -la /data
+          echo '---applying alembic manually---'
+          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi python -c 'import sqlite3; c = sqlite3.connect("/data/letras.db"); print(c.execute("SELECT version_num FROM alembic_version").fetchone()); print("tables:", c.execute("SELECT name FROM sqlite_master WHERE type=\\"table\\"").fetchall())'
       - name: Smoke script
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
@@ -158,6 +168,11 @@ jobs:
         run: docker compose -f docker-compose-fastapi.yaml up -d --build
       - name: Health check
         run: sleep 45 && curl -sf http://localhost:8000/healthz
+      - name: Debug before smoke
+        run: |
+          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi ls -la /data
+          echo '---applying alembic manually---'
+          docker compose -f docker-compose-fastapi.yaml exec -T backend-fastapi python -c 'import sqlite3; c = sqlite3.connect("/data/letras.db"); print(c.execute("SELECT version_num FROM alembic_version").fetchone()); print("tables:", c.execute("SELECT name FROM sqlite_master WHERE type=\\"table\\"").fetchall())'
       - name: Smoke script
         run: |
           chmod +x backend-fastapi/scripts/smoke.sh
