@@ -18,14 +18,13 @@ This test runs alembic against a fresh sqlite file in three states:
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 from pathlib import Path
 
 import pytest
-from alembic import command
 from alembic.config import Config
 
+from alembic import command
 
 _FASTAPI_TABLES = frozenset(
     {
