@@ -2,9 +2,9 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ "main", "dev", "feat*/*" ]
+    branches: [ "main", "dev", "feat*/*", "sandbox" ]
   pull_request:
-    branches: [ "main", "dev"]
+    branches: [ "main", "dev", "sandbox"]
 
 jobs:
   lint:
