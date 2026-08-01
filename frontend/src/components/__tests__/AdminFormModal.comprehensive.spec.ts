@@ -261,4 +261,70 @@ describe('AdminFormModal.vue', () => {
     await volverBtn!.trigger('click');
     expect(apiService.adminCreateFonograma).not.toHaveBeenCalled();
   });
+
+  it('the create submit-confirm names the new item', async () => {
+    const w = makeWrapper({ formType: 'fonograma' });
+    await w.find('#clave_fonograma').setValue('99');
+    await w.find('#titulo').setValue('Disco prueba');
+    await w.find('form').trigger('submit.prevent');
+    await flushPromises();
+    const text = w.find('.admin-confirm-message').text();
+    expect(text).toContain('Vas a crear');
+    expect(text).toContain('clave 99');
+    expect(text).toContain('"Disco prueba"');
+  });
+
+  it('the edit submit-confirm lists the modified fields', async () => {
+    const w = makeWrapper({
+      formType: 'fonograma',
+      item: { clave_fonograma: 7, titulo: 'Old' },
+    });
+    await w.find('#titulo').setValue('New title');
+    await w.find('#anio').setValue('1982');
+    await w.find('form').trigger('submit.prevent');
+    await flushPromises();
+    const text = w.find('.admin-confirm-message').text();
+    expect(text).toContain('Vas a actualizar');
+    expect(text).toContain('clave 7');
+    expect(text).toContain('"Old"');
+    expect(text).toContain('Campos modificados');
+    expect(text).toContain('Título');
+    expect(text).toContain('Año');
+  });
+
+  it('the dirty-cancel prompt names the changed fields', async () => {
+    const w = makeWrapper({
+      formType: 'fonograma',
+      item: { clave_fonograma: 12, titulo: 'Original' },
+    });
+    await w.find('#titulo').setValue('Cambiado');
+    await w.find('#pais_edicion').setValue('México');
+    const cancelBtn = w.findAll('button').find((b) => b.text() === 'Cancelar');
+    await cancelBtn!.trigger('click');
+    await flushPromises();
+    const text = w.find('.admin-confirm-message').text();
+    expect(text).toContain('clave 12');
+    expect(text).toContain('"Original"');
+    expect(text).toContain('Título');
+    expect(text).toContain('País de edición');
+  });
+
+  it('edit on a user form lists role/email in the confirm, never password', async () => {
+    const w = makeWrapper({
+      formType: 'user',
+      item: { id: 1, username: 'old', email: 'old@x', role: 'viewer' },
+    });
+    await w.find('#email').setValue('new@x');
+    await w.find('#role').setValue('admin');
+    await w.find('form').trigger('submit.prevent');
+    await flushPromises();
+    const text = w.find('.admin-confirm-message').text();
+    expect(text).toContain('"old"');
+    expect(text).toContain('old@x');
+    expect(text).toContain('Correo');
+    expect(text).toContain('Rol');
+    // The dirtyFields comparator excludes password — a freshly typed
+    // but unconfirmed password must not appear in the field list.
+    expect(text).not.toContain('Contraseña');
+  });
 });

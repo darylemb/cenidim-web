@@ -292,11 +292,7 @@
     <ConfirmModal
       v-if="pendingCancel"
       title="Cambios sin guardar"
-      :message="
-        isEditing
-          ? 'Tienes cambios sin guardar en este registro. ¿Salir sin guardar?'
-          : 'Tienes cambios sin guardar. ¿Salir sin guardar?'
-      "
+      :message="dirtyCancelMessage"
       confirm-label="Salir sin guardar"
       cancel-label="Seguir editando"
       variant="warning"
@@ -307,12 +303,8 @@
 
     <ConfirmModal
       v-if="pendingSubmit"
-      :title="`Guardar ${typeLabel}`"
-      :message="
-        isEditing
-          ? `Vas a actualizar este ${typeLabel.toLowerCase()}. ¿Confirmas los cambios?`
-          : `Vas a crear un nuevo ${typeLabel.toLowerCase()}. ¿Confirmas?`
-      "
+      :title="submitTitle"
+      :message="submitMessage"
       confirm-label="Sí, guardar"
       cancel-label="Volver"
       variant="primary"
@@ -383,6 +375,141 @@ function snapshotForm(): string {
   }
   return JSON.stringify(form.value);
 }
+
+// Human-readable label per field, per form type. Used to describe
+// the change in the confirm dialogs so the operator sees *what* is
+// about to be written, not just "the form".
+const fieldLabels: Record<FormType, Record<string, string>> = {
+  fonograma: {
+    clave_fonograma: 'Clave',
+    titulo: 'Título',
+    subtitulo: 'Subtítulo',
+    interprete_principal: 'Intérprete principal',
+    interpretes_invitados: 'Intérpretes invitados',
+    interprete_participante: 'Intérprete participante',
+    soporte_fisico: 'Soporte físico',
+    editora: 'Editora',
+    numero_catalogo: 'N° Catálogo',
+    ciudad_edicion: 'Ciudad de edición',
+    pais_edicion: 'País de edición',
+    anio: 'Año',
+    pistas: 'Pistas',
+    observaciones: 'Observaciones',
+  },
+  song: {
+    id: 'ID',
+    fonograma_id: 'Fonograma',
+    title: 'Título',
+    lyrics: 'Letra',
+    filename: 'Nombre de archivo',
+    clasificacion: 'Clasificación',
+    album: 'Álbum',
+    subtitulo: 'Subtítulo',
+    interprete_principal: 'Intérprete principal',
+    interpretes_invitados: 'Intérpretes invitados',
+    interprete_participante: 'Intérprete participante',
+    soporte_fisico: 'Soporte físico',
+    editora: 'Editora',
+    numero_catalogo: 'N° Catálogo',
+    ciudad_edicion: 'Ciudad',
+    pais_edicion: 'País',
+    year: 'Año',
+    pistas: 'Pistas',
+    observaciones: 'Observaciones',
+  },
+  user: {
+    id: 'ID',
+    username: 'Usuario',
+    email: 'Correo',
+    role: 'Rol',
+    // password is intentionally omitted — never show it back to the operator
+  },
+};
+
+function currentComparableForm(): Record<string, any> {
+  if (props.formType === 'user') {
+    const { password: _pw, ...rest } = form.value as Record<string, any>;
+    return rest;
+  }
+  return { ...form.value };
+}
+
+const dirtyFields = computed<Array<{ key: string; label: string; before: unknown; after: unknown }>>(() => {
+  if (!isDirty.value || !originalSnapshot.value) return [];
+  let original: Record<string, unknown>;
+  try {
+    original = JSON.parse(originalSnapshot.value);
+  } catch {
+    return [];
+  }
+  const labels = fieldLabels[props.formType] ?? {};
+  const current = currentComparableForm();
+  return Object.keys(current)
+    .filter((key) => JSON.stringify(current[key]) !== JSON.stringify(original?.[key]))
+    .map((key) => ({
+      key,
+      label: labels[key] ?? key,
+      before: original?.[key],
+      after: current[key],
+    }));
+});
+
+function formatDirtyFields(max = 3): string {
+  const fields = dirtyFields.value;
+  if (fields.length === 0) return '';
+  if (fields.length === 1) return `1 campo: ${fields[0].label}`;
+  const shown = fields.slice(0, max).map((f) => f.label).join(', ');
+  const rest = fields.length - max;
+  return rest > 0 ? `${fields.length} campos: ${shown} y ${rest} más` : `${fields.length} campos: ${shown}`;
+}
+
+function describeItem(): string {
+  // For create: the form has no `id` yet, so pull whatever the user
+  // typed. For edit: prefer the original item so the operator sees
+  // the canonical identifier (clave, id, email) even if they cleared
+  // it from the form.
+  if (props.formType === 'fonograma') {
+    const f = (props.item as Fonograma | null) ?? (form.value as Record<string, any>);
+    const clave = f?.clave_fonograma ?? 0;
+    const titulo = f?.titulo?.trim() || 'sin título';
+    return `el fonograma clave ${clave} — "${titulo}"`;
+  }
+  if (props.formType === 'song') {
+    const s = (props.item as Song | null) ?? (form.value as Record<string, any>);
+    const title = s?.title?.trim() || 'sin título';
+    return `la canción "${title}"`;
+  }
+  if (props.formType === 'user') {
+    const u = (props.item as User | null) ?? (form.value as Record<string, any>);
+    const username = u?.username?.trim() || 'sin usuario';
+    const email = u?.email ? ` (${u.email})` : '';
+    return `el usuario "${username}"${email}`;
+  }
+  return 'el registro';
+}
+
+const submitTitle = computed(() =>
+  isEditing.value ? `Guardar ${typeLabel.value}` : `Crear ${typeLabel.value}`
+);
+
+const submitMessage = computed(() => {
+  const desc = describeItem();
+  if (isEditing.value) {
+    const fields = formatDirtyFields();
+    return fields
+      ? `Vas a actualizar ${desc}.\n\nCampos modificados: ${fields}.`
+      : `Vas a actualizar ${desc}. ¿Confirmas los cambios?`;
+  }
+  return `Vas a crear ${desc}. ¿Confirmas?`;
+});
+
+const dirtyCancelMessage = computed(() => {
+  const fields = formatDirtyFields();
+  const base = isEditing.value
+    ? `Tienes cambios sin guardar en ${describeItem()}.`
+    : `Tienes cambios sin guardar en este ${typeLabel.value.toLowerCase()}.`;
+  return fields ? `${base} (${fields}) ¿Salir sin guardar?` : `${base} ¿Salir sin guardar?`;
+});
 
 const defaultFonograma = (): Record<string, any> => ({
   clave_fonograma: 0,

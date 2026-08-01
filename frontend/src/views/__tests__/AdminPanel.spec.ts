@@ -126,7 +126,9 @@ describe('AdminPanel.vue', () => {
     // Click the danger Eliminar button in the fonogramas table.
     await w.find('.btn-danger').trigger('click');
     expect(w.findComponent({ name: 'ConfirmModal' }).exists()).toBe(true);
-    expect(w.find('.admin-confirm').text()).toContain('¿Eliminar este fonograma?');
+    expect(w.find('.admin-confirm').text()).toContain('clave 7');
+    expect(w.find('.admin-confirm').text()).toContain('"A"');
+    expect(w.find('.admin-confirm').text()).toContain('no se puede deshacer');
     // Click the danger button inside the confirm modal.
     await w.find('.admin-confirm-actions .btn-danger').trigger('click');
     await flushPromises();
@@ -348,7 +350,9 @@ it('confirmDeleteFono opens confirm modal with the right message', async () => {
   const w = makeWrapper();
   await flushPromises();
   await w.find('.btn-danger').trigger('click');
-  expect(w.find('.admin-confirm').text()).toContain('¿Eliminar este fonograma?');
+  expect(w.find('.admin-confirm').text()).toContain('clave 77');
+  expect(w.find('.admin-confirm').text()).toContain('"X"');
+  expect(w.find('.admin-confirm-title').text()).toBe('Eliminar fonograma');
 });
 
 it('confirmDeleteSong opens confirm modal with song-specific text', async () => {
@@ -385,7 +389,9 @@ it('confirmDeleteSong opens confirm modal with song-specific text', async () => 
   await w.findAll('.admin-tabs button')[1].trigger('click'); // Canciones tab
   await flushPromises();
   await w.find('.btn-danger').trigger('click');
-  expect(w.find('.admin-confirm').text()).toContain('¿Eliminar esta canción?');
+  expect(w.find('.admin-confirm').text()).toContain('id 5');
+  expect(w.find('.admin-confirm').text()).toContain('"S"');
+  expect(w.find('.admin-confirm-title').text()).toBe('Eliminar canción');
 });
 
 it('catches errors from adminListFonogramas gracefully', async () => {

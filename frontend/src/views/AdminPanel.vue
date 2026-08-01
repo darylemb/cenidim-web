@@ -62,7 +62,7 @@
                   <button
                     v-if="auth.isAdmin"
                     class="btn-danger btn-sm"
-                    @click="confirmDeleteFono(f.clave_fonograma)"
+                    @click="confirmDeleteFono(f)"
                   >
                     Eliminar
                   </button>
@@ -131,7 +131,7 @@
                   <button
                     v-if="auth.isAdmin"
                     class="btn-danger btn-sm"
-                    @click="confirmDeleteSong(s.id)"
+                    @click="confirmDeleteSong(s)"
                   >
                     Eliminar
                   </button>
@@ -371,16 +371,18 @@ function handleFormSubmitted() {
   else if (formType.value === 'user') loadUsers();
 }
 
-function confirmDeleteFono(id: number) {
-  confirmTarget.value = { type: 'fonograma', id };
+function confirmDeleteFono(f: Fonograma) {
+  confirmTarget.value = { type: 'fonograma', id: f.clave_fonograma };
   confirmTitle.value = 'Eliminar fonograma';
-  confirmMessage.value = '¿Eliminar este fonograma? Esta acción no se puede deshacer.';
+  const titulo = f.titulo?.trim() || 'sin título';
+  confirmMessage.value = `Vas a eliminar el fonograma clave ${f.clave_fonograma} — "${titulo}". Esta acción no se puede deshacer.`;
 }
 
-function confirmDeleteSong(id: number) {
-  confirmTarget.value = { type: 'song', id };
+function confirmDeleteSong(s: Song) {
+  confirmTarget.value = { type: 'song', id: s.id };
   confirmTitle.value = 'Eliminar canción';
-  confirmMessage.value = '¿Eliminar esta canción? Esta acción no se puede deshacer.';
+  const title = s.title?.trim() || 'sin título';
+  confirmMessage.value = `Vas a eliminar la canción "${title}" (id ${s.id}). Esta acción no se puede deshacer.`;
 }
 
 function confirmDeleteUser(id: number) {
@@ -388,8 +390,8 @@ function confirmDeleteUser(id: number) {
   confirmTarget.value = { type: 'user', id };
   confirmTitle.value = 'Eliminar usuario';
   confirmMessage.value = user
-    ? `¿Eliminar al usuario "${user.username}"? Perderá acceso al panel.`
-    : '¿Eliminar este usuario? Perderá acceso al panel.';
+    ? `Vas a eliminar al usuario "${user.username}" (${user.email}). Perderá acceso al panel. Esta acción no se puede deshacer.`
+    : 'Vas a eliminar este usuario. Perderá acceso al panel. Esta acción no se puede deshacer.';
 }
 
 async function executeDelete() {
