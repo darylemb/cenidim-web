@@ -3,7 +3,7 @@
     <div class="admin-form-modal modal-content" @click.stop>
       <div class="modal-header">
         <h3>{{ modalTitle }}</h3>
-        <button class="close-btn" @click="$emit('cancel')" aria-label="Cerrar">×</button>
+        <button class="close-btn" @click="requestCancel" aria-label="Cerrar">×</button>
       </div>
 
       <div class="modal-body">
@@ -278,7 +278,7 @@
           </template>
 
           <div class="form-actions">
-            <button type="button" class="btn-secondary" @click="$emit('cancel')" :disabled="loading">
+            <button type="button" class="btn-secondary" @click="requestCancel" :disabled="loading">
               Cancelar
             </button>
             <button type="submit" class="btn-primary" :disabled="loading">
@@ -288,6 +288,38 @@
         </form>
       </div>
     </div>
+
+    <ConfirmModal
+      v-if="pendingCancel"
+      title="Cambios sin guardar"
+      :message="
+        isEditing
+          ? 'Tienes cambios sin guardar en este registro. ¿Salir sin guardar?'
+          : 'Tienes cambios sin guardar. ¿Salir sin guardar?'
+      "
+      confirm-label="Salir sin guardar"
+      cancel-label="Seguir editando"
+      variant="warning"
+      :loading="false"
+      @confirm="confirmCancel"
+      @cancel="pendingCancel = false"
+    />
+
+    <ConfirmModal
+      v-if="pendingSubmit"
+      :title="`Guardar ${typeLabel}`"
+      :message="
+        isEditing
+          ? `Vas a actualizar este ${typeLabel.toLowerCase()}. ¿Confirmas los cambios?`
+          : `Vas a crear un nuevo ${typeLabel.toLowerCase()}. ¿Confirmas?`
+      "
+      confirm-label="Sí, guardar"
+      cancel-label="Volver"
+      variant="primary"
+      :loading="false"
+      @confirm="confirmSubmit"
+      @cancel="pendingSubmit = false"
+    />
   </div>
 </template>
 
@@ -295,6 +327,7 @@
 import { ref, computed, watch } from 'vue';
 import type { Fonograma, Song, User } from '@/types';
 import { apiService } from '@/services/api';
+import ConfirmModal from './ConfirmModal.vue';
 
 type FormType = 'fonograma' | 'song' | 'user';
 
@@ -310,18 +343,46 @@ const emit = defineEmits<{
 
 const loading = ref(false);
 const error = ref('');
+const pendingCancel = ref(false);
+const pendingSubmit = ref(false);
+const originalSnapshot = ref<string>('');
 
 const isEditing = computed(() => props.item !== null);
 
-const modalTitle = computed(() => {
-  const action = isEditing.value ? 'Editar' : 'Agregar';
+const typeLabel = computed(() => {
   const typeMap: Record<FormType, string> = {
     fonograma: 'Fonograma',
     song: 'Canción',
     user: 'Usuario',
   };
-  return `${action} ${typeMap[props.formType]}`;
+  return typeMap[props.formType];
 });
+
+const modalTitle = computed(() => {
+  const action = isEditing.value ? 'Editar' : 'Agregar';
+  return `${action} ${typeLabel.value}`;
+});
+
+const isDirty = computed(() => {
+  if (!originalSnapshot.value) return false;
+  // JSON.stringify is fine for the flat object shape these forms
+  // produce (no functions, no cycles). We exclude ``password`` from
+  // the user form so a freshly-typed-but-unsubmitted password doesn't
+  // keep the form "dirty" forever.
+  if (props.formType === 'user') {
+    const { password: _pw, ...rest } = form.value as Record<string, any>;
+    return JSON.stringify(rest) !== originalSnapshot.value;
+  }
+  return JSON.stringify(form.value) !== originalSnapshot.value;
+});
+
+function snapshotForm(): string {
+  if (props.formType === 'user') {
+    const { password: _pw, ...rest } = form.value as Record<string, any>;
+    return JSON.stringify(rest);
+  }
+  return JSON.stringify(form.value);
+}
 
 const defaultFonograma = (): Record<string, any> => ({
   clave_fonograma: 0,
@@ -376,6 +437,8 @@ watch(
   () => props.item,
   (newItem) => {
     error.value = '';
+    pendingCancel.value = false;
+    pendingSubmit.value = false;
     if (newItem) {
       form.value = { ...newItem };
       if (props.formType === 'user') {
@@ -386,11 +449,36 @@ watch(
       else if (props.formType === 'song') form.value = defaultSong();
       else form.value = defaultUser();
     }
+    // Snapshot the freshly-populated form so isDirty can detect
+    // any subsequent user edits.
+    originalSnapshot.value = snapshotForm();
   },
   { immediate: true }
 );
 
+function requestCancel() {
+  if (isDirty.value) {
+    pendingCancel.value = true;
+  } else {
+    emit('cancel');
+  }
+}
+
+function confirmCancel() {
+  pendingCancel.value = false;
+  emit('cancel');
+}
+
 async function handleSubmit() {
+  // Confirm before doing anything destructive-ish: a no-op create is
+  // cheap to undo (just delete the row) but an edit overwrites real
+  // data in the catalog.
+  if (pendingSubmit.value) return;
+  pendingSubmit.value = true;
+}
+
+async function confirmSubmit() {
+  pendingSubmit.value = false;
   error.value = '';
   loading.value = true;
 

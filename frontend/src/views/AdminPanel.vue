@@ -203,11 +203,15 @@
       </div>
     </div>
 
-    <!-- Confirm Modal -->
+    <!-- Confirm Modal (delete) -->
     <ConfirmModal
       v-if="confirmTarget"
+      :title="confirmTitle"
       :message="confirmMessage"
       :loading="confirmLoading"
+      confirm-label="Eliminar"
+      loading-label="Eliminando..."
+      variant="danger"
       @confirm="executeDelete"
       @cancel="confirmTarget = null"
     />
@@ -247,10 +251,11 @@ const songSortDir = ref<'asc' | 'desc'>('asc');
 const hasMoreFonos = ref(false);
 const hasMoreSongs = ref(false);
 const confirmTarget = ref<
-  | { type: 'fonograma' | 'song' | 'user'; id: number }
+  | { type: 'fonograma' | 'song' | 'user'; id: number; label?: string }
   | null
 >(null);
 const confirmMessage = ref('');
+const confirmTitle = ref('');
 const confirmLoading = ref(false);
 
 const showFormModal = ref(false);
@@ -368,17 +373,23 @@ function handleFormSubmitted() {
 
 function confirmDeleteFono(id: number) {
   confirmTarget.value = { type: 'fonograma', id };
-  confirmMessage.value = '¿Eliminar este fonograma?';
+  confirmTitle.value = 'Eliminar fonograma';
+  confirmMessage.value = '¿Eliminar este fonograma? Esta acción no se puede deshacer.';
 }
 
 function confirmDeleteSong(id: number) {
   confirmTarget.value = { type: 'song', id };
-  confirmMessage.value = '¿Eliminar esta canción?';
+  confirmTitle.value = 'Eliminar canción';
+  confirmMessage.value = '¿Eliminar esta canción? Esta acción no se puede deshacer.';
 }
 
 function confirmDeleteUser(id: number) {
+  const user = users.value.find((u) => u.id === id);
   confirmTarget.value = { type: 'user', id };
-  confirmMessage.value = '¿Eliminar este usuario?';
+  confirmTitle.value = 'Eliminar usuario';
+  confirmMessage.value = user
+    ? `¿Eliminar al usuario "${user.username}"? Perderá acceso al panel.`
+    : '¿Eliminar este usuario? Perderá acceso al panel.';
 }
 
 async function executeDelete() {

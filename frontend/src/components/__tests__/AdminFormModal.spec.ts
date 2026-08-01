@@ -26,6 +26,19 @@ function makeWrapper(
   });
 }
 
+// Click the submit-confirm "Sí, guardar" button after submitting the
+// form. Returns nothing; awaits its own flush.
+async function confirmPendingSubmit(w: ReturnType<typeof makeWrapper>) {
+  await flushPromises();
+  const btn = w
+    .findAll('.admin-confirm .btn-primary')
+    .find((b) => /guardar/i.test(b.text()));
+  if (btn) {
+    await btn.trigger('click');
+  }
+  await flushPromises();
+}
+
 describe('AdminFormModal.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -43,13 +56,13 @@ describe('AdminFormModal.vue', () => {
     expect(makeWrapper('fonograma', item).find('h3').text()).toBe('Editar Fonograma');
   });
 
-  it('emits cancel when × is clicked', async () => {
+  it('emits cancel when × is clicked on a clean form', async () => {
     const w = makeWrapper('fonograma', null);
     await w.find('.close-btn').trigger('click');
     expect(w.emitted('cancel')).toHaveLength(1);
   });
 
-  it('emits cancel when clicking the overlay', async () => {
+  it('emits cancel when clicking the overlay on a clean form', async () => {
     const w = makeWrapper('fonograma', null);
     await w.find('.modal-overlay').trigger('click');
     expect(w.emitted('cancel')).toHaveLength(1);
@@ -67,7 +80,7 @@ describe('AdminFormModal.vue', () => {
     await w.find('#clave_fonograma').setValue('999');
     await w.find('#titulo').setValue('Test Album');
     await w.find('form').trigger('submit.prevent');
-    await flushPromises();
+    await confirmPendingSubmit(w);
     expect(apiService.adminCreateFonograma).toHaveBeenCalled();
     expect(w.emitted('submitted')).toHaveLength(1);
   });
@@ -77,7 +90,7 @@ describe('AdminFormModal.vue', () => {
     const w = makeWrapper('fonograma', item);
     await w.find('#titulo').setValue('Updated');
     await w.find('form').trigger('submit.prevent');
-    await flushPromises();
+    await confirmPendingSubmit(w);
     expect(apiService.adminUpdateFonograma).toHaveBeenCalledWith(
       1,
       expect.objectContaining({ titulo: 'Updated' })
@@ -90,7 +103,7 @@ describe('AdminFormModal.vue', () => {
     await w.find('#email').setValue('alice@test');
     await w.find('#password').setValue('S3cret!');
     await w.find('form').trigger('submit.prevent');
-    await flushPromises();
+    await confirmPendingSubmit(w);
     expect(apiService.adminCreateUser).toHaveBeenCalledWith({
       username: 'alice',
       email: 'alice@test',
@@ -108,7 +121,7 @@ describe('AdminFormModal.vue', () => {
     });
     await w.find('#username').setValue('bob2');
     await w.find('form').trigger('submit.prevent');
-    await flushPromises();
+    await confirmPendingSubmit(w);
     expect(apiService.adminUpdateUser).toHaveBeenCalledWith(
       5,
       expect.objectContaining({ username: 'bob2' })
@@ -125,7 +138,7 @@ describe('AdminFormModal.vue', () => {
     await w.find('#clave_fonograma').setValue('1');
     await w.find('#titulo').setValue('X');
     await w.find('form').trigger('submit.prevent');
-    await flushPromises();
+    await confirmPendingSubmit(w);
     expect(w.find('.form-error').text()).toContain('Bad input');
   });
 });
