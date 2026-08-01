@@ -76,21 +76,26 @@ describe('AdminFormModal.vue', () => {
     );
   });
 
-  it('creating a song requires fonograma_id + title', async () => {
+  it('creating a song requires fonograma_id + title + lyrics', async () => {
     const w = makeWrapper({ formType: 'song' });
     await w.find('#fonograma_id').setValue('5');
     await w.find('#title').setValue('NewSong');
+    await w.find('#lyrics').setValue('Some lyrics here');
     await w.find('form').trigger('submit.prevent');
     await flushPromises();
     expect(apiService.adminCreateSong).toHaveBeenCalledWith(
-      expect.objectContaining({ fonograma_id: 5, title: 'NewSong' })
+      expect.objectContaining({
+        fonograma_id: 5,
+        title: 'NewSong',
+        lyrics: 'Some lyrics here',
+      })
     );
   });
 
   it('updating a song calls adminUpdateSong', async () => {
     const w = makeWrapper({
       formType: 'song',
-      item: { id: 3, fonograma_id: 5, title: 'Old' },
+      item: { id: 3, fonograma_id: 5, title: 'Old', lyrics: 'old lyrics' },
     });
     await w.find('#title').setValue('UpdatedSong');
     await w.find('form').trigger('submit.prevent');

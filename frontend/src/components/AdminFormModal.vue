@@ -32,62 +32,85 @@
               <label for="titulo">Título</label>
               <input id="titulo" v-model="form.titulo" type="text" required />
             </div>
-            <div class="form-group">
-              <label for="subtitulo">Subtítulo</label>
-              <input id="subtitulo" v-model="form.subtitulo" type="text" />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="interprete_principal">Intérprete Principal</label>
-                <input id="interprete_principal" v-model="form.interprete_principal" type="text" />
+
+            <details class="form-details">
+              <summary>Detalles adicionales</summary>
+              <div class="form-details-body">
+                <div class="form-group">
+                  <label for="subtitulo">Subtítulo</label>
+                  <input id="subtitulo" v-model="form.subtitulo" type="text" />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="interprete_principal">Intérprete Principal</label>
+                    <input
+                      id="interprete_principal"
+                      v-model="form.interprete_principal"
+                      type="text"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="pais_edicion">País</label>
+                    <input id="pais_edicion" v-model="form.pais_edicion" type="text" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="editora">Editora</label>
+                  <input id="editora" v-model="form.editora" type="text" />
+                </div>
+                <div class="form-group">
+                  <label for="interpretes_invitados">Intérpretes Invitados</label>
+                  <input
+                    id="interpretes_invitados"
+                    v-model="form.interpretes_invitados"
+                    type="text"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="soporte_fisico">Soporte Físico</label>
+                  <input id="soporte_fisico" v-model="form.soporte_fisico" type="text" />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="numero_catalogo">Número Catálogo</label>
+                    <input
+                      id="numero_catalogo"
+                      v-model="form.numero_catalogo"
+                      type="text"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="ciudad_edicion">Ciudad Edición</label>
+                    <input id="ciudad_edicion" v-model="form.ciudad_edicion" type="text" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="pistas">Pistas</label>
+                  <textarea id="pistas" v-model="form.pistas" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="observaciones">Observaciones</label>
+                  <textarea id="observaciones" v-model="form.observaciones" rows="2"></textarea>
+                </div>
               </div>
-              <div class="form-group">
-                <label for="pais_edicion">País</label>
-                <input id="pais_edicion" v-model="form.pais_edicion" type="text" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="editora">Editora</label>
-              <input id="editora" v-model="form.editora" type="text" />
-            </div>
-            <div class="form-group">
-              <label for="interpretes_invitados">Intérpretes Invitados</label>
-              <input id="interpretes_invitados" v-model="form.interpretes_invitados" type="text" />
-            </div>
-            <div class="form-group">
-              <label for="soporte_fisico">Soporte Físico</label>
-              <input id="soporte_fisico" v-model="form.soporte_fisico" type="text" />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="numero_catalogo">Número Catálogo</label>
-                <input id="numero_catalogo" v-model="form.numero_catalogo" type="text" />
-              </div>
-              <div class="form-group">
-                <label for="ciudad_edicion">Ciudad Edición</label>
-                <input id="ciudad_edicion" v-model="form.ciudad_edicion" type="text" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="pistas">Pistas</label>
-              <textarea id="pistas" v-model="form.pistas" rows="2"></textarea>
-            </div>
-            <div class="form-group">
-              <label for="observaciones">Observaciones</label>
-              <textarea id="observaciones" v-model="form.observaciones" rows="2"></textarea>
-            </div>
+            </details>
           </template>
 
           <template v-else-if="formType === 'song'">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="id">ID</label>
-                <input id="id" v-model="form.id" type="number" readonly class="input-readonly" />
-              </div>
-              <div class="form-group">
-                <label for="fonograma_id">Fonograma ID</label>
-                <input id="fonograma_id" v-model="form.fonograma_id" type="number" required />
-              </div>
+            <div class="form-context">
+              <span v-if="isEditing"><strong>ID:</strong> {{ form.id }}</span>
+            </div>
+            <div class="form-group">
+              <label for="fonograma_id">Fonograma</label>
+              <input
+                id="fonograma_id"
+                v-model="form.fonograma_id"
+                type="number"
+                required
+                :readonly="isEditing"
+                :class="{ 'input-readonly': isEditing }"
+                :title="isEditing ? 'Inmutable: el fonograma no se puede cambiar al editar' : ''"
+              />
             </div>
             <div class="form-group">
               <label for="title">Título</label>
@@ -95,63 +118,135 @@
             </div>
             <div class="form-group">
               <label for="album">Álbum</label>
-              <input id="album" v-model="form.album" type="text" />
+              <input
+                id="album"
+                v-model="form.album"
+                type="text"
+                readonly
+                class="input-readonly"
+                title="Derivado del fonograma asociado"
+              />
             </div>
             <div class="form-group">
-              <label for="subtitulo">Subtítulo</label>
-              <input id="subtitulo" v-model="form.subtitulo" type="text" />
+              <label for="lyrics">Letra</label>
+              <textarea id="lyrics" v-model="form.lyrics" rows="6" required></textarea>
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="interprete_principal">Intérprete Principal</label>
-                <input id="interprete_principal" v-model="form.interprete_principal" type="text" />
+
+            <details class="form-details">
+              <summary>Detalles adicionales</summary>
+              <div class="form-details-body">
+                <div class="form-group">
+                  <label for="subtitulo">Subtítulo</label>
+                  <input
+                    id="subtitulo_song"
+                    v-model="form.subtitulo"
+                    type="text"
+                    readonly
+                    class="input-readonly"
+                    title="Derivado del fonograma asociado"
+                  />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="interprete_principal">Intérprete Principal</label>
+                    <input
+                      id="interprete_principal_song"
+                      v-model="form.interprete_principal"
+                      type="text"
+                      readonly
+                      class="input-readonly"
+                      title="Derivado del fonograma asociado"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="year">Año</label>
+                    <input
+                      id="year_song"
+                      v-model="form.year"
+                      type="text"
+                      readonly
+                      class="input-readonly"
+                      title="Derivado del fonograma asociado"
+                    />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="pais_edicion">País</label>
+                    <input
+                      id="pais_edicion_song"
+                      v-model="form.pais_edicion"
+                      type="text"
+                      readonly
+                      class="input-readonly"
+                      title="Derivado del fonograma asociado"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="editora">Editora</label>
+                    <input
+                      id="editora_song"
+                      v-model="form.editora"
+                      type="text"
+                      readonly
+                      class="input-readonly"
+                      title="Derivado del fonograma asociado"
+                    />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="clasificacion">Clasificación</label>
+                  <select id="clasificacion" v-model="form.clasificacion">
+                    <option value="">Sin clasificación</option>
+                    <option value="ESPAÑOL_ESTANDAR">Español Estándar</option>
+                    <option value="ESPAÑOL_REGIONAL">Español Regional</option>
+                    <option value="LENGUA_INDIGENA">Lengua Indígena</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="interpretes_invitados">Intérpretes Invitados</label>
+                  <input
+                    id="interpretes_invitados_song"
+                    v-model="form.interpretes_invitados"
+                    type="text"
+                    readonly
+                    class="input-readonly"
+                    title="Derivado del fonograma asociado"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="filename">Nombre Archivo</label>
+                  <input id="filename" v-model="form.filename" type="text" />
+                </div>
+                <div class="form-group">
+                  <label for="pistas">Pistas</label>
+                  <textarea
+                    id="pistas_song"
+                    v-model="form.pistas"
+                    rows="2"
+                    readonly
+                    class="input-readonly"
+                    title="Derivado del fonograma asociado"
+                  ></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="observaciones">Observaciones</label>
+                  <textarea
+                    id="observaciones_song"
+                    v-model="form.observaciones"
+                    rows="2"
+                    readonly
+                    class="input-readonly"
+                    title="Derivado del fonograma asociado"
+                  ></textarea>
+                </div>
               </div>
-              <div class="form-group">
-                <label for="year">Año</label>
-                <input id="year" v-model="form.year" type="text" />
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pais_edicion">País</label>
-                <input id="pais_edicion" v-model="form.pais_edicion" type="text" />
-              </div>
-              <div class="form-group">
-                <label for="editora">Editora</label>
-                <input id="editora" v-model="form.editora" type="text" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="clasificacion">Clasificación</label>
-              <select id="clasificacion" v-model="form.clasificacion">
-                <option value="">Sin clasificación</option>
-                <option value="ESPAÑOL_ESTANDAR">Español Estándar</option>
-                <option value="ESPAÑOL_REGIONAL">Español Regional</option>
-                <option value="LENGUA_INDIGENA">Lengua Indígena</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="interpretes_invitados">Intérpretes Invitados</label>
-              <input id="interpretes_invitados" v-model="form.interpretes_invitados" type="text" />
-            </div>
-            <div class="form-group">
-              <label for="filename">Nombre Archivo</label>
-              <input id="filename" v-model="form.filename" type="text" />
-            </div>
-            <div class="form-group">
-              <label for="pistas">Pistas</label>
-              <textarea id="pistas" v-model="form.pistas" rows="2"></textarea>
-            </div>
-            <div class="form-group">
-              <label for="observaciones">Observaciones</label>
-              <textarea id="observaciones" v-model="form.observaciones" rows="2"></textarea>
-            </div>
+            </details>
           </template>
 
           <template v-else-if="formType === 'user'">
-            <div class="form-group">
-              <label for="id">ID</label>
-              <input id="id" v-model="form.id" type="number" readonly class="input-readonly" />
+            <div v-if="isEditing" class="form-context">
+              <span><strong>ID:</strong> {{ form.id }}</span>
             </div>
             <div class="form-group">
               <label for="username">Usuario</label>
@@ -174,8 +269,8 @@
             </div>
             <div class="form-group">
               <label for="role">Rol</label>
-              <select id="role" v-model="form.role" required>
-                <option value="viewer">Viewer</option>
+              <select id="role" v-model="form.role">
+                <option value="viewer">Viewer (predeterminado)</option>
                 <option value="editor">Editor</option>
                 <option value="admin">Admin</option>
               </select>
@@ -249,6 +344,7 @@ const defaultSong = (): Record<string, any> => ({
   id: 0,
   fonograma_id: 0,
   title: '',
+  lyrics: '',
   album: '',
   subtitulo: '',
   interprete_principal: '',
@@ -410,6 +506,79 @@ async function handleSubmit() {
 .input-readonly {
   background: var(--color-bg-soft);
   color: var(--color-text-muted);
+}
+
+.form-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.form-context strong {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.form-details {
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-soft);
+}
+
+.form-details > summary {
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  list-style: none;
+  user-select: none;
+  min-height: var(--tap-target-min);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  transition: var(--transition-fast);
+}
+
+.form-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.form-details > summary::before {
+  content: '▸';
+  font-size: 0.75em;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.form-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.form-details > summary:hover {
+  color: var(--color-brand);
+}
+
+.form-details > summary:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.form-details-body {
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-top: var(--hairline-soft);
+}
+
+.form-details-body .form-group:last-child {
+  margin-bottom: 0;
 }
 
 .form-actions {
