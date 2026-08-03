@@ -146,7 +146,14 @@ _ARTICLES = ("el ", "la ", "los ", "las ", "un ", "una ", "unos ", "unas ")
 
 
 def _normalize_title(s: str) -> str:
-    """Mirror of the Go builder's ``normalize``."""
+    """Mirror of the Go builder's ``normalize``.
+
+    IMPORTANT: the article removal uses the article WITH its trailing
+    space (``" la "``), exactly like Go's ``strings.ReplaceAll(s, " "+a,
+    " ")`` with ``a="la "``. Dropping the trailing space turns "lado"
+    into "do" (the " la " inside " lado" gets removed), which made the
+    matcher attach the wrong lyrics.
+    """
     s = re.sub(r"\s*\(.*?\)", "", s)
     s = re.sub(r"\s*\[.*?\]", "", s)
     s = s.lower()
@@ -156,9 +163,11 @@ def _normalize_title(s: str) -> str:
     for a in _ARTICLES:
         if s.startswith(a):
             s = s[len(a):]
-        s = s.replace(" " + a.strip(), " ")
+        s = s.replace(" " + a, " ")
     s = re.sub(r"[^\w\s]", "", s)
-    return re.sub(r"\s+", " ", s).strip().replace(" ", "")
+    # Go's normalize collapses whitespace but does NOT strip internal
+    # spaces; the score runs over those strings, so we must too.
+    return re.sub(r"\s+", " ", s).strip()
 
 
 def _levenshtein(a: str, b: str) -> int:
@@ -223,7 +232,7 @@ def fix_lyrics_match(con: sqlite3.Connection, letras_dir: str) -> int:
     )
     rows = cur.fetchall()
     changed = 0
-    for song_id, title, filename in rows:
+    for song_id, title, _filename in rows:
         nt = _normalize_title(title or "")
         if not nt or len(nt) < 3:
             # Can't evaluate -> clear to avoid wrong lyrics.

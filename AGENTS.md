@@ -5,7 +5,7 @@
 - `backend-fastapi/` — FastAPI/Pydantic v2 cut-over (Phase 1 scaffold, **production since Phase 7 on `feature/fastapi-backend`**). Reads the same `letras.db` schema.
 - `frontend/` — Vue 3 app (Vite + TypeScript). Entry point: `frontend/src/`.
 - `scripts/build_db.sh` — Builds `letras.db` from CSV + lyrics. Must run before `docker compose up`.
-- `scripts/classify_songs.py` — Classifies songs in DB using spaCy (`es_core_news_md`). Runs **after** the Go builder inside `build_db.sh`.
+- `scripts/classify_songs.py` — Classifies songs in DB using spaCy (`es_core_news_md`). Runs **after** `scripts/build_db.py` inside `build_db.sh`.
 - `docs/adr/0001-fastapi-replaces-go.md` — ADR for the cut-over decision.
 - `docs/CUTOVER.md` — operator playbook (TL;DR, rollback, Phase 7 checklist).
 - `docs/PR-merge-to-main.md` — draft description for the Phase 9 PR that merges `feature/fastapi-backend` → `main` and retires the Go tree.
@@ -66,19 +66,20 @@ backend-fastapi/scripts/smoke.sh http://localhost:8000
 ```bash
 ./scripts/build_db.sh
 ```
-Requires: Go (for `cmd/build-db/main.go`) and Python with spaCy (`es_core_news_md` model).
+Requires: Python with `bcrypt` and spaCy (`es_core_news_md` model).
 Sets `ADMIN_PASS` env var to create initial admin user.
-The two-step process: (1) Go builds SQLite from `db_fonografia.csv` + `LetrasTXT/`, (2) Python/spaCy classifies each song + writes `song_stats` table.
+The three-step process: (1) `scripts/build_db.py` builds SQLite from
+`db_fonografia.csv` + `LetrasTXT/` (Python port of the old Go builder,
+byte-compatible output), (2) Python/spaCy classifies each song +
+writes `song_stats`, (3) `scripts/normalize_db.py` cleans lyrics,
+normalizes themes and re-validates the lyric↔title match.
 
 ## Backend (Go — rollback only)
 The Go tree is **frozen at commit `2aab765`**. It is kept in the repo
-for two reasons:
-  1. The `db-init` Docker sidecar still uses the Go `cmd/build-db`
-     CLI to seed `letras.db` from `LetrasTXT/` + `db_fonografia.csv`.
-     We could rewrite this in Python, but the Go CLI is fast and
-     battle-tested.
-  2. `docker-compose-go.yaml` boots the Go service as the emergency
-     rollback target during the Phase 7 cut-over.
+only as the emergency rollback target (`docker-compose-go.yaml`) for
+the Phase 7 cut-over. The `db-init` sidecar no longer compiles Go:
+`Dockerfile.init` is a single Python+spaCy stage and the build runs
+entirely on `scripts/build_db.py`.
 
 ```bash
 cd backend

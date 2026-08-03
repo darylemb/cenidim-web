@@ -10,22 +10,29 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "Building database from db_fonografia.csv using Go..."
+echo "Building database from db_fonografia.csv (scripts/build_db.py)..."
 
-cd backend
-if [ -n "${ADMIN_PASS}" ]; then
-  go run cmd/build-db/main.go \
-    -csv ../db_fonografia.csv \
-    -db "${DB_TMP}" \
-    -letras ../LetrasTXT \
-    -admin-pass "${ADMIN_PASS}"
-else
-  go run cmd/build-db/main.go \
-    -csv ../db_fonografia.csv \
-    -db "${DB_TMP}" \
-    -letras ../LetrasTXT
+# build_db.py needs `bcrypt`; prefer the FastAPI venv, fall back to the
+# system python3.
+PYTHON="${PYTHON:-python3}"
+if ! "${PYTHON}" -c "import bcrypt" 2>/dev/null; then
+  if [ -x backend-fastapi/.venv/bin/python ]; then
+    PYTHON=backend-fastapi/.venv/bin/python
+  fi
 fi
-cd ..
+
+if [ -n "${ADMIN_PASS}" ]; then
+  "${PYTHON}" scripts/build_db.py \
+    --csv db_fonografia.csv \
+    --db "${DB_TMP}" \
+    --letras LetrasTXT \
+    --admin-pass "${ADMIN_PASS}"
+else
+  "${PYTHON}" scripts/build_db.py \
+    --csv db_fonografia.csv \
+    --db "${DB_TMP}" \
+    --letras LetrasTXT
+fi
 
 echo "Classifying songs with spaCy..."
 if ! python3 scripts/classify_songs.py --db "${DB_TMP}"; then
