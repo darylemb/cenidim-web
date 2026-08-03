@@ -33,6 +33,12 @@ if ! python3 scripts/classify_songs.py --db "${DB_TMP}"; then
   exit 1
 fi
 
+echo "Normalizing lyrics + themes (normalize_db.py)..."
+if ! python3 scripts/normalize_db.py --db "${DB_TMP}"; then
+  echo "Error: Normalization failed. Database not updated."
+  exit 1
+fi
+
 if [ -f "${DB_FINAL}" ]; then
   rm -f "${DB_FINAL}.bak"
   cp "${DB_FINAL}" "${DB_FINAL}.bak"

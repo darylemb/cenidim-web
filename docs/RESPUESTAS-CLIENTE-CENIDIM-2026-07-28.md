@@ -217,9 +217,14 @@ Se refuerzo la limpieza en el backend:
 
 La nube refleja ahora lexico real de las letras. **Resuelto.**
 
-### Nota sobre la pregunta 16 (titulo/autor en la nube)
+### Actualizacion a la pregunta 16 (titulo/autor en la nube)
 
-La limpieza de la pregunta 15 mitiga parte del problema (se eliminan
-los marcadores `Autor:` y las iniciales de 1 caracter), pero el plan
-completo de separar titulo/autor en columnas dedicadas sigue
-pendiente.
+Se agrego un paso de **normalizacion de datos** al pipeline de
+construccion (`scripts/normalize_db.py`) que limpia el cuerpo de
+cada letra: elimina la cabecera de la primera linea (titulo del
+.txt), la atribucion "Autor:" bajo el titulo, los marcadores de
+metadatos (Dura:, Tema:, Personajes:, Compositor:) y las iniciales
+al pie (M.G.A.). El titulo y el autor siguen en sus propias
+columnas (`songs.title`, `songs.autor`); solo se quitaron del texto
+que alimenta la nube. Con los datos actuales, 0 de 3858 canciones
+conservan marcadores residuales en la letra. **Resuelto.**

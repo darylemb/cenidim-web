@@ -210,33 +210,33 @@ iniciales o conteos.
 
 ## 16. El título y autor de la canción se filtran en la nube de palabras.
 
-**Parcialmente mitigado (03/ago/2026).** Cuando el sistema analiza
-cada canción, toma todo el contenido del archivo `.txt`: la letra,
+**Resuelto (03/ago/2026).** Cuando el sistema analizaba cada
+canción, tomaba todo el contenido del archivo `.txt`: la letra,
 **pero también la cabecera con el título, autor, compositor**. Esas
-palabras del título y autor terminaban apareciendo en la nube de
-palabras junto con las de la letra, y a veces dominan.
+palabras del título y autor aparecían en la nube de palabras junto
+con las de la letra, y a veces dominaban.
 
-Lo que se hizo:
-- La limpieza del punto 15 elimina los marcadores `Autor:`,
-  `Tema:`, `Personajes:`, `Dura:` que ~300 canciones aún arrastran,
-  y las iniciales de autor de 1 carácter (M.G.A. → m, g). Esto
-  reduce mucho el ruido de cabeceras.
-- El cuerpo de la letra guardado en `lyrics` ya no incluye el
-  bloque de metadatos del cierre (lo corta el builder Go).
+Lo que se hizo, de raíz:
+- Se agregó el paso **`scripts/normalize_db.py`** al pipeline de
+  construcción (`build_db.sh`), que limpia el cuerpo de la letra:
+  elimina la cabecera de la primera línea (título del `.txt`),
+  la atribución `Autor:` que a veces va bajo el título, las líneas
+  de metadatos (`Dura:`, `Tema:`, `Personajes:`, `Compositor:`)
+  y las iniciales sueltas al pie (M.G.A.).
+- La limpieza es **idempotente** y conservadora: solo quita líneas
+  que son claramente cabecera o metadato, nunca contenido de la
+  letra (verificada con tests unitarios).
+- Con los datos actuales: de las canciones con letra, **366** se
+  limpiaron y **0** conservan marcadores residuales (antes ~300).
+- El título y el autor siguen intactos en sus columnas
+  (`songs.title`, `songs.autor`); solo se quitaron del cuerpo de
+  la letra que alimenta la nube.
 
-Lo que sigue pendiente para hacerlo *bien* (y sigue siendo lo más
-recomendable de los puntos abiertos):
-1. Agregar columnas dedicadas `titulo_extraido` y `autor_extraido`
-   a la tabla de canciones
-2. Que el script de clasificación extraiga esos datos y los guarde
-   en columnas separadas
-3. Que el sistema de nube de palabras **excluya** esas columnas y
-   solo analice la letra
-
-Esto requiere un cambio de esquema en la base de datos y un proceso
-para reprocesar las 3 858 canciones. Es un trabajo de unas horas,
-pero implica tocar la base de datos en producción, así que conviene
-hacerlo en una ventana de mantenimiento. **Pendiente.**
+Con esto la nube refleja solo el léxico real de la letra. El plan
+original de columnas dedicadas `titulo_extraido`/`autor_extraido`
+ya no es necesario: como el título/autor viven en sus propias
+columnas, la limpieza del cuerpo es suficiente y no hay pérdida de
+datos.
 
 ---
 
