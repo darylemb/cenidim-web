@@ -228,3 +228,39 @@ al pie (M.G.A.). El titulo y el autor siguen en sus propias
 columnas (`songs.title`, `songs.autor`); solo se quitaron del texto
 que alimenta la nube. Con los datos actuales, 0 de 3858 canciones
 conservan marcadores residuales en la letra. **Resuelto.**
+
+### Deteccion de letras mal asignadas
+
+Se detecto que el antiguo constructor de la base asignaba letras con
+un umbral de similitud demasiado laxo: por similitud de nombre, "Los
+perritos" recibia la letra de "LOS PUERQUITOS.txt" (por eso al buscar
+"oinc" aparecian los perritos). Correccion:
+
+- el builder Go ahora exige un match con score >= 0.85 (antes 0.6),
+- `scripts/normalize_db.py --fix-lyrics-match` re-valida cada letra
+  contra los archivos `LetrasTXT/`: las que no tienen match fiable
+  quedan **sin letra** (mejor que con la letra equivocada) y las
+  correctas se releen del archivo fuente.
+
+Con los datos actuales, 367 letras fueron re-validadas; quedan 126
+con match fiable. Las canciones sin archivo de letra correspondiente
+ya no muestran una letra ajena.
+
+### Filtro "Sin tema" corregido
+
+El filtro "Sin tema" del tablero no devolvia resultados (la busqueda
+usaba el valor especial `__none__` que el backend no interpretaba).
+Ahora devuelve las 3 534 canciones sin tema declarado, y se puede
+combinar con otros filtros.
+
+### Tablas normalizadas y ordenamiento por columna
+
+- Todas las tablas (catalogo y panel admin) usan ahora `table-layout:
+  fixed` con anchos de columna fijos via `<colgroup>`: no cambian de
+  tamano al actualizar, paginar, ordenar o cambiar filtros.
+- El catalogo permite ordenar haciendo click en cualquier cabecera de
+  columna (antes solo desde el selector), y el backend acepta ordenar
+  por todas las columnas (titulo, album, interprete, editora, pais,
+  etc.), no solo por las 7 originales.
+- El filtro de temas muestra ahora los 27 temas del catalogo (antes
+  solo 24); la lista de filtros coincide con la grafica "Por tema".

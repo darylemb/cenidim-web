@@ -75,7 +75,12 @@ func findLyricsFile(root, targetTitle string) (string, error) {
 
 		score := calculateMatchScore(normalizedTarget, normalizedFile)
 
-		if score > 0.6 && score > bestScore {
+		// The old 0.6 threshold was far too permissive: Levenshtein
+		// similarity between "los perritos" and "los puerquitos" is
+		// ~0.7, so songs without a matching lyric file were silently
+		// assigned a *wrong* lyric ("¡Oinc, oinc!" on "Los perritos").
+		// Only accept matches that are clearly the same title.
+		if score >= 0.85 && score > bestScore {
 			bestScore = score
 			bestMatch = path
 		}

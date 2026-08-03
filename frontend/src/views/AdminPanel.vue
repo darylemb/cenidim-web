@@ -34,6 +34,15 @@
       </div>
       <div class="admin-table-wrap">
         <table class="admin-table">
+          <colgroup>
+            <col style="width: 84px" />
+            <col style="width: 30%" />
+            <col style="width: 22%" />
+            <col style="width: 80px" />
+            <col style="width: 110px" />
+            <col style="width: 18%" />
+            <col style="width: 170px" />
+          </colgroup>
           <thead>
             <tr>
               <SortableHeader
@@ -105,6 +114,13 @@
       </div>
       <div class="admin-table-wrap">
         <table class="admin-table">
+          <colgroup>
+            <col style="width: 70px" />
+            <col style="width: 40%" />
+            <col style="width: 110px" />
+            <col style="width: 22%" />
+            <col style="width: 170px" />
+          </colgroup>
           <thead>
             <tr>
               <SortableHeader
@@ -172,6 +188,13 @@
       </div>
       <div class="admin-table-wrap">
         <table class="admin-table">
+          <colgroup>
+            <col style="width: 70px" />
+            <col style="width: 25%" />
+            <col style="width: 35%" />
+            <col style="width: 100px" />
+            <col style="width: 170px" />
+          </colgroup>
           <thead>
             <tr>
               <th>ID</th>

@@ -66,27 +66,49 @@
       </div>
       <div class="table-scroll-wrapper">
         <table :class="['results-table', 'results-table--wide', { loadingopacity: loading }]">
+          <!-- Fixed column widths: with table-layout:fixed the header
+               row defines the geometry, so the table never reflows when
+               filters/page change (review request 03/ago/2026). -->
+          <colgroup>
+            <col style="width: 72px" />
+            <col style="width: 190px" />
+            <col style="width: 170px" />
+            <col style="width: 130px" />
+            <col style="width: 160px" />
+            <col style="width: 130px" />
+            <col style="width: 130px" />
+            <col style="width: 84px" />
+            <col style="width: 130px" />
+            <col style="width: 100px" />
+            <col style="width: 100px" />
+            <col style="width: 92px" />
+            <col style="width: 70px" />
+            <col style="width: 210px" />
+            <col style="width: 210px" />
+            <col style="width: 150px" />
+            <col style="width: 130px" />
+            <col style="width: 150px" />
+            <col style="width: 96px" />
+          </colgroup>
           <thead>
             <tr>
-              <th>Clave</th>
-              <th>Pista</th>
-              <th>Álbum</th>
-              <th>Subtítulo</th>
-              <th>Intérprete Principal</th>
-              <th>Intérpretes Invitados</th>
-              <th>Intérprete Participante</th>
-              <th>Soporte Físico</th>
-              <th>Editora</th>
-              <th>N° Catálogo</th>
-              <th>Ciudad</th>
-              <th>País</th>
-              <th>Año</th>
-              <th>Pistas</th>
-              <th>Observaciones</th>
-              <th>Archivo</th>
-              <th>Clasificación</th>
-              <th>Tema</th>
-              <th>Acción</th>
+              <th
+                v-for="col in songCols"
+                :key="col.key"
+                :class="['sortable-th', { 'sortable-th--active': col.sortable && localOrderBy === col.key }]"
+                :aria-sort="col.sortable && localOrderBy === col.key ? (localOrderDir === 'asc' ? 'ascending' : 'descending') : undefined"
+                :role="col.sortable ? 'button' : undefined"
+                @click="col.sortable && onSortCol(col.key)"
+              >
+                <span class="sortable-th__label">{{ col.label }}</span>
+                <span
+                  v-if="col.sortable && localOrderBy === col.key"
+                  class="sortable-th__arrow"
+                  aria-hidden="true"
+                >
+                  {{ localOrderDir === 'asc' ? '▲' : '▼' }}
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -255,14 +277,55 @@ const { results, total, page, limit, loading } = storeToRefs(search);
 // Local view state — fully self-contained.
 const localQuery = ref('');
 const localClasificacion = ref('');
-const localOrderBy = ref<'id' | 'clave' | 'title' | 'album' | 'year' | 'filename' | 'clasificacion'>(
-  'id',
-);
+const localOrderBy = ref<string>('id');
 const localOrderDir = ref<'asc' | 'desc'>('asc');
 const selectedSongId = ref<number | null>(null);
 const selectedSongData = ref<Song | null>(null);
 const selectedLyrics = ref('');
 const loadingLyrics = ref(false);
+
+// Column model for the catalog table. ``key`` is the backend order_by
+// value; ``sortable`` false for the action column. Clicking a sortable
+// header toggles asc/desc and refetches (review request 03/ago/2026).
+const songCols: Array<{ key: string; label: string; sortable: boolean }> = [
+  { key: 'clave', label: 'Clave', sortable: true },
+  { key: 'title', label: 'Pista', sortable: true },
+  { key: 'album', label: 'Álbum', sortable: true },
+  { key: 'subtitulo', label: 'Subtítulo', sortable: true },
+  { key: 'interprete_principal', label: 'Intérprete Principal', sortable: true },
+  { key: 'interpretes_invitados', label: 'Intérpretes Invitados', sortable: true },
+  { key: 'interprete_participante', label: 'Intérprete Participante', sortable: true },
+  { key: 'soporte_fisico', label: 'Soporte Físico', sortable: true },
+  { key: 'editora', label: 'Editora', sortable: true },
+  { key: 'numero_catalogo', label: 'N° Catálogo', sortable: true },
+  { key: 'ciudad_edicion', label: 'Ciudad', sortable: true },
+  { key: 'pais_edicion', label: 'País', sortable: true },
+  { key: 'year', label: 'Año', sortable: true },
+  { key: 'pistas', label: 'Pistas', sortable: true },
+  { key: 'observaciones', label: 'Observaciones', sortable: true },
+  { key: 'filename', label: 'Archivo', sortable: true },
+  { key: 'clasificacion', label: 'Clasificación', sortable: true },
+  { key: 'tema', label: 'Tema', sortable: true },
+  { key: 'actions', label: 'Acción', sortable: false },
+];
+
+function onSortCol(key: string) {
+  if (key === localOrderBy.value) {
+    localOrderDir.value = localOrderDir.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    localOrderBy.value = key;
+    localOrderDir.value = 'asc';
+  }
+  search.performSearch(
+    localQuery.value,
+    'all',
+    1,
+    limit.value,
+    localClasificacion.value,
+    localOrderBy.value,
+    localOrderDir.value,
+  );
+}
 
 const totalPages = computed(() => Math.ceil(total.value / limit.value));
 const pageNumbers = computed(() => {
@@ -519,5 +582,28 @@ function badgeClass(clas: string): string {
 
 .table-cell-muted {
   color: var(--color-text-muted);
+}
+
+.sortable-th[role='button'] {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable-th {
+  white-space: nowrap;
+}
+
+.sortable-th:hover .sortable-th__label {
+  color: var(--color-brand);
+}
+
+.sortable-th--active .sortable-th__label {
+  color: var(--color-brand);
+}
+
+.sortable-th__arrow {
+  margin-left: 4px;
+  font-size: 0.7em;
+  color: var(--color-brand);
 }
 </style>

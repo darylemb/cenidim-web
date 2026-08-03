@@ -519,76 +519,22 @@ body {
 .results-table {
   width: 100%;
   border-collapse: collapse;
-  /* Auto layout for wide multi-column table */
-  table-layout: auto;
 }
 
-/* Wide variant: 18 columns, each with a sensible min-width */
+/* Wide variant: fixed layout so column widths never reflow when the
+   results set changes (review request 03/ago/2026). The explicit
+   widths live in the <colgroup>; this just pins the algorithm. */
 .results-table--wide {
-  min-width: 1800px;
+  table-layout: fixed;
+  /* Sum of the <colgroup> widths (~2350px) */
+  min-width: 2350px;
 }
 
 .results-table--wide th,
 .results-table--wide td {
   white-space: nowrap;
-  min-width: 80px;
-}
-
-/* Column width balance for songs table */
-.results-table--wide th:nth-child(1),
-.results-table--wide td:nth-child(1),
-.results-table--wide th:nth-child(12),
-.results-table--wide td:nth-child(12),
-.results-table--wide th:nth-child(13),
-.results-table--wide td:nth-child(13) {
-  min-width: 85px;
-  max-width: 100px;
-}
-
-.results-table--wide th:nth-child(2),
-.results-table--wide td:nth-child(2),
-.results-table--wide th:nth-child(3),
-.results-table--wide td:nth-child(3),
-.results-table--wide th:nth-child(4),
-.results-table--wide td:nth-child(4),
-.results-table--wide th:nth-child(5),
-.results-table--wide td:nth-child(5),
-.results-table--wide th:nth-child(6),
-.results-table--wide td:nth-child(6),
-.results-table--wide th:nth-child(7),
-.results-table--wide td:nth-child(7),
-.results-table--wide th:nth-child(8),
-.results-table--wide td:nth-child(8),
-.results-table--wide th:nth-child(9),
-.results-table--wide td:nth-child(9),
-.results-table--wide th:nth-child(10),
-.results-table--wide td:nth-child(10),
-.results-table--wide th:nth-child(11),
-.results-table--wide td:nth-child(11),
-.results-table--wide th:nth-child(16),
-.results-table--wide td:nth-child(16) {
-  min-width: 160px;
-  max-width: 220px;
-}
-
-.results-table--wide th:nth-child(14),
-.results-table--wide td:nth-child(14),
-.results-table--wide th:nth-child(15),
-.results-table--wide td:nth-child(15) {
-  min-width: 230px;
-  max-width: 320px;
-}
-
-.results-table--wide th:nth-child(17),
-.results-table--wide td:nth-child(17) {
-  min-width: 180px;
-  max-width: 200px;
-}
-
-.results-table--wide th:nth-child(18),
-.results-table--wide td:nth-child(18) {
-  min-width: 130px;
-  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Keep table cells compact and reveal full text on hover */
@@ -1868,6 +1814,10 @@ body {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+  /* Fixed layout so the columns never reflow when rows reload or the
+     sort order changes (review request 03/ago/2026). Widths live in
+     the per-table <colgroup>. */
+  table-layout: fixed;
 }
 
 .admin-table th {
@@ -1888,6 +1838,11 @@ body {
   border-bottom: 1px solid var(--border-light);
   color: var(--text-primary);
   vertical-align: middle;
+  /* With table-layout:fixed, long cell text would widen cells; truncate
+     it so the grid stays stable (review request 03/ago/2026). */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-table td.table-cell-truncate {

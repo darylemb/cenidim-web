@@ -327,7 +327,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^(id|clave|title|album|year|filename|clasificacion)$",
+              "pattern": "^(id|clave|title|album|year|filename|clasificacion|subtitulo|interprete_principal|interpretes_invitados|interprete_participante|soporte_fisico|editora|numero_catalogo|ciudad_edicion|pais_edicion|pistas|observaciones|tema)$",
               "default": "id",
               "title": "Order By"
             }

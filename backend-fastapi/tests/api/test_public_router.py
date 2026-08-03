@@ -480,6 +480,48 @@ def test_extract_words_keeps_real_lemma_homonyms():
 
 
 @pytest.mark.asyncio
+async def test_search_order_by_extra_columns(app_client, db_session):
+    await _seed(db_session)
+    # Interprete principal is a fonograma-only column (joined). Ordering
+    # by it must work and return 200 (review request 03/ago/2026).
+    resp = await app_client.get("/api/search", params={"order_by": "interprete_principal"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 4
+    # Track A has autor "Author One" -> interprete_principal populated.
+    titles = [r["title"] for r in body["results"]]
+    assert "Track A" in titles
+
+    # Unknown order_by -> 422 (pattern enforced).
+    bad = await app_client.get("/api/search", params={"order_by": "no_such_col"})
+    assert bad.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_search_theme_filter_none_sentinel(app_client, db_session):
+    await _seed(db_session)
+    # Track D has tema=None; the dashboard's "Sin tema" chip sends
+    # the __none__ sentinel and must match NULL / empty tema rows.
+    response = await app_client.get("/api/search", params={"tema": "__none__"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["results"][0]["title"] == "Track D"
+
+    # Combined: a named theme OR the none bucket.
+    combined = await app_client.get(
+        "/api/search", params={"tema": "__none__,Amor"}
+    )
+    assert combined.status_code == 200
+    assert combined.json()["total"] == 2  # Track B (Amor) + Track D (None)
+
+    # stats bucket view also honours the sentinel.
+    stats = await app_client.get("/api/stats", params={"tema": "__none__"})
+    assert stats.status_code == 200
+    assert stats.json()["total_songs"] == 1
+
+
+@pytest.mark.asyncio
 async def test_search_theme_filter_matches_typo_variant(app_client, db_session):
     from sqlalchemy import update as sa_update
 

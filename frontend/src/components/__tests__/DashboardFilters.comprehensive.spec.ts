@@ -120,8 +120,9 @@ describe('DashboardFilters toggle handlers', () => {
     expect(router.currentRoute.value.query.year_from).toBe('1980');
   });
 
-  it('theme hint shows "X de Y" when the chip list is capped', async () => {
-    // 28 distinct themes, capped at 24 chips.
+  it('renders a chip for every distinct theme (no cap)', async () => {
+    // 28 distinct themes: every one must get a chip so the filter
+    // list matches the "Por tema" chart.
     const many = Object.fromEntries(
       Array.from({ length: 28 }, (_, i) => [`Tema ${i + 1}`, 28 - i])
     );
@@ -137,11 +138,18 @@ describe('DashboardFilters toggle handlers', () => {
     );
     const w = makeWrapper();
     await tick();
+    const themeChips = w
+      .find('[aria-label="Filtrar por tema"]')
+      .findAll('button.chip')
+      .filter((b) => !b.classes().includes('chip--ghost'))
+      .map((b) => b.text().trim());
+    expect(themeChips).toHaveLength(28);
+    expect(themeChips).toContain('Tema 28');
     const hint = w.find('.filter-group__hint');
-    expect(hint.text()).toBe('(24 de 28 temas en catálogo completo)');
+    expect(hint.text()).toBe('(28 temas en catálogo completo)');
   });
 
-  it('theme hint shows the plain count when nothing is capped', async () => {
+  it('theme hint shows the plain count', async () => {
     // Restore the module-level 3-theme stub (the previous test
     // overrode it with 28 themes).
     vi.stubGlobal(

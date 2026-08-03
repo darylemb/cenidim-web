@@ -7,9 +7,7 @@ export const useSearchStore = defineStore('search', () => {
   const query = ref('');
   const field = ref<'all' | 'title' | 'album' | 'lyrics'>('all');
   const clasificacion = ref('');
-  const orderBy = ref<'id' | 'clave' | 'title' | 'album' | 'year' | 'filename' | 'clasificacion'>(
-    'id'
-  );
+  const orderBy = ref<string>('id');
   const orderDir = ref<'asc' | 'desc'>('asc');
   const results = ref<Song[]>([]);
   const total = ref(0);
@@ -27,14 +25,7 @@ export const useSearchStore = defineStore('search', () => {
     targetPage = 1,
     targetLimit = 20,
     targetClasificacion = '',
-    targetOrderBy:
-      | 'id'
-      | 'clave'
-      | 'title'
-      | 'album'
-      | 'year'
-      | 'filename'
-      | 'clasificacion' = 'id',
+    targetOrderBy: string = 'id',
     targetOrderDir: 'asc' | 'desc' = 'asc'
   ) {
     loading.value = true;

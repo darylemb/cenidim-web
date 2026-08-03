@@ -34,7 +34,7 @@ if ! python3 scripts/classify_songs.py --db "${DB_TMP}"; then
 fi
 
 echo "Normalizing lyrics + themes (normalize_db.py)..."
-if ! python3 scripts/normalize_db.py --db "${DB_TMP}"; then
+if ! python3 scripts/normalize_db.py --db "${DB_TMP}" --fix-lyrics-match --letras-dir LetrasTXT; then
   echo "Error: Normalization failed. Database not updated."
   exit 1
 fi

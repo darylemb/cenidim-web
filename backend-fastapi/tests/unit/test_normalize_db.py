@@ -72,3 +72,40 @@ def test_handles_empty_and_whitespace(ndb):
     assert ndb.clean_lyrics_body("", "Título") == ""
     assert ndb.clean_lyrics_body("   \n  \n", "Título") == "   \n  \n"
     assert ndb.clean_lyrics_body(None, "Título") is None
+
+
+def test_fix_lyrics_match_clears_wrong_lyrics(tmp_path, ndb):
+    import sqlite3
+
+    # Two songs: "Los perritos" (no matching file) and "La casa" (has
+    # a matching file). A lyrics dir with only CASA.txt must leave La
+    # casa's lyric intact and clear Los perritos' wrong one.
+    (tmp_path / "CASA.txt").write_text(
+        "LA CASA\n\nLa casa es grande\ny tiene ventanas.\n", encoding="utf-8"
+    )
+
+    con = sqlite3.connect(":memory:")
+    cur = con.cursor()
+    cur.execute(
+        "CREATE TABLE songs (id INTEGER PRIMARY KEY, title TEXT, "
+        "lyrics TEXT, filename TEXT, tema TEXT)"
+    )
+    cur.executemany(
+        "INSERT INTO songs (id, title, lyrics, filename) VALUES (?, ?, ?, ?)",
+        [
+            (1, "Los perritos", "¡Oinc oinc! (letra equivocada)", "LOS PUERQUITOS.txt"),
+            (2, "La casa", "letra vieja", "CASA.txt"),
+        ],
+    )
+    con.commit()
+
+    ndb.fix_lyrics_match(con, str(tmp_path))
+
+    rows = {r[0]: (r[2], r[3]) for r in cur.execute("SELECT id, title, lyrics, filename FROM songs")}
+    # Los perritos: wrong lyric cleared, filename cleared.
+    assert rows[1][0] == ""
+    assert rows[1][1] == ""
+    # La casa: lyric re-read from the file, header stripped, filename kept.
+    assert "La casa es grande" in rows[2][0]
+    assert rows[2][1] == "CASA.txt"
+    con.close()

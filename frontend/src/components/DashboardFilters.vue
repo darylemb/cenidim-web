@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFiltersStore } from '@/stores/filters'
 import { swatchFor } from '@/config/themes'
@@ -35,11 +35,6 @@ const localQ = ref('')
  * empty and the user can still type into the album/free-text inputs.
  */
 const knownThemes = ref<string[]>([])
-// Total distinct themes in the catalog (before the chip cap). Kept
-// separate from ``knownThemes`` so the hint can say "24 de 28" instead
-// of the misleading "24 temas en catálogo completo" that the review
-// (01/jul/2026) flagged — the truncation is a UI choice, not a count.
-const totalThemeCount = ref(0)
 
 async function refreshKnownThemes() {
   try {
@@ -47,26 +42,19 @@ async function refreshKnownThemes() {
     if (!res.ok) return
     const data = await res.json()
     const map = data.songs_by_theme ?? {}
-    // Sort by count desc, then alphabetically. Cap to 24 to keep the UI
-    // manageable (the long tail of one-off themes can still match via
-    // URL deep-linking).
-    const entries = (Object.entries(map) as [string, number][])
+    // Sort by count desc, then alphabetically. Every distinct theme in
+    // the catalog gets a chip so the filter list always matches what
+    // the "Por tema" chart shows (review feedback 01/jul/2026 flagged
+    // that capping to 24 hid 3 themes from the filter while the chart
+    // showed them).
+    knownThemes.value = (Object.entries(map) as [string, number][])
       .filter(([k]) => k && k.length > 0)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))
-    totalThemeCount.value = entries.length
-    knownThemes.value = entries.slice(0, 24).map(([k]) => k)
+      .map(([k]) => k)
   } catch {
     // network failure — keep what we have
   }
 }
-
-const themeHint = computed(() => {
-  if (totalThemeCount.value === 0) return ''
-  if (knownThemes.value.length < totalThemeCount.value) {
-    return `(${knownThemes.value.length} de ${totalThemeCount.value} temas en catálogo completo)`
-  }
-  return `(${totalThemeCount.value} temas en catálogo completo)`
-})
 
 function commitToUrl() {
   const query = filters.toQuery()
@@ -299,8 +287,8 @@ onUnmounted(() => {
       <fieldset class="filter-group filter-group--wide">
         <legend class="filter-group__legend">
           Tema
-          <span v-if="themeHint" class="filter-group__hint">
-            {{ themeHint }}
+          <span v-if="knownThemes.length" class="filter-group__hint">
+            ({{ knownThemes.length }} temas en catálogo completo)
           </span>
         </legend>
         <div v-if="knownThemes.length === 0" class="filter-group__empty">

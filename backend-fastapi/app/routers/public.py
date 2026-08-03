@@ -22,7 +22,7 @@ from collections import Counter
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import Integer, case, func, select
+from sqlalchemy import Integer, case, func, or_, select
 
 from app.deps import DbDep
 from app.models.fonograma import Fonograma
@@ -85,18 +85,39 @@ def _tema_filter_variants(canonical: str) -> list[str]:
     return ["/".join(c) for c in combos]
 
 
+# Sentinel used by the dashboard for "songs with no declared theme".
+# The chip label is "Sin tema"; the store sends this literal value.
+THEME_NONE_SENTINEL = "__none__"
+
+
 def _tema_filter_clause(temas: list[str]):
     """SQLAlchemy WHERE clause that matches any of the given themes.
 
     The input list may contain raw or canonical spellings; the clause
     normalises each one and expands typo variants so a canonical chip
     still matches rows stored under a typo (``Solidaridad`` vs
-    ``Solidarida``). Returns ``None`` when there is nothing to filter.
+    ``Solidarida``). The ``__none__`` sentinel matches rows whose tema
+    is NULL/empty (the dashboard's "Sin tema" chip). Returns ``None``
+    when there is nothing to filter.
     """
-    normalised = [v for ct in _norm_themes(temas) for v in _tema_filter_variants(ct)]
-    if not normalised:
+    named = [t for t in temas if t != THEME_NONE_SENTINEL]
+    has_none = THEME_NONE_SENTINEL in temas
+
+    clauses = []
+    if named:
+        normalised = [v for ct in _norm_themes(named) for v in _tema_filter_variants(ct)]
+        if normalised:
+            clauses.append(
+                func.replace(func.lower(func.trim(Song.tema)), " ", "").in_(normalised)
+            )
+    if has_none:
+        clauses.append(Song.tema.is_(None) | (Song.tema == ""))
+
+    if not clauses:
         return None
-    return func.replace(func.lower(func.trim(Song.tema)), " ", "").in_(normalised)
+    if len(clauses) == 1:
+        return clauses[0]
+    return or_(*clauses)
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +140,10 @@ async def search_songs(
     page: Annotated[int, Query(ge=1)] = 1,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     order_by: Annotated[
-        str, Query(pattern="^(id|clave|title|album|year|filename|clasificacion)$")
+        str,
+        Query(
+            pattern="^(id|clave|title|album|year|filename|clasificacion|subtitulo|interprete_principal|interpretes_invitados|interprete_participante|soporte_fisico|editora|numero_catalogo|ciudad_edicion|pais_edicion|pistas|observaciones|tema)$"
+        ),
     ] = "id",
     order_dir: Annotated[str, Query(pattern="^(asc|desc)$")] = "asc",
     tema: TemaList = None,
@@ -204,6 +228,9 @@ async def search_songs(
     total = (await db.execute(count_q)).scalar_one()
 
     # Sort field map. NULL / empty strings sort last regardless of direction.
+    # Fonograma-only columns (subtitulo, interprete_*, editora, …) sort
+    # on the joined row so the catalog can order by every visible column
+    # (review request 03/ago/2026).
     sort_field = {
         "id": Song.id,
         "title": Song.title,
@@ -212,6 +239,18 @@ async def search_songs(
         "filename": Song.filename,
         "clasificacion": Song.clasificacion,
         "clave": Fonograma.clave_fonograma,
+        "subtitulo": Fonograma.subtitulo,
+        "interprete_principal": Fonograma.interprete_principal,
+        "interpretes_invitados": Fonograma.interpretes_invitados,
+        "interprete_participante": Fonograma.interprete_participante,
+        "soporte_fisico": Fonograma.soporte_fisico,
+        "editora": Fonograma.editora,
+        "numero_catalogo": Fonograma.numero_catalogo,
+        "ciudad_edicion": Fonograma.ciudad_edicion,
+        "pais_edicion": Fonograma.pais_edicion,
+        "pistas": Fonograma.pistas,
+        "observaciones": Fonograma.observaciones,
+        "tema": Song.tema,
     }[order_by]
     if order_by == "year":
         # ``anio`` is TEXT and has dirty values like ``[1982]`` or
