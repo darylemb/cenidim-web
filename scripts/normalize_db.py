@@ -181,6 +181,15 @@ def _levenshtein(a: str, b: str) -> int:
 
 
 def _match_score(s1: str, s2: str) -> float:
+    """Mirror of the Go builder's ``calculateMatchScore``.
+
+    ``s1`` is the song title, ``s2`` the lyric filename. The substring
+    bonus only applies in ONE direction: when the filename is contained
+    in the title (e.g. "gusanito medidor lado 2" ⊇ "gusanito medidor").
+    The old two-way check made "La rana" match "LA ARAÑA.txt" — "rana"
+    (title) is a substring of "arana" (araña with the tilde stripped),
+    inflating the score to 0.9 for two different songs.
+    """
     if s1 == s2:
         return 1.0
     dist = _levenshtein(s1, s2)
@@ -188,7 +197,7 @@ def _match_score(s1: str, s2: str) -> float:
     if max_len == 0:
         return 0.0
     score = 1.0 - dist / max_len
-    if s1 in s2 or s2 in s1:
+    if s2 in s1:
         score += 0.1
     return score
 

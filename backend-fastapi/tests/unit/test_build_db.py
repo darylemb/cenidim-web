@@ -87,6 +87,25 @@ def test_match_score():
     assert ndb._match_score("grillo", "grillo musico") > ndb._match_score("grillo", "xyz")
 
 
+def test_match_score_bonus_is_one_way():
+    # "La rana" (title) must NOT match "LA ARAÑA.txt" (filename): even
+    # though "rana" is a substring of "arana" (araña, tilde stripped),
+    # the filename is not contained in the title, so no bonus applies
+    # and the score stays below the 0.85 threshold.
+    rana = ndb._normalize_title("La rana")
+    arana = ndb._normalize_title("LA ARAÑA")
+    assert ndb._match_score(rana, arana) < 0.85
+
+    # The bonus applies only when the filename is contained in the
+    # title. "El gusanito medidor ... Lado 2:" (title) contains the
+    # filename "el gusanito medidor", so title-vs-filename scores higher
+    # than the reversed (no-bonus) direction.
+    gusanito = ndb._normalize_title("El gusanito medidor (G. Rincón/V. Rincón); Lado 2:")
+    archivo = ndb._normalize_title("EL GUSANITO MEDIDOR")
+    assert archivo in gusanito  # filename ⊆ title
+    assert ndb._match_score(gusanito, archivo) > ndb._match_score(archivo, gusanito)
+
+
 # ─── extractSongTitles ─────────────────────────────────────────────────
 
 

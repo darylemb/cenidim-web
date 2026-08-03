@@ -108,8 +108,11 @@ func calculateMatchScore(s1, s2 string) float64 {
 
 	score := 1.0 - float64(dist)/float64(maxLen)
 
-	// Bonus for prefix/substring
-	if strings.Contains(s1, s2) || strings.Contains(s2, s1) {
+	// Bonus for prefix/substring, ONE direction only: when the lyric
+	// filename is contained in the song title ("gusanito medidor lado 2"
+	// ⊇ "gusanito medidor"). The two-way check made "La rana" match
+	// "LA ARAÑA.txt" ("rana" ⊂ "arana"), attaching a wrong lyric.
+	if strings.Contains(s1, s2) {
 		score += 0.1
 	}
 
