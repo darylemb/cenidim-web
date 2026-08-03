@@ -120,6 +120,46 @@ describe('DashboardFilters toggle handlers', () => {
     expect(router.currentRoute.value.query.year_from).toBe('1980');
   });
 
+  it('theme hint shows "X de Y" when the chip list is capped', async () => {
+    // 28 distinct themes, capped at 24 chips.
+    const many = Object.fromEntries(
+      Array.from({ length: 28 }, (_, i) => [`Tema ${i + 1}`, 28 - i])
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ songs_by_theme: many }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+      )
+    );
+    const w = makeWrapper();
+    await tick();
+    const hint = w.find('.filter-group__hint');
+    expect(hint.text()).toBe('(24 de 28 temas en catálogo completo)');
+  });
+
+  it('theme hint shows the plain count when nothing is capped', async () => {
+    // Restore the module-level 3-theme stub (the previous test
+    // overrode it with 28 themes).
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('{"songs_by_theme":{"Amor":10,"Juego":5,"Familia":2}}', {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+      )
+    );
+    const w = makeWrapper();
+    await tick();
+    const hint = w.find('.filter-group__hint');
+    expect(hint.text()).toBe('(3 temas en catálogo completo)');
+  });
+
   it.skip('syncFromStore hydrates the local inputs from the store', async () => {
     const w = makeWrapper();
     await tick();

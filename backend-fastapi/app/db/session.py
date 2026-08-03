@@ -5,12 +5,13 @@ timeout so a hung writer cannot deadlock readers. For tests we
 expose a helper that swaps the engine for an in-memory aiosqlite DB
 (``init_in_memory_engine``), which is what the test fixtures use.
 """
+
 from __future__ import annotations
 
 import re
 from collections.abc import AsyncIterator
 
-from sqlalchemy import event
+from sqlalchemy import Engine, event
 from sqlalchemy.ext.asyncio import (  # noqa: F401
     AsyncEngine,
     AsyncSession,

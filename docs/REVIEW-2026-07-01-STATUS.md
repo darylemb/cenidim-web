@@ -56,15 +56,17 @@ reflejado en el banner "Filtros aplicados" debajo del tablero.
 Esto pasa porque la base de datos tiene algunas canciones con
 variantes del mismo tema: por ejemplo, una canción puede decir
 `muerte` (minúscula) y otra `Muerte` (mayúscula), o `Vida/ muerte`
-con espacio después de la barra. La aplicación los junta cuando
-muestra el conteo en el tablero, pero en la lista de filtros
-aplicados aparecen como dos entradas distintas.
+con espacio después de la barra.
 
-Para resolverlo del todo hay que **normalizar la base de datos**:
-recorrer todas las canciones y reemplazar las variantes por una
-forma canónica ("Vida/Muerte"). Es un trabajo que hay que hacer
-una sola vez sobre la base y se hace del lado de los scripts de
-clasificación, no del tablero. **Está pendiente.**
+**Estado actual (03/ago/2026):** el tablero ya no muestra las
+variantes por separado. `canonical_tema` colapsa capitalización,
+espacios y errores tipográficos conocidos en una forma canónica
+(`Vida/ muerte` → `Vida/Muerte`), y el filtro de temas expande esas
+variantes para que un chip canónico siga encontrando las filas
+almacenadas con la grafía original. Lo que queda por normalizar son
+duplicados que no son variantes de escritura sino **conceptos
+distintos con nombres parecidos**; eso sigue siendo una decisión
+editorial sobre el catálogo canónico de temas.
 
 ## 5. El promedio de caracteres por canción no es relevante.
 
@@ -90,18 +92,22 @@ se entienda cuál es cuál.
 
 ## 7. ¿Una canción que aparece varias veces se cuenta una sola vez o por aparición?
 
-Ahora mismo la aplicación **cuenta filas, no canciones únicas**.
-Si una misma canción tiene un valor de tema declarado dos veces
-(por ejemplo, "Vida/ muerte" y otra variante), las dos filas
-aparecen por separado. Esto se soluciona a la vez que el punto 4:
-normalizando los temas de la base de datos. **Está pendiente.**
+La aplicación **cuenta filas, no canciones únicas**. Si una misma
+canción tiene un valor de tema declarado dos veces (por ejemplo,
+"Vida/ muerte" y otra variante), las dos filas aparecen por
+separado.
+
+**Estado actual (03/ago/2026):** las variantes triviales (mayúsculas,
+espacios, typos como `Solidarida`/`Solidaridad`) ya se colapsan en
+el conteo gracias a `canonical_tema` + `TEMA_TYPO_MAP`. La
+deduplicación de canciones con valores **semánticamente distintos**
+depende de la normalización de datos y del catálogo editorial.
 
 ## 8. La gráfica "TOP 10" de los discos más cantados.
 
-Coincidimos que para el análisis no aporta mucho. La gráfica se
-mantiene por compatibilidad con la versión anterior, pero si se
-quiere retirar del tablero es un cambio pequeño. **Pendiente de
-decisión editorial** sobre si se quita o se deja.
+**Resuelto (03/ago/2026):** la gráfica fue retirada del tablero en
+la versión actual. El endpoint del API todavía calcula `top_albums`
+(para compatibilidad), pero la interfaz ya no lo muestra.
 
 ## 9. ¿Qué quiere decir "Tipología lingüística" en la gráfica de Clasificación?
 
@@ -137,16 +143,18 @@ redacción, no de programación.
 
 ## 11. Temas como `solidarida/individualismo` vs `solidaridad/individualismo`.
 
-La diferencia viene **directamente del archivo de texto de cada
-canción**. El sistema lee la línea `Tema:` que escribió la persona
-que hizo la transcripción y la guarda tal cual. Si una transcribió
-"Solidarida/Individualismo" y otra "Solidaridad/Individualismo",
-el sistema respeta lo escrito.
+**Resuelto parcialmente (03/ago/2026).** El sistema sigue leyendo
+la línea `Tema:` del archivo tal como fue transcrita, pero ahora
+aplica un mapa de **errores tipográficos evidentes**
+(`TEMA_TYPO_MAP`: `Solidarida` → `Solidaridad`) antes de agrupar.
+Con los datos actuales, `Solidarida/Individualismo` y
+`Solidaridad/Individualismo` se colapsan en un solo bucket
+(`Solidaridad/Individualismo`), y el filtro por ese tema encuentra
+ambas grafías.
 
-Por eso la decisión sobre **cómo unificar** los temas le toca al
-equipo editorial: hay que ponerse de acuerdo en un catálogo único
-de "temas canónicos" y luego pasar ese catálogo por encima de toda
-la base para reescribir las variantes.
+Queda fuera del mapa todo lo que no sea un error tipográfico
+obvio: la decisión de si dos temas son el mismo concepto (p. ej.
+binomios vs palabras sueltas) le corresponde al catálogo editorial.
 
 ## 12. ¿Qué es la gráfica de Léxico (OOV)?
 
@@ -176,50 +184,59 @@ distribuyan proporcionalmente.
 
 ## 14. Hay una zona donde se enciman muchas palabras.
 
-La nube de palabras está generada por un programa estándar de
-visualización que acomoda las palabras para llenar el espacio, sin
-embargo no es perfecto y a veces quedan zonas atestadas. Esto se
-nota especialmente cuando se ven las 500 palabras más frecuentes
-de **todo el catálogo**: si filtras por año o por tema, el número
-baja (a veces 80 o 100 palabras) y el encimamiento se reduce
-mucho. Como mejora, podría limitarse la nube a las 100 o 200
-palabras más frecuentes para que se vean más espaciadas.
+**Mejorado (03/ago/2026).** La nube ahora pide por defecto las
+**200 palabras** más frecuentes (antes 500) vía el parámetro
+`?limit=` del endpoint `/api/word-cloud`, lo que reduce notablemente
+el encimamiento en la vista de catálogo completo. Con filtros por
+año o tema el número baja aún más. El endpoint admite pedir más
+(`?limit=500`) si algún día se necesita la vista densa.
 
 ## 15. Palabras con mayúsculas y minúsculas.
 
-El sistema de clasificación **ya normaliza a minúsculas** antes de
-contar, así que "Mamá", "mamá" y "MAMÁ" cuentan como una sola.
-También descarta:
-- Palabras de 1 carácter (preposiciones, artículos)
-- Stop-words del español (palabras vacías como "el", "de", "que")
-- Marcadores de metadatos (líneas como "Dura: 3:21", "Autor: ...")
+**Resuelto (03/ago/2026).** El backend normaliza a minúsculas antes
+de contar ("Mamá", "mamá" y "MAMÁ" cuentan como una sola) y
+`_extract_words` ahora además:
+- descarta tokens de 1 carácter (iniciales como "M.G.A." → m, g)
+- descarta tokens puramente numéricos ("2", "33")
+- descarta los **marcadores de metadatos por línea**
+  (`Dura:`, `Tema:`, `Personajes:`, `Autor:`, …) que un ~8% de los
+  registros aún arrastra en la columna `lyrics`, en lugar de
+  intentar listar cada palabra suelta
+- aplica una **lista de stop-words ampliada** (incluye "cuando",
+  "donde", "qué", "todo", "tan", "va", etc. que antes se colaban)
 
-Por eso en la nube ves todo en minúsculas y sin palabras
-funcionales.
+Con esto la nube refleja léxico real de las letras y no cabeceras,
+iniciales o conteos.
 
 ## 16. El título y autor de la canción se filtran en la nube de palabras.
 
-**Buen punto.** Cuando el sistema analiza cada canción, toma
-todo el contenido del archivo `.txt`: la letra, **pero también la
-cabecera con el título, autor, compositor**. Esas palabras del
-título y autor terminan apareciendo en la nube de palabras junto
-con las de la letra, y a veces dominan (por ejemplo, "Timbiriche"
-aparece más porque está en el título del disco y en cada nombre
-de canción).
+**Parcialmente mitigado (03/ago/2026).** Cuando el sistema analiza
+cada canción, toma todo el contenido del archivo `.txt`: la letra,
+**pero también la cabecera con el título, autor, compositor**. Esas
+palabras del título y autor terminaban apareciendo en la nube de
+palabras junto con las de la letra, y a veces dominan.
 
-La forma correcta de resolverlo es:
+Lo que se hizo:
+- La limpieza del punto 15 elimina los marcadores `Autor:`,
+  `Tema:`, `Personajes:`, `Dura:` que ~300 canciones aún arrastran,
+  y las iniciales de autor de 1 carácter (M.G.A. → m, g). Esto
+  reduce mucho el ruido de cabeceras.
+- El cuerpo de la letra guardado en `lyrics` ya no incluye el
+  bloque de metadatos del cierre (lo corta el builder Go).
+
+Lo que sigue pendiente para hacerlo *bien* (y sigue siendo lo más
+recomendable de los puntos abiertos):
 1. Agregar columnas dedicadas `titulo_extraido` y `autor_extraido`
    a la tabla de canciones
-2. Que el script de clasificación extraiga esos datos y los
-   guarde en columnas separadas
+2. Que el script de clasificación extraiga esos datos y los guarde
+   en columnas separadas
 3. Que el sistema de nube de palabras **excluya** esas columnas y
    solo analice la letra
 
-Esto requiere un cambio de esquema en la base de datos y un
-proceso para reprocesar las 3 858 canciones. Es un trabajo de unas
-horas, pero implica tocar la base de datos en producción, así que
-conviene hacerlo en una ventana de mantenimiento. **Está pendiente
-y es lo más recomendable** de todos los puntos abiertos.
+Esto requiere un cambio de esquema en la base de datos y un proceso
+para reprocesar las 3 858 canciones. Es un trabajo de unas horas,
+pero implica tocar la base de datos en producción, así que conviene
+hacerlo en una ventana de mantenimiento. **Pendiente.**
 
 ---
 

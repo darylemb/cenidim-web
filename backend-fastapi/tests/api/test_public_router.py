@@ -308,6 +308,19 @@ async def test_word_cloud_with_year_filter(app_client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_word_cloud_limit_param(app_client, db_session):
+    await _seed(db_session)
+    small = await app_client.get("/api/word-cloud", params={"limit": 2})
+    assert small.status_code == 200
+    assert len(small.json()["words"]) <= 2
+    # limit out of range -> 422
+    bad = await app_client.get("/api/word-cloud", params={"limit": 999})
+    assert bad.status_code == 422
+    bad0 = await app_client.get("/api/word-cloud", params={"limit": 0})
+    assert bad0.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_search_invalid_order_by_returns_422(app_client, db_session):
     response = await app_client.get("/api/search", params={"order_by": "evil"})
     assert response.status_code == 422
@@ -411,3 +424,89 @@ def test_canonical_tema_isolated():
     assert canonical_tema("vida/mUERTE") == "Vida/Muerte"
     assert canonical_tema("") == ""
     assert canonical_tema(None) == ""
+
+
+def test_spanish_stopwords_contains_expected_set():
+    from app.routers.public import SPANISH_STOPWORDS
+
+    expected = {
+        "a", "de", "y", "que", "el", "la", "un", "se", "si", "es", "tu",
+        "del", "muy", "porque", "todo", "cuando", "donde", "qué", "tan",
+        "va", "tiene", "soy",
+    }
+    missing = expected - SPANISH_STOPWORDS
+    assert not missing, f"stop-words missing: {sorted(missing)}"
+    # "dela"/"hacertodo"/"porquese" must NOT be present: they are the
+    # symptom of a space-free string concat bug in the stop-word list.
+    merged = {"dela", "hacertodo", "porquese"} & SPANISH_STOPWORDS
+    assert not merged, f"merged tokens should not exist: {sorted(merged)}"
+
+
+def test_extract_words_skips_metadata_single_char_and_digits():
+    from app.routers.public import _extract_words
+
+    text = (
+        "Título de la canción\n"
+        "Dura: 3:21\n"
+        "Tema: Familia\n"
+        "Personajes: niño y niña\n"
+        "Autor: M.G.A.\n"
+        "Una M G 2 casa 33\n"
+        "amor amistad"
+    )
+    words = _extract_words(text)
+    # No marker words (dura, tema, personajes, autor), no single chars
+    # (m, g), no pure digits (2, 33), no stopwords that are filtered
+    # downstream.
+    assert "dura" not in words
+    assert "tema" not in words
+    assert "personajes" not in words
+    assert "autor" not in words
+    assert "m" not in words
+    assert "g" not in words
+    assert "2" not in words
+    assert "33" not in words
+    # Real content survives (lower-cased).
+    assert "amor" in words
+    assert "amistad" in words
+
+
+def test_extract_words_keeps_real_lemma_homonyms():
+    from app.routers.public import _extract_words
+
+    # "tema" inside a lyric line (not a marker line) is kept.
+    words = _extract_words("el tema de la canción es el amor")
+    assert "tema" in words
+
+
+@pytest.mark.asyncio
+async def test_search_theme_filter_matches_typo_variant(app_client, db_session):
+    from sqlalchemy import update as sa_update
+
+    from app.models.song import Song
+
+    await _seed(db_session)
+    sm = db_module.session.get_sessionmaker()
+    async with sm() as session:
+        # Store a misspelled theme on Track A and reseed canonical form.
+        await session.execute(
+            sa_update(Song).where(Song.title == "Track A").values(tema="Solidarida/Individualismo")
+        )
+        await session.execute(
+            sa_update(Song).where(Song.title == "Track B").values(tema="Solidaridad/Individualismo")
+        )
+        await session.commit()
+
+    # Searching by the canonical spelling must match both rows because
+    # the filter expands the typo variant.
+    response = await app_client.get(
+        "/api/search", params={"tema": "Solidaridad/Individualismo"}
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+
+    # And stats collapse both into a single canonical bucket.
+    stats = await app_client.get("/api/stats", params={"tema": "Solidaridad/Individualismo"})
+    assert stats.status_code == 200
+    body = stats.json()
+    assert body["songs_by_theme"].get("Solidaridad/Individualismo", 0) == 2

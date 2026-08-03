@@ -30,9 +30,7 @@ function makeWrapper(
 // form. Returns nothing; awaits its own flush.
 async function confirmPendingSubmit(w: ReturnType<typeof makeWrapper>) {
   await flushPromises();
-  const btn = w
-    .findAll('.admin-confirm .btn-primary')
-    .find((b) => /guardar/i.test(b.text()));
+  const btn = w.findAll('.admin-confirm .btn-primary').find((b) => /guardar/i.test(b.text()));
   if (btn) {
     await btn.trigger('click');
   }

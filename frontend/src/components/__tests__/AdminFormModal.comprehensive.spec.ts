@@ -224,7 +224,8 @@ describe('AdminFormModal.vue', () => {
     const confirms = w.findAll('.admin-confirm');
     expect(confirms.length).toBeGreaterThan(0);
     const dirtyConfirm = confirms.find(
-      (c) => c.find('.admin-confirm-title').exists() &&
+      (c) =>
+        c.find('.admin-confirm-title').exists() &&
         /Cambios sin guardar/.test(c.find('.admin-confirm-title').text())
     );
     expect(dirtyConfirm).toBeTruthy();
@@ -255,9 +256,9 @@ describe('AdminFormModal.vue', () => {
     // The submit-confirm modal should be visible
     expect(w.find('.admin-confirm').exists()).toBe(true);
     // Click "Volver" (the cancel-side button on the submit-confirm)
-    const volverBtn = w.findAll('.admin-confirm .btn-secondary').find((b) =>
-      /volver/i.test(b.text())
-    );
+    const volverBtn = w
+      .findAll('.admin-confirm .btn-secondary')
+      .find((b) => /volver/i.test(b.text()));
     await volverBtn!.trigger('click');
     expect(apiService.adminCreateFonograma).not.toHaveBeenCalled();
   });

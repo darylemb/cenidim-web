@@ -787,7 +787,7 @@
           "public"
         ],
         "summary": "Get Word Cloud",
-        "description": "Top 500 most-frequent non-stop-word tokens across the catalog.\n\nTheme / classification / album / year filters mirror the same\nfilter pipeline as ``/api/search`` and ``/api/stats`` so the\ndashboard word cloud updates when the user narrows the year\nrange or toggles a chip.",
+        "description": "Top ``limit`` most-frequent non-stop-word tokens across the catalog.\n\nDefaults to 200 words (the 500-word all-catalog view produced too\nmuch crowding \u2014 reviewer feedback 01/jul/2026). The dashboard can\nrequest more via ``?limit=500`` if needed. Theme / classification\n/ album / year filters mirror the same filter pipeline as\n``/api/search`` and ``/api/stats`` so the dashboard word cloud\nupdates when the user narrows the year range or toggles a chip.",
         "operationId": "get_word_cloud_api_word_cloud_get",
         "parameters": [
           {
@@ -799,6 +799,18 @@
               "maxLength": 500,
               "default": "",
               "title": "Query"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
             }
           },
           {
