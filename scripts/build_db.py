@@ -102,28 +102,60 @@ CREATE TABLE users (
 """
 
 
-def find_lyrics_file(root: str, target_title: str) -> str:
-    """Mirror of Go's findLyricsFile: best .txt by normalized score."""
-    nt = _normalize_title(target_title)
-    if len(nt) < 3:
-        return ""
+def _read_internal_title(path: str) -> str:
+    """First non-blank line of a lyrics .txt — the song's real title."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                s = line.strip()
+                if s:
+                    return s
+    except OSError:
+        pass
+    return ""
 
-    best_match = ""
-    best_score = -1.0
-    for dirpath, _dirs, files in os.walk(root):
+
+def _index_lyrics_by_internal_title(letras_dir: str) -> list[tuple[str, str]]:
+    """Index every .txt by its INTERNAL title (first line), not its
+    filename. The filename can be misspelled (\"PALOMES\", \"CHIPICHIPI\")
+    or abbreviated; the internal title is the actual song identity, so
+    matching against it avoids both false positives (\"La rana\" vs
+    \"LA ARAÑA\") and false negatives.
+    """
+    indexed: list[tuple[str, str]] = []
+    for dirpath, _dirs, files in os.walk(letras_dir):
         for fname in files:
             if not fname.lower().endswith(".txt"):
                 continue
             if fname.startswith(".") or fname == ".txt":
                 continue
-            stem = os.path.splitext(fname)[0]
-            nf = _normalize_title(stem)
-            if len(nf) < 3:
-                continue
-            score = _match_score(nt, nf)
-            if score >= MATCH_THRESHOLD and score > best_score:
-                best_score = score
-                best_match = os.path.join(dirpath, fname)
+            path = os.path.join(dirpath, fname)
+            internal = _normalize_title(_read_internal_title(path))
+            if len(internal) >= 3:
+                indexed.append((path, internal))
+    return indexed
+
+
+def find_lyrics_file(
+    root: str,
+    target_title: str,
+    index: list[tuple[str, str]] | None = None,
+) -> str:
+    """Best .txt for ``target_title``, scored against the INTERNAL title."""
+    nt = _normalize_title(target_title)
+    if len(nt) < 3:
+        return ""
+
+    if index is None:
+        index = _index_lyrics_by_internal_title(root)
+
+    best_match = ""
+    best_score = -1.0
+    for path, nf in index:
+        score = _match_score(nt, nf)
+        if score >= MATCH_THRESHOLD and score > best_score:
+            best_score = score
+            best_match = path
     return best_match
 
 
@@ -200,9 +232,13 @@ def extract_song_metadata(lyrics_text: str) -> SongMetadata:
     return m
 
 
-def load_lyrics(letras_root: str, track_title: str) -> tuple[str, str, SongMetadata]:
-    """Mirror of Go's loadLyrics."""
-    found = find_lyrics_file(letras_root, track_title)
+def load_lyrics(
+    letras_root: str,
+    track_title: str,
+    index: list[tuple[str, str]] | None = None,
+) -> tuple[str, str, SongMetadata]:
+    """Mirror of Go's loadLyrics (match by internal title)."""
+    found = find_lyrics_file(letras_root, track_title, index)
     if not found:
         return "", "", SongMetadata()
     try:
@@ -233,6 +269,10 @@ def build_database(*, csv_path: str, db_path: str, letras_dir: str, admin_pass: 
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     cur.executescript(_SCHEMA)
+
+    # Pre-index the lyric corpus by internal title once (loadLyrics /
+    # find_lyrics_file reuse it for every track).
+    lyrics_index = _index_lyrics_by_internal_title(letras_dir)
 
     with open(csv_path, encoding="utf-8", errors="replace", newline="") as fh:
         reader = csv.reader(fh)
@@ -276,7 +316,7 @@ def build_database(*, csv_path: str, db_path: str, letras_dir: str, admin_pass: 
             fonograma_count += 1
 
             for track_title in extract_song_titles(record[12].strip()):
-                lyrics_text, filename, md = load_lyrics(letras_dir, track_title)
+                lyrics_text, filename, md = load_lyrics(letras_dir, track_title, lyrics_index)
                 if filename:
                     print(f"🔍 Matched: '{track_title}' -> {filename}")
                 cur.execute(

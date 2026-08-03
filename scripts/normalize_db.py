@@ -205,16 +205,33 @@ def _match_score(s1: str, s2: str) -> float:
 _MATCH_THRESHOLD = 0.85
 
 
+def _read_internal_title(path: str) -> str:
+    """First non-blank line of a lyrics .txt — the song's real title."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                s = line.strip()
+                if s:
+                    return s
+    except OSError:
+        pass
+    return ""
+
+
 def _index_lyrics_files(letras_dir: str) -> list[tuple[str, str]]:
-    """Return (path, normalized_stem) for every .txt under letras_dir."""
+    """Return (path, normalized INTERNAL title) for every .txt.
+
+    Matching against the file's internal title (first line) instead of
+    its filename avoids both false positives ("La rana" vs "LA ARAÑA")
+    and false negatives from misspelled filenames ("PALOMES").
+    """
     indexed: list[tuple[str, str]] = []
     for root, _dirs, files in os.walk(letras_dir):
         for f in files:
             if not f.lower().endswith(".txt"):
                 continue
             path = os.path.join(root, f)
-            stem = os.path.splitext(os.path.basename(f))[0]
-            norm = _normalize_title(stem)
+            norm = _normalize_title(_read_internal_title(path))
             if len(norm) >= 3:
                 indexed.append((path, norm))
     return indexed

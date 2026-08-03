@@ -203,3 +203,25 @@ def test_tema_takes_first_segment(bdb):
     body = "verso\n\nDura: 3:00\nTema: Familia, Eternidad/ Temporalidad.\n"
     m = bdb.extract_song_metadata(body)
     assert m.tema == "Familia"
+
+
+def test_find_lyrics_file_matches_internal_title(tmp_path, bdb):
+    # A file whose FILENAME is a misspelling but whose INTERNAL title is
+    # the real song name must match by the internal title.
+    (tmp_path / "LAS PALOMES.txt").write_text(
+        "LAS PALOMAS\n\nLas palomas vuelan\nsobre el tejado.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "LA ARANA.txt").write_text(
+        "LA ARAÑA\n\nLa araña teje su telaraña.\n",
+        encoding="utf-8",
+    )
+    idx = bdb._index_lyrics_by_internal_title(str(tmp_path))
+    assert len(idx) == 2
+
+    # "Las palomas" matches the file whose internal title is "las
+    # palomas" even though its filename says "PALOMES".
+    assert bdb.find_lyrics_file(str(tmp_path), "Las palomas", idx).endswith("LAS PALOMES.txt")
+
+    # "La rana" must NOT match the araña file (internal title differs).
+    assert bdb.find_lyrics_file(str(tmp_path), "La rana", idx) == ""

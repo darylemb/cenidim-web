@@ -264,3 +264,29 @@ combinar con otros filtros.
   etc.), no solo por las 7 originales.
 - El filtro de temas muestra ahora los 27 temas del catalogo (antes
   solo 24); la lista de filtros coincide con la grafica "Por tema".
+
+---
+
+## Actualizacion (03/ago/2026, parte 3)
+
+### Emparejamiento de letras por titulo interno
+
+El constructor de la base ya no adivina la letra de una cancion por
+similitud con el nombre del archivo. Cada archivo `.txt` se empareja
+por su **titulo interno** (la primera linea del archivo, que es el
+titulo real de la cancion). Esto elimino los ultimos casos de letras
+mal asignadas ("La rana" ya no recibe la letra de "La arana"; "Los
+perritos" ya no recibe la de "Los puerquitos").
+
+### Auditoria: 86 canciones del corpus no estan en el catalogo
+
+El corpus tiene 175 archivos, pero el catalogo (`db_fonografia.csv`)
+solo incluye ~89 de esas canciones. Las otras **86** son canciones
+cuyas letras existen pero **no estan catalogadas** (p. ej. "Morelia",
+"Coco Rock", "La marcha de los lapices", y varias en lenguas
+indigenas como "IHUATSI", "JANIKUA", "TSINTSUNI"). Por eso el numero
+de canciones con letra es ~89, no 175.
+
+La lista completa por album esta en
+`docs/CANCIONES-SIN-CATALOGAR-2026-08-03.md`, para que el equipo
+decida si esas canciones deben agregarse al catalogo.
