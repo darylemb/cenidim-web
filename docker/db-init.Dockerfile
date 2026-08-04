@@ -46,7 +46,7 @@ COPY backend-fastapi/app/models/theme_normalization.py \
 # Entrypoint script: re-runs the build + classify + normalize steps
 # every time the container starts so a `docker compose up` against an
 # already-built image still produces a fresh DB.
-COPY backend/db-init-entrypoint.sh /app/db-init-entrypoint.sh
+COPY docker/db-init-entrypoint.sh /app/db-init-entrypoint.sh
 RUN chmod +x /app/db-init-entrypoint.sh \
     && mkdir -p /data
 
