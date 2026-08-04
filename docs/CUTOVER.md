@@ -1,19 +1,16 @@
-# Cutover Playbook — Phase 7
+# Cutover Playbook — Phase 7 + 9 (Go → FastAPI, Go retired)
 
 This document is the operator-facing runbook for swapping the
 production backend from the Go / Gin service to the FastAPI /
-Pydantic v2 service.
+Pydantic v2 service, and for the Phase 9 retirement of the Go tree.
 
 ## TL;DR
 
 ```bash
-# 1. Stop the existing Go-backed stack.
-docker compose down
-
-# 2. Boot the FastAPI-backed stack (default compose file).
+# Boot the FastAPI stack (default compose file).
 docker compose up -d --build
 
-# 3. Verify.
+# Verify.
 docker compose ps
 curl -sf http://localhost:8000/healthz
 ./backend-fastapi/scripts/smoke.sh http://localhost:8000
@@ -22,14 +19,15 @@ curl -sf http://localhost:8000/healthz
 That's it. The frontend container already targets ``/api`` via
 the nginx proxy; no rebuild needed.
 
-## What changes for operators
+## What changed for operators
 
-| | Before | After |
+| | Before (Go) | After (FastAPI) |
 | --- | --- | --- |
 | Default compose | `docker compose.yaml` (Go) | `docker compose.yaml` (FastAPI) |
 | Backend port | 8080 (Go) | 8000 (FastAPI) |
 | Healthcheck | `./healthcheck` (Go binary) | `python -c "...urlopen('/healthz')..."` |
-| DB init | `backend/Dockerfile.init` (Go CLI) | `alembic upgrade head` |
+| DB init | `backend/Dockerfile.init` (Go CLI) | `docker/db-init.Dockerfile` (Python+spaCy) |
+| DB volume | `./backend/data:/data` | `./data:/data` |
 | Login form | `username + password` | unchanged |
 | Google OAuth | visible on login page | **removed** (no SSO in this deployment) |
 | Metrics | none | `GET /metrics` (Prometheus) |
@@ -37,34 +35,32 @@ the nginx proxy; no rebuild needed.
 
 ## Rollback
 
-If anything goes wrong, revert to the Go backend:
-
-```bash
-docker compose down
-docker compose -f docker-compose-go.yaml up -d
-```
-
-The Go backend is frozen at commit ``2aab765`` (the Phase 0
-delivery) so the rollback image is reproducible. Operators keep
-both compose files in the repo so flipping back is one command.
+The Go backend is retired (Phase 9): the ``backend/`` tree and
+``docker-compose-go.yaml`` were removed from the repo. The frozen Go
+backend still exists at commit ``2aab765`` in git history if an
+emergency rebuild is ever needed.
 
 ## Phase 7 checklist
 
-1. `docker compose down` — stop the Go-backed stack.
-2. `docker compose -f docker-compose-fastapi.yaml up -d --build`
-   — boot the FastAPI overlay alongside the existing frontend.
+1. `docker compose down` — stop any existing stack.
+2. `docker compose up -d --build` — boot the FastAPI stack.
 3. `curl -sf http://localhost:8000/healthz` returns 200.
 4. `./backend-fastapi/scripts/smoke.sh http://localhost:8000`
    exits 0.
 5. Browse to the dashboard; log in with the existing admin
    credentials; verify search, admin CRUD, and password reset.
-6. `docker compose down` then `docker compose up -d --build` — the
-   default compose file now points at FastAPI.
-7. Monitor `/metrics` for the first 24h:
+6. Monitor `/metrics` for the first 24h:
    - `cenidim_http_requests_total{status="500"}` should stay at 0.
    - `cenidim_http_request_duration_seconds` p99 should be under
      1s for /api/search.
-8. After 24h of green metrics, retire the Go tree in Phase 8.
+
+## Phase 9 — Go tree retirement (done)
+
+The Go tree was retired: ``backend/``, ``docker-compose-go.yaml``,
+``docker-compose-fastapi.yaml``, ``scripts/retire-go.sh`` and the Go
+CI job were removed. The db build now runs entirely on Python
+(``scripts/build_db.py`` → ``scripts/classify_songs.py`` →
+``scripts/normalize_db.py``) from a single-stage ``db-init`` image.
 
 ## Things to watch
 
@@ -83,23 +79,6 @@ both compose files in the repo so flipping back is one command.
 
 ## Migration: applying Alembic on an existing letras.db
 
-The Go backend's migration script writes the same tables with the
-same columns. The first ``alembic upgrade head`` against a
-Go-produced ``letras.db`` should be a no-op (version stamped,
-no DDL). If you see DDL emitted, double-check the schema mapping
-in ``alembic/versions/``.
-
-## Phase 8 (post-cutover) — Go tree retirement
-
-After 1 week of green production metrics, retire the Go tree in a
-follow-up PR:
-
-1. Delete ``backend/`` (Go service + Dockerfile + Dockerfile.init).
-2. Delete ``docker-compose-go.yaml`` (the rollback compose file).
-3. Delete ``backend/Dockerfile.healthcheck`` (Go-specific).
-4. Drop the ``fix/critical-bugs-dashboard-and-oauth`` and
-   ``ux/dashboard-fixes-2026-07`` branches if no longer relevant.
-
-Until then, both stacks live in the repo and the cut-over is one
-``docker compose down && docker compose up -d`` away from being
-reversed.
+The first ``alembic upgrade head`` against a Go-era ``letras.db``
+should be a no-op (version stamped, no DDL). If you see DDL emitted,
+double-check the schema mapping in ``alembic/versions/``.

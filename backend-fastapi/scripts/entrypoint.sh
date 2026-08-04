@@ -2,7 +2,7 @@
 # entrypoint for the FastAPI container.
 set -eu
 
-# The compose overlay bind-mounts ./backend/data into /data. The
+# The compose bind-mounts ./data into /data. The
 # db-init container runs as root and creates /data/letras.db owned by
 # root:root. The FastAPI image runs the `app` user, which needs write
 # access to BOTH the file (for the SQLite db itself) AND the parent

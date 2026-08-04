@@ -8,11 +8,12 @@ The application serves a digital archive of musical lyrics — the CENIDIM child
 
 ## Architecture
 
-1. **Backend (FastAPI – Pydantic v2)**: the production backend since Phase 7 of the Go → FastAPI cut-over. SQLAlchemy 2.0 ORM, JWT auth with HttpOnly cookies + CSRF double-submit, refresh-token rotation via `RefreshTokenRevocation`, Prometheus `/metrics`, structured JSON logging, Alembic migrations. See `backend-fastapi/` and `docs/adr/0001-fastapi-replaces-go.md`. The previous **Go / Gin** backend lives under `backend/` and `docker-compose-go.yaml` as the **emergency rollback** target — see `docs/CUTOVER.md` for the procedure.
+1. **Backend (FastAPI – Pydantic v2)**: the production backend since Phase 7 of the Go → FastAPI cut-over. SQLAlchemy 2.0 ORM, JWT auth with HttpOnly cookies + CSRF double-submit, refresh-token rotation via `RefreshTokenRevocation`, Prometheus `/metrics`, structured JSON logging, Alembic migrations. See `backend-fastapi/` and `docs/adr/0001-fastapi-replaces-go.md`. The Go / Gin backend was **retired in Phase 9** (the `backend/` tree and rollback compose are gone).
 2. **Frontend (Vue 3 + TypeScript)**: SPA served via an **unprivileged Nginx** container. State is managed with Pinia; routing with Vue Router; charts with vue-chartjs. Build tool is Vite. Requires **Node 24**.
-3. **Data management**: a two-step pipeline that parses the raw songbook and lyrics into a structured SQLite database.
-   - `backend/cmd/build-db/main.go` (the Go CLI, **still used** to seed `letras.db` from CSV + `LetrasTXT/` inside the `db-init` Docker sidecar) walks the corpus and inserts fonogramas + songs into `letras.db`. The Python FastAPI service then reads this DB without any schema migration (columns are snake_case identical).
+3. **Data management**: a three-step Python pipeline that parses the raw songbook and lyrics into a structured SQLite database.
+   - `scripts/build_db.py` seeds `letras.db` from `db_fonografia.csv` + `LetrasTXT/` (Python port of the old Go builder, byte-compatible) inside the `db-init` Docker sidecar.
    - `scripts/classify_songs.py` uses **spaCy** (`es_core_news_md`) to compute OOV percentages, classify each song as `ESPAÑOL_ESTANDAR` / `ESPAÑOL_REGIONAL` / `LENGUA_INDIGENA`, and assign a canonical **theme** (see below).
+   - `scripts/normalize_db.py` cleans lyrics, normalizes themes, and re-validates the lyric↔title match.
 4. **Canonical themes**: the classifier reduces the free-text `Tema: ...` lines at the end of each `LetrasTXT/*.txt` file into one of these categories:
 
    | Theme         | What it covers                                                  |
@@ -64,7 +65,8 @@ The FastAPI service reads configuration from environment variables prefixed with
 | `FRONTEND_BASE_URL` | For Google sign-in | `http://localhost:3000` | The SPA origin used to build the post-callback redirect target. |
 | `RESEND_API_KEY` | For outbound email | empty (dev outbox) | Resend API key; when empty, `email_outbox` table receives every send instead. |
 
-The `backend/.env` file is **legacy** (used by the Go fallback). New operators should set the env vars via their platform's secret store (Coolify, Kubernetes, etc.). The `.gitignore` already excludes any local `.env`.
+Operators set the env vars via their platform's secret store (Coolify,
+Kubernetes, etc.). The `.gitignore` already excludes any local `.env`.
 
 ### 3. Running with Docker (Recommended)
 
@@ -77,20 +79,17 @@ docker compose up --build -d
 - **Metrics**: `http://localhost:8000/metrics` (Prometheus text format).
 - **OpenAPI**: `http://localhost:8000/openapi.json` (auto-generated).
 
-`db-init` is the same sidecar it always was — it runs the Go `cmd/build-db` CLI to seed `letras.db` from `LetrasTXT/` + `db_fonografia.csv`, then runs the Python spaCy classifier to populate `song_stats`. The backend waits for it via `depends_on.condition: service_completed_successfully`. The FastAPI service then applies any pending Alembic migrations against the freshly-produced DB on first boot.
+`db-init` is a single Python+spaCy stage (`docker/db-init.Dockerfile`) that
+seeds `letras.db` from `LetrasTXT/` + `db_fonografia.csv` (build → classify →
+normalize). The backend waits for it via `depends_on.condition:
+service_completed_successfully`. The FastAPI service then applies any pending
+Alembic migrations against the freshly-produced DB on first boot.
 
-`backend-fastapi/Dockerfile` is multi-stage: it installs Python deps via `uv` (no `pip install` wheel-build headaches) and runs the API as a non-root user on `0.0.0.0:8000`.
+`backend-fastapi/Dockerfile` is multi-stage: it installs Python deps via `uv`
+(no `pip install` wheel-build headaches) and runs the API as a non-root user
+on `0.0.0.0:8000`.
 
 `frontend/Dockerfile` uses `nginx-unprivileged:alpine` (no root, port 80).
-
-#### Rollback to Go
-
-```bash
-docker compose down
-docker compose -f docker-compose-go.yaml up -d
-```
-
-The Go backend at commit `2aab765` is the deterministic fallback target. See `docs/CUTOVER.md` for the full procedure.
 
 ### 4. Local development (no Docker)
 
@@ -98,22 +97,15 @@ The Go backend at commit `2aab765` is the deterministic fallback target. See `do
 ```bash
 cd backend-fastapi
 uv sync
-PYTHONPATH=. uv run pytest tests/    # 177 tests, 96% coverage
+PYTHONPATH=. uv run pytest tests/    # 229 tests, 96% coverage
 PYTHONPATH=. uv run uvicorn app.main:app --port 8000 --reload
-```
-
-**Backend (Go fallback, only needed for the rollback image):**
-```bash
-cd backend
-go run main.go
-# server on :8080
 ```
 
 **Frontend (Vue 3 + Vite, Node 24):**
 ```bash
 cd frontend
 npm install
-npm run dev   # Vite dev server on :5173, proxies /api to whichever backend you started
+npm run dev   # Vite dev server on :5173, proxies /api to the backend
 ```
 
 Other useful frontend scripts:
@@ -218,9 +210,9 @@ Mode A is the default and the cheapest to operate. To move to Mode B you do **no
 
 | Where | File | What to set |
 |-------|------|-------------|
-| Local dev (vite + go run) | `backend/.env` | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL=http://localhost:8080/api/auth/google/callback`, `FRONTEND_BASE_URL=http://localhost:5173` |
-| Local dev (docker compose) | `docker-compose.yaml` | The same four vars; `GOOGLE_REDIRECT_URL` is `http://localhost:8000/api/auth/google/callback` and `FRONTEND_BASE_URL=http://localhost`. Already present with empty placeholders — fill them in. |
-| Production (Coolify) | `docker-compose-coolify.yaml` | Same four vars. `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` come from Coolify's secret store via `${GOOGLE_CLIENT_ID}` interpolation; the redirect + frontend URLs default to the production domain. Override per environment if you use a non-default host. |
+| Local dev (FastAPI) | `backend-fastapi/.env` | `CENIDIM_JWT_SECRET`, `CENIDIM_DB_PATH`, `RESEND_API_KEY` (empty → dev outbox). |
+| Local dev (docker compose) | `docker-compose.yaml` | The backend service env vars (`CENIDIM_*`). |
+| Production (Coolify) | `docker-compose-coolify.yaml` | Same `CENIDIM_*` vars via Coolify's secret store / `${...}` interpolation. |
 | Anywhere | `frontend/.env` (if present) | n/a — the SPA receives the env via the build's runtime env. The Google button itself is a regular anchor to `/api/auth/google/start`, no env needed. |
 
 ### Step-by-step: create a Google OAuth client
@@ -309,12 +301,13 @@ The `docs/PARITY.md` table inside `backend-fastapi/` is the contract between the
 
 ## Deployment
 
-The repo ships three compose files:
+The repo ships two compose files:
 
 - **`docker-compose.yaml`** — **default**. Boots the FastAPI backend, the spaCy-seeded `letras.db`, and the frontend. Use for local dev **and** production (Coolify reads this file).
-- **`docker-compose-fastapi.yaml`** — Phase 1 development overlay. Same as the default compose; kept for the CI `docker-build-fastapi` job.
-- **`docker-compose-go.yaml`** — **emergency rollback**. Boots the original Go / Gin backend instead. Operators flip back via `docker compose -f docker-compose-go.yaml up -d`. See `docs/CUTOVER.md`.
 - **`docker-compose-coolify.yaml`** — Coolify production shape: named volume, secret placeholders, internal bridge network. Used by the `coolify` deployment target; defaults to FastAPI but pins the env vars Coolify needs.
+
+The Go rollback compose (`docker-compose-go.yaml`) and the Phase 1
+overlay (`docker-compose-fastapi.yaml`) were removed in Phase 9.
 
 When changing the Google OAuth env vars, only the `environment:` block of the `backend` / `backend-fastapi` service needs to change in whichever compose file you target.
 
