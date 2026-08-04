@@ -338,8 +338,13 @@ async def test_get_song_detail(app_client, db_session):
 
     response = await app_client.get(f"/api/song/{sid}")
     assert response.status_code == 200
-    assert response.json()["id"] == sid
-    assert response.json()["title"] == first.title
+    body = response.json()
+    assert body["id"] == sid
+    assert body["title"] == first.title
+    # The detail must include the joined fonograma fields (same flat
+    # shape as /api/search) — album/year/subtitulo are not None.
+    assert body["album"] is not None
+    assert body["year"] is not None
 
 
 @pytest.mark.asyncio

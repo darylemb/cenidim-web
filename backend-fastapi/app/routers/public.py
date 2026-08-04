@@ -307,10 +307,19 @@ async def search_songs(
 
 @router.get("/song/{song_id}", response_model=SongOut)
 async def get_song_detail(song_id: int, db: DbDep) -> SongOut:
-    song = (await db.execute(select(Song).where(Song.id == song_id))).scalar_one_or_none()
-    if song is None:
+    row = (
+        await db.execute(
+            select(Song, Fonograma)
+            .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
+            .where(Song.id == song_id)
+        )
+    ).first()
+    if row is None:
         raise HTTPException(status_code=404, detail="Song not found")
-    return song_to_out(song)
+    song, fonograma = row
+    # Pass the joined fonograma so the detail includes album / year /
+    # subtitulo / intérprete — same flat shape as /api/search results.
+    return song_to_out(song, fonograma)
 
 
 # ---------------------------------------------------------------------------
