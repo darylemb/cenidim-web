@@ -169,7 +169,7 @@ export function packWordCloud(
     // high frequencies expand smoothly. This avoids a visible "step"
     // between hero and non-hero buckets.
     const easedSize = Math.pow(Math.max(0, Math.min(1, normalizedSize)), 0.72);
-    const minPx = minDim * 0.020;
+    const minPx = minDim * 0.02;
     const maxPx = minDim * 0.118;
     const fontSize = (minPx + easedSize * (maxPx - minPx)) * opts.fontScale;
 
@@ -189,7 +189,7 @@ export function packWordCloud(
     const remainingCount = sorted.length - opts.heroDistributeCount;
     const remainingRank = Math.max(0, i - opts.heroDistributeCount);
     const remainingRatio = remainingCount <= 1 ? 0 : remainingRank / (remainingCount - 1);
-    const startRadius = distributed ? minDim * 0.28 : minDim * (0.10 + 0.45 * remainingRatio);
+    const startRadius = distributed ? minDim * 0.28 : minDim * (0.1 + 0.45 * remainingRatio);
     for (let spiral = 0; spiral < opts.maxIterations; spiral++) {
       const angle = startAngle + spiral * opts.angleStep;
       const radius =

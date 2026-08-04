@@ -1,0 +1,950 @@
+{
+  "v": 2,
+  "name": "CENIDIM FastAPI",
+  "folders": [
+    {
+      "v": 2,
+      "name": "Admin",
+      "folders": [],
+      "requests": [
+        {
+          "v": "1",
+          "name": "GET Admin List Audit Log",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/admin/audit",
+          "params": [
+            {
+              "key": "page",
+              "value": "1",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "50",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "actor_id",
+              "value": "",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "action",
+              "value": "",
+              "active": false,
+              "description": ""
+            }
+          ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "GET Admin List Emails",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/admin/emails",
+          "params": [
+            {
+              "key": "page",
+              "value": "1",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "50",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "only_failures",
+              "value": "False",
+              "active": false,
+              "description": ""
+            }
+          ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "GET Admin List Fonogramas",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas",
+          "params": [
+            {
+              "key": "page",
+              "value": "1",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "20",
+              "active": false,
+              "description": ""
+            }
+          ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "POST Admin Create Fonograma",
+          "method": "POST",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        },
+        {
+          "v": "1",
+          "name": "GET Admin Get Fonograma",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas/{id}",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "PUT Admin Update Fonograma",
+          "method": "PUT",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas/{id}",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        },
+        {
+          "v": "1",
+          "name": "DELETE Admin Delete Fonograma",
+          "method": "DELETE",
+          "endpoint": "<<BASE_URL>>/api/admin/fonogramas/{id}",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "GET Admin List Songs",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/admin/songs",
+          "params": [
+            {
+              "key": "fonograma_id",
+              "value": "",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "50",
+              "active": false,
+              "description": ""
+            }
+          ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "POST Admin Create Song",
+          "method": "POST",
+          "endpoint": "<<BASE_URL>>/api/admin/songs",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        },
+        {
+          "v": "1",
+          "name": "PUT Admin Update Song",
+          "method": "PUT",
+          "endpoint": "<<BASE_URL>>/api/admin/songs/{id}",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        },
+        {
+          "v": "1",
+          "name": "DELETE Admin Delete Song",
+          "method": "DELETE",
+          "endpoint": "<<BASE_URL>>/api/admin/songs/{id}",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "GET Admin List Users",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/admin/users",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "POST Admin Create User",
+          "method": "POST",
+          "endpoint": "<<BASE_URL>>/api/admin/users",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        },
+        {
+          "v": "1",
+          "name": "PUT Admin Update User",
+          "method": "PUT",
+          "endpoint": "<<BASE_URL>>/api/admin/users/{id}",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        },
+        {
+          "v": "1",
+          "name": "DELETE Admin Delete User",
+          "method": "DELETE",
+          "endpoint": "<<BASE_URL>>/api/admin/users/{id}",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        }
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
+    },
+    {
+      "v": 2,
+      "name": "Auth",
+      "folders": [],
+      "requests": [
+        {
+          "v": "1",
+          "name": "POST Forgot",
+          "method": "POST",
+          "endpoint": "<<BASE_URL>>/api/auth/forgot",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        },
+        {
+          "v": "1",
+          "name": "POST Login",
+          "method": "POST",
+          "endpoint": "<<BASE_URL>>/api/auth/login",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        },
+        {
+          "v": "1",
+          "name": "POST Logout",
+          "method": "POST",
+          "endpoint": "<<BASE_URL>>/api/auth/logout",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "GET Me",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/auth/me",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "POST Refresh",
+          "method": "POST",
+          "endpoint": "<<BASE_URL>>/api/auth/refresh",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        },
+        {
+          "v": "1",
+          "name": "POST Register",
+          "method": "POST",
+          "endpoint": "<<BASE_URL>>/api/auth/register",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        },
+        {
+          "v": "1",
+          "name": "POST Reset",
+          "method": "POST",
+          "endpoint": "<<BASE_URL>>/api/auth/reset",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": ""
+          }
+        }
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
+    },
+    {
+      "v": 2,
+      "name": "Search",
+      "folders": [],
+      "requests": [
+        {
+          "v": "1",
+          "name": "GET Search Songs",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/search",
+          "params": [
+            {
+              "key": "query",
+              "value": "",
+              "active": false,
+              "description": "Search query (alias `query` for the Go frontend)"
+            },
+            {
+              "key": "field",
+              "value": "all",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "page",
+              "value": "1",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "20",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "order_by",
+              "value": "id",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "order_dir",
+              "value": "asc",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "tema",
+              "value": "",
+              "active": false,
+              "description": "Comma-separated theme list; use __none__ for unclassified"
+            },
+            {
+              "key": "year_from",
+              "value": "",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "year_to",
+              "value": "",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "clasificacion",
+              "value": "",
+              "active": false,
+              "description": "Comma-separated clasificacion list"
+            },
+            {
+              "key": "album",
+              "value": "",
+              "active": false,
+              "description": ""
+            }
+          ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        }
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
+    },
+    {
+      "v": 2,
+      "name": "Song",
+      "folders": [],
+      "requests": [
+        {
+          "v": "1",
+          "name": "GET Get Song Detail",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/song/{song_id}",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        }
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
+    },
+    {
+      "v": 2,
+      "name": "Stats",
+      "folders": [],
+      "requests": [
+        {
+          "v": "1",
+          "name": "GET Get Stats",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/stats",
+          "params": [
+            {
+              "key": "query",
+              "value": "",
+              "active": false,
+              "description": ""
+            }
+          ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        }
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
+    },
+    {
+      "v": 2,
+      "name": "Timeline",
+      "folders": [],
+      "requests": [
+        {
+          "v": "1",
+          "name": "GET Get Timeline",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/timeline",
+          "params": [
+            {
+              "key": "query",
+              "value": "",
+              "active": false,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "5000",
+              "active": false,
+              "description": ""
+            }
+          ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        }
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
+    },
+    {
+      "v": 2,
+      "name": "Word-Cloud",
+      "folders": [],
+      "requests": [
+        {
+          "v": "1",
+          "name": "GET Get Word Cloud",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/api/word-cloud",
+          "params": [
+            {
+              "key": "query",
+              "value": "",
+              "active": false,
+              "description": ""
+            }
+          ],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        }
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
+    },
+    {
+      "v": 2,
+      "name": "Healthz",
+      "folders": [],
+      "requests": [
+        {
+          "v": "1",
+          "name": "GET Healthz",
+          "method": "GET",
+          "endpoint": "<<BASE_URL>>/healthz",
+          "params": [],
+          "headers": [
+            {
+              "key": "Accept",
+              "value": "application/json",
+              "active": true
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": false
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          }
+        }
+      ],
+      "headers": [],
+      "auth": {
+        "authType": "none",
+        "authActive": true
+      }
+    }
+  ],
+  "requests": [],
+  "headers": [],
+  "auth": {
+    "authType": "none",
+    "authActive": true
+  }
+}

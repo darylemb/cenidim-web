@@ -8,14 +8,17 @@ ADMIN_PASS="${ADMIN_PASS:-admin123}"
 DB_PATH="${DB_PATH:-/data/letras.db}"
 
 echo "[db-init] regenerating ${DB_PATH} from current source…"
-db-builder \
-  -csv /app/db_fonografia.csv \
-  -db "${DB_PATH}" \
-  -letras /app/LetrasTXT \
-  -admin-pass "${ADMIN_PASS}"
+python /app/scripts/build_db.py \
+  --csv /app/db_fonografia.csv \
+  --db "${DB_PATH}" \
+  --letras /app/LetrasTXT \
+  --admin-pass "${ADMIN_PASS}"
 
 echo "[db-init] classifying songs (spaCy)…"
 python /app/scripts/classify_songs.py --db "${DB_PATH}"
+
+echo "[db-init] normalizing lyrics + themes…"
+python /app/scripts/normalize_db.py --db "${DB_PATH}" --fix-lyrics-match --letras-dir /app/LetrasTXT
 
 # Sanity check: the file exists and is non-empty. docker-compose uses
 # the container's exit code to decide whether the backend can start.

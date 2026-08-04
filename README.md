@@ -8,11 +8,11 @@ The application serves a digital archive of musical lyrics — the CENIDIM child
 
 ## Architecture
 
-1. **Backend (Go – Gin)**: high-performance REST API written in Go. Runs on a **Distroless** image for minimum attack surface. Search latency is single-digit milliseconds on the full ~4,000 song catalog.
+1. **Backend (FastAPI – Pydantic v2)**: the production backend since Phase 7 of the Go → FastAPI cut-over. SQLAlchemy 2.0 ORM, JWT auth with HttpOnly cookies + CSRF double-submit, refresh-token rotation via `RefreshTokenRevocation`, Prometheus `/metrics`, structured JSON logging, Alembic migrations. See `backend-fastapi/` and `docs/adr/0001-fastapi-replaces-go.md`. The previous **Go / Gin** backend lives under `backend/` and `docker-compose-go.yaml` as the **emergency rollback** target — see `docs/CUTOVER.md` for the procedure.
 2. **Frontend (Vue 3 + TypeScript)**: SPA served via an **unprivileged Nginx** container. State is managed with Pinia; routing with Vue Router; charts with vue-chartjs. Build tool is Vite. Requires **Node 24**.
 3. **Data management**: a two-step pipeline that parses the raw songbook and lyrics into a structured SQLite database.
-   - `cmd/build-db/main.go` walks `db_fonografia.csv` + `LetrasTXT/`, normalises titles, and inserts fonogramas + songs into `letras.db`.
-   - `scripts/classify_songs.py` then uses **spaCy** (`es_core_news_md`) to compute OOV percentages, classify each song as `ESPAÑOL_ESTANDAR` / `ESPAÑOL_REGIONAL` / `LENGUA_INDIGENA`, and assign a canonical **theme** (see below).
+   - `backend/cmd/build-db/main.go` (the Go CLI, **still used** to seed `letras.db` from CSV + `LetrasTXT/` inside the `db-init` Docker sidecar) walks the corpus and inserts fonogramas + songs into `letras.db`. The Python FastAPI service then reads this DB without any schema migration (columns are snake_case identical).
+   - `scripts/classify_songs.py` uses **spaCy** (`es_core_news_md`) to compute OOV percentages, classify each song as `ESPAÑOL_ESTANDAR` / `ESPAÑOL_REGIONAL` / `LENGUA_INDIGENA`, and assign a canonical **theme** (see below).
 4. **Canonical themes**: the classifier reduces the free-text `Tema: ...` lines at the end of each `LetrasTXT/*.txt` file into one of these categories:
 
    | Theme         | What it covers                                                  |
@@ -47,24 +47,24 @@ When using the **Docker Compose** stack (recommended), the `db-init` sidecar ser
 
 ### 2. Environment configuration
 
-Copy the example file and edit it:
-
-```bash
-cp backend/.env.example backend/.env
-```
+The FastAPI service reads configuration from environment variables prefixed with `CENIDIM_` (plus `CORS_ALLOWED_ORIGINS` and a few un-prefixed aliases). The compose files set sane dev defaults; for production override at the Coolify secret store.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `JWT_SECRET` | **Yes** | none | Secret key for signing JWTs. The backend fatals on startup if this is missing in production. Use at least 256 bits of entropy. |
+| `CENIDIM_JWT_SECRET` | **Yes** | dev-only fallback | Secret key for signing JWTs. The backend refuses to boot in production without this. Use at least 256 bits of entropy (`openssl rand -hex 32`). |
+| `CENIDIM_DB_PATH` | No | `letras.db` | Path to the SQLite database file. |
+| `CENIDIM_ENV` | No | `dev` | `dev` enables the auto-create-schema fallback. Production must be `prod` and run Alembic migrations explicitly. |
+| `CENIDIM_LOG_FORMAT` | No | `json` | `json` for production (Promtail / Grafana friendly) or `text` for human-readable. |
+| `CENIDIM_WORKERS` | No | `2` | uvicorn worker count (production). |
+| `CENIDIM_EMAIL_FROM` | For Resend | `no-reply@cenidim.local` | Sender for outbound password-reset emails. |
 | `CORS_ALLOWED_ORIGINS` | No | `http://localhost,http://localhost:3000,http://localhost:8000` | Comma-separated list of allowed CORS origins. |
-| `DB_PATH` | No | `letras.db` | Path to the SQLite database file. |
-| `PORT` | No | `8080` | HTTP port the backend listens on. |
-| `GOOGLE_CLIENT_ID` | For Google sign-in | none | OAuth 2.0 client ID from the Google Cloud console. |
+| `GOOGLE_CLIENT_ID` | For Google sign-in (admin-only after Phase 7) | none | OAuth 2.0 client ID from the Google Cloud console. |
 | `GOOGLE_CLIENT_SECRET` | For Google sign-in | none | OAuth 2.0 client secret paired with `GOOGLE_CLIENT_ID`. |
-| `GOOGLE_REDIRECT_URL` | For Google sign-in | none | The exact callback URL registered in the Google Cloud console. For local dev: `http://localhost:8000/api/auth/google/callback` (Docker) or `http://localhost:8080/api/auth/google/callback` (vite dev). For production: `https://<your-domain>/api/auth/google/callback`. Must match the path registered as an "Authorized redirect URI" in your OAuth client. |
-| `FRONTEND_BASE_URL` | For Google sign-in | `http://localhost:3000` | The SPA origin used to build the post-callback redirect target. For local dev: `http://localhost` (Docker) or `http://localhost:5173` (vite dev). For production: `https://<your-domain>`. The Google callback redirects here with `?google=ok` (or `?google=err=<code>` on failure). |
+| `GOOGLE_REDIRECT_URL` | For Google sign-in | none | The exact callback URL registered in the Google Cloud console. Local Docker: `http://localhost:8000/api/auth/google/callback`. Production: `https://<your-domain>/api/auth/google/callback`. |
+| `FRONTEND_BASE_URL` | For Google sign-in | `http://localhost:3000` | The SPA origin used to build the post-callback redirect target. |
+| `RESEND_API_KEY` | For outbound email | empty (dev outbox) | Resend API key; when empty, `email_outbox` table receives every send instead. |
 
-**Security note for production**: never commit `backend/.env`. The `.gitignore` already excludes it. Generate a real `JWT_SECRET` with `openssl rand -hex 32` (or equivalent) and use a different secret per environment.
+The `backend/.env` file is **legacy** (used by the Go fallback). New operators should set the env vars via their platform's secret store (Coolify, Kubernetes, etc.). The `.gitignore` already excludes any local `.env`.
 
 ### 3. Running with Docker (Recommended)
 
@@ -73,16 +73,36 @@ docker compose up --build -d
 ```
 
 - **Frontend**: `http://localhost` (served via unprivileged Nginx).
-- **Backend API**: internal port 8080, exposed at `http://localhost:8000` for local dev.
-- **Health check**: `http://localhost:8000/health`.
+- **Backend API**: `http://localhost:8000/healthz` (FastAPI / uvicorn on port 8000).
+- **Metrics**: `http://localhost:8000/metrics` (Prometheus text format).
+- **OpenAPI**: `http://localhost:8000/openapi.json` (auto-generated).
 
-The multi-stage `backend/Dockerfile` runs the Go builder, then the spaCy classifier, then the distroless final image with a separate healthcheck binary. The `db-init` sidecar regenerates `letras.db` from `LetrasTXT/` + `db_fonografia.csv` on every `docker compose up` and exits; the backend waits for it via `depends_on.condition: service_completed_successfully` so the API never serves a stale database.
+`db-init` is the same sidecar it always was — it runs the Go `cmd/build-db` CLI to seed `letras.db` from `LetrasTXT/` + `db_fonografia.csv`, then runs the Python spaCy classifier to populate `song_stats`. The backend waits for it via `depends_on.condition: service_completed_successfully`. The FastAPI service then applies any pending Alembic migrations against the freshly-produced DB on first boot.
+
+`backend-fastapi/Dockerfile` is multi-stage: it installs Python deps via `uv` (no `pip install` wheel-build headaches) and runs the API as a non-root user on `0.0.0.0:8000`.
 
 `frontend/Dockerfile` uses `nginx-unprivileged:alpine` (no root, port 80).
 
+#### Rollback to Go
+
+```bash
+docker compose down
+docker compose -f docker-compose-go.yaml up -d
+```
+
+The Go backend at commit `2aab765` is the deterministic fallback target. See `docs/CUTOVER.md` for the full procedure.
+
 ### 4. Local development (no Docker)
 
-**Backend (Go):**
+**Backend (FastAPI):**
+```bash
+cd backend-fastapi
+uv sync
+PYTHONPATH=. uv run pytest tests/    # 177 tests, 96% coverage
+PYTHONPATH=. uv run uvicorn app.main:app --port 8000 --reload
+```
+
+**Backend (Go fallback, only needed for the rollback image):**
 ```bash
 cd backend
 go run main.go
@@ -93,7 +113,7 @@ go run main.go
 ```bash
 cd frontend
 npm install
-npm run dev   # Vite dev server on :5173, proxies /api to :8080
+npm run dev   # Vite dev server on :5173, proxies /api to whichever backend you started
 ```
 
 Other useful frontend scripts:
@@ -106,9 +126,17 @@ npm run test:coverage    # coverage report
 npm run build      # typecheck + Vite production build
 ```
 
+Backend scripts:
+```bash
+./scripts/build_db.sh         # regenerates letras.db from CSV + lyrics (used in db-init container too)
+backend-fastapi/scripts/smoke.sh http://localhost:8000   # post-boot health check
+backend-fastapi/scripts/generate_openapi.py              # refresh openapi.json
+(cd backend-fastapi && uv run alembic upgrade head)      # apply migrations
+```
+
 ## Google sign-in
 
-The login page exposes a **"Continuar con Google"** button. Clicking it kicks off an OAuth 2.0 Authorization Code flow against Google's consent screen; after the user approves, the backend verifies the `state` cookie (CSRF protection), verifies the ID token signature against Google's JWKS, and either signs in the matching user or auto-provisions a new one.
+> **Phase 7+**: the login page **hides** the "Continuar con Google" button. The Vue dashboard's AuthPage no longer renders it, so end users see only the username + password flow. The Google OAuth endpoints (`/api/auth/google/*`) are still fully wired for the admin path: an operator with `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URL` set can still link / unlink identities via the admin dashboard's **Usuarios** tab → **Identidades** column.
 
 ### Who is authorized?
 
@@ -231,8 +259,11 @@ The user row stays; the `user_identities` row is removed. The user can no longer
 
 ## Testing and Quality
 
-- **Backend**: `go test ./...` (unit + integration). The repo also has `golangci-lint` config; run with `golangci-lint run`.
-- **Frontend**: `npm run test -- --run` (Vitest + Vue Test Utils + Testing Library). The frontend uses **strict TypeScript** — `vue-tsc --noEmit` runs in CI.
+- **Backend (FastAPI, primary)**: `cd backend-fastapi && PYTHONPATH=. uv run pytest tests/`. **177 tests pass at 96.05% coverage** with ruff clean. Coverage gate: 95% (`--cov-fail-under=95` in `pyproject.toml`).
+- **Backend (Go, rollback only)**: `cd backend && go test ./...` + `golangci-lint run`. The Go tree is frozen at commit `2aab765`; no new code is accepted there.
+- **Frontend**: `cd frontend && npm run test -- --run` (Vitest + Vue Test Utils). **277 tests pass.** Strict TypeScript — `npm run typecheck` runs in CI.
+- **End-to-end backend smoke**: `cd backend-fastapi && PYTHONPATH=. uv run pytest tests/integration/test_uvicorn_smoke.py`. Boots a real uvicorn subprocess and exercises /healthz, /metrics, /openapi.json, /api/auth/register, /api/auth/login, /api/auth/me, /api/auth/logout, /api/search, /api/stats, /api/admin/* 401, and the 422 validation path.
+- **Post-deploy smoke script**: `backend-fastapi/scripts/smoke.sh http://localhost:8000`. Returns non-zero on the first failing check; intended to run after every `docker compose up`.
 - **Design tokens**: `bash scripts/audit_design_tokens.sh frontend/src 0.05` verifies that no more than 5 % of style-bearing lines use hard-coded hex colors or px values outside `tokens.css`. SC-009 of the spec requires this drift to stay below 2 % at the end of the project.
 - **End-to-end CI**: `scripts/run_ci_local.sh` runs the full sequence (backend lint + test → frontend lint + typecheck + test → docker compose build + health check).
 - **Code review**: `scripts/run_code_review_all.sh` is the pre-merge gate (FR-027 of spec 004 / SC-010). It batches all source files and invokes the `/code-review` command on each batch. **This is opt-in**: the agent never runs it automatically. To run it before opening a PR:
@@ -243,39 +274,52 @@ The user row stays; the `user_identities` row is removed. The user can no longer
 
 ## API Endpoints
 
+The full FastAPI surface is documented as an OpenAPI 3.1 spec at `backend-fastapi/openapi.json` (regenerable via `backend-fastapi/scripts/generate_openapi.py`; CI guards drift). The condensed list:
+
 ### Public
-- `GET /` — API welcome message
-- `GET /health` — health check (used by the Docker healthcheck)
-- `GET /api/search` — paginated song search (`q`, `field`, `page`, `limit`, `clasificacion`, `orderBy`, `orderDir`)
-- `GET /api/song/:song_id` — song details + lyrics
+- `GET /healthz` — health check (used by the Docker healthcheck)
+- `GET /metrics` — Prometheus metrics (text format 0.0.4)
+- `GET /openapi.json` — OpenAPI 3.1 spec
+- `GET /api/search` — paginated song search; accepts `?query=` (Vue convention) or `?q=`
+- `GET /api/song/{song_id}` — song details + lyrics
 - `GET /api/timeline` — songs grouped by year
-- `GET /api/stats` — aggregate dashboard metrics; honors the shared filter query parameters (`theme`, `year_from`, `year_to`, `clasificacion`, `album`, `q`)
+- `GET /api/stats` — aggregate dashboard metrics; honors the shared filter query parameters (`tema`, `year_from`, `year_to`, `clasificacion`, `album`, `q`)
 - `GET /api/word-cloud` — word frequencies for the dashboard's word cloud
 
 ### Authentication (`/api/auth/*`)
-- `POST /api/auth/login` — password sign-in
-- `POST /api/auth/register` — open self-registration (if enabled)
-- `GET /api/auth/me` — current user profile (requires JWT)
-- `GET /api/auth/google/start` — kicks off the Google OAuth flow, sets a CSRF `state` cookie
-- `GET /api/auth/google/callback` — Google redirects here; the backend verifies `state`, verifies the ID token against Google's JWKS, finds-or-creates the user, issues a JWT, and finally redirects to `FRONTEND_BASE_URL?google=ok` (or `?google=err=<code>`).
+- `POST /api/auth/login` — password sign-in; sets `cenidim_session` (HttpOnly access JWT) + `cenidim_refresh` + `cenidim_csrf` cookies, returns `{token, user}` in the body so the SPA can mirror to localStorage.
+- `POST /api/auth/register` — open self-registration (if enabled).
+- `POST /api/auth/forgot` — always 200; sends a one-shot reset link via Resend (or writes to `email_outbox` in dev).
+- `POST /api/auth/reset` — consume a reset token + new password.
+- `POST /api/auth/refresh` — rotate the refresh token (old `jti` is revoked).
+- `POST /api/auth/logout` — revoke the current refresh token + clear cookies.
+- `GET /api/auth/me` — current user profile (requires JWT).
+- `GET /api/auth/google/start` — kicks off the Google OAuth flow, sets a CSRF `state` cookie. **Phase 7+ is admin-only**: the login page hides the button; admins can still wire the env vars and use the dashboard's "Identidades" tab to manage linked accounts.
 
 ### Admin (`/api/admin/*`, requires JWT + role)
-- Fonogramas CRUD: `/fonogramas`, `/fonogramas/:id`
-- Songs CRUD: `/songs`, `/songs/:id`
-- Users management: `/users`, `/users/:id`
-- Identity unlink (admin only): `DELETE /users/:id/identity` — removes a linked Google identity from a user so they can no longer sign in with Google.
+- Fonogramas CRUD: `GET /fonogramas`, `POST /fonogramas`, `GET /fonogramas/{id}`, `PUT /fonogramas/{id}`, `DELETE /fonogramas/{id}`
+- Songs CRUD: `GET /songs`, `POST /songs`, `PUT /songs/{id}`, `DELETE /songs/{id}`
+- Users CRUD: `GET /users`, `POST /users`, `PUT /users/{id}`, `DELETE /users/{id}`
+- Identity management: `GET /users/{id}/identities`, `DELETE /users/{id}/identity`
+- Operational: `GET /emails` (email outbox), `GET /audit` (audit log)
 
-Role hierarchy: `viewer` (read) < `editor` (write) < `admin` (delete + user management).
+Role hierarchy: `viewer` (read) < `editor` (write) < `admin` (delete + user management + identities).
+
+The `docs/PARITY.md` table inside `backend-fastapi/` is the contract between the Vue dashboard and the FastAPI service — every `apiService.<x>` call has a row.
 
 ## Deployment
 
-The repo ships two compose files:
+The repo ships three compose files:
 
-- **`docker-compose.yaml`** — local development. Builds the images, mounts the source for `db-init`, exposes the backend on `http://localhost:8000` and the frontend on `http://localhost`.
-- **`docker-compose-coolify.yaml`** — production. Used by Coolify to deploy on a server. The Google OAuth env vars are loaded from Coolify's secret store; the redirect + frontend URLs default to the production domain. Do not modify volumes, networking, or other non-essential values when changing the OAuth configuration.
+- **`docker-compose.yaml`** — **default**. Boots the FastAPI backend, the spaCy-seeded `letras.db`, and the frontend. Use for local dev **and** production (Coolify reads this file).
+- **`docker-compose-fastapi.yaml`** — Phase 1 development overlay. Same as the default compose; kept for the CI `docker-build-fastapi` job.
+- **`docker-compose-go.yaml`** — **emergency rollback**. Boots the original Go / Gin backend instead. Operators flip back via `docker compose -f docker-compose-go.yaml up -d`. See `docs/CUTOVER.md`.
+- **`docker-compose-coolify.yaml`** — Coolify production shape: named volume, secret placeholders, internal bridge network. Used by the `coolify` deployment target; defaults to FastAPI but pins the env vars Coolify needs.
 
-When changing the Google OAuth env vars, only the `environment:` block of the `backend` service needs to change in either compose file.
+When changing the Google OAuth env vars, only the `environment:` block of the `backend` / `backend-fastapi` service needs to change in whichever compose file you target.
 
 ## License
 
 See `LICENSE` (not included in this README; check the repository root).
+# retrigger ci
+<!-- CI: Tue Jul 14 22:23:24 CST 2026 -->

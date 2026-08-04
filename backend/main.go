@@ -93,6 +93,8 @@ func main() {
 			auth.POST("/login", handlers.Login)
 			auth.POST("/register", handlers.Register)
 			auth.GET("/me", middleware.RequireAuth(), handlers.Me)
+			auth.POST("/forgot", handlers.ForgotPassword)
+			auth.POST("/reset", handlers.ResetPassword)
 			auth.GET("/google/start", handlers.GoogleAuthStart)
 			auth.GET("/google/callback", handlers.GoogleAuthCallback)
 		}

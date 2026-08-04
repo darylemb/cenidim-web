@@ -136,6 +136,39 @@ export const apiService = {
     return data;
   },
 
+  /**
+   * Forgot password — sends a recovery link to the given email.
+   * Always returns ok (the backend doesn't reveal whether the email
+   * exists, to prevent user enumeration). In demo mode the link is
+   * also returned in the response body when `EMAIL_DEMO=1` is set on
+   * the backend.
+   */
+  forgotPassword: async (email: string): Promise<{ ok: true; dev_link?: string }> => {
+    const response = await fetch(`${BASE_URL}/auth/forgot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se pudo enviar el enlace');
+    return data;
+  },
+
+  /**
+   * Reset password using a one-shot token from the email link.
+   * Returns ok on success; throws the server error on 4xx.
+   */
+  resetPassword: async (token: string, newPassword: string): Promise<{ ok: true }> => {
+    const response = await fetch(`${BASE_URL}/auth/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se pudo restablecer la contraseña');
+    return data;
+  },
+
   register: async (username: string, email: string, password: string): Promise<AuthResponse> => {
     const response = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
@@ -148,10 +181,26 @@ export const apiService = {
   },
 
   getMe: async (): Promise<User | null> => {
-    const response = await fetch(`${BASE_URL}/auth/me`, {
-      headers: { ...authHeaders() },
-    });
-    if (!response.ok) return null;
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}/auth/me`, {
+        headers: { ...authHeaders() },
+      });
+    } catch (networkError) {
+      // Network failure (offline, DNS, CORS, …). Surface as an error
+      // so callers can keep their cache. Only an explicit 401/403
+      // from the server should invalidate the session.
+      throw networkError;
+    }
+    if (response.status === 401 || response.status === 403) {
+      // Server explicitly rejected the credentials.
+      return null;
+    }
+    if (!response.ok) {
+      // 5xx, rate-limit, etc — the session may still be valid; the
+      // caller should keep the cached user and retry later.
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     return response.json();
   },
 

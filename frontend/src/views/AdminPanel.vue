@@ -34,6 +34,15 @@
       </div>
       <div class="admin-table-wrap">
         <table class="admin-table">
+          <colgroup>
+            <col style="width: 84px" />
+            <col style="width: 30%" />
+            <col style="width: 22%" />
+            <col style="width: 80px" />
+            <col style="width: 110px" />
+            <col style="width: 18%" />
+            <col style="width: 170px" />
+          </colgroup>
           <thead>
             <tr>
               <SortableHeader
@@ -56,14 +65,13 @@
               <td>{{ f.editora }}</td>
               <td>
                 <div class="admin-actions">
-                  <button class="btn-secondary btn-sm" @click="openFonoForm(f)">Ver</button>
                   <button v-if="auth.isEditor" class="btn-primary btn-sm" @click="openFonoForm(f)">
                     Editar
                   </button>
                   <button
                     v-if="auth.isAdmin"
                     class="btn-danger btn-sm"
-                    @click="confirmDeleteFono(f.clave_fonograma)"
+                    @click="confirmDeleteFono(f)"
                   >
                     Eliminar
                   </button>
@@ -106,6 +114,13 @@
       </div>
       <div class="admin-table-wrap">
         <table class="admin-table">
+          <colgroup>
+            <col style="width: 70px" />
+            <col style="width: 40%" />
+            <col style="width: 110px" />
+            <col style="width: 22%" />
+            <col style="width: 170px" />
+          </colgroup>
           <thead>
             <tr>
               <SortableHeader
@@ -126,14 +141,13 @@
               <td>{{ s.clasificacion }}</td>
               <td>
                 <div class="admin-actions">
-                  <button class="btn-secondary btn-sm" @click="openSongForm(s)">Ver</button>
                   <button v-if="auth.isEditor" class="btn-primary btn-sm" @click="openSongForm(s)">
                     Editar
                   </button>
                   <button
                     v-if="auth.isAdmin"
                     class="btn-danger btn-sm"
-                    @click="confirmDeleteSong(s.id)"
+                    @click="confirmDeleteSong(s)"
                   >
                     Eliminar
                   </button>
@@ -174,6 +188,13 @@
       </div>
       <div class="admin-table-wrap">
         <table class="admin-table">
+          <colgroup>
+            <col style="width: 70px" />
+            <col style="width: 25%" />
+            <col style="width: 35%" />
+            <col style="width: 100px" />
+            <col style="width: 170px" />
+          </colgroup>
           <thead>
             <tr>
               <th>ID</th>
@@ -205,11 +226,15 @@
       </div>
     </div>
 
-    <!-- Confirm Modal -->
+    <!-- Confirm Modal (delete) -->
     <ConfirmModal
       v-if="confirmTarget"
+      :title="confirmTitle"
       :message="confirmMessage"
       :loading="confirmLoading"
+      confirm-label="Eliminar"
+      loading-label="Eliminando..."
+      variant="danger"
       @confirm="executeDelete"
       @cancel="confirmTarget = null"
     />
@@ -248,8 +273,12 @@ const songSortKey = ref('');
 const songSortDir = ref<'asc' | 'desc'>('asc');
 const hasMoreFonos = ref(false);
 const hasMoreSongs = ref(false);
-const confirmTarget = ref<{ type: 'fonograma' | 'song' | 'user'; id: number } | null>(null);
+const confirmTarget = ref<
+  | { type: 'fonograma' | 'song' | 'user'; id: number; label?: string }
+  | null
+>(null);
 const confirmMessage = ref('');
+const confirmTitle = ref('');
 const confirmLoading = ref(false);
 
 const showFormModal = ref(false);
@@ -365,19 +394,27 @@ function handleFormSubmitted() {
   else if (formType.value === 'user') loadUsers();
 }
 
-function confirmDeleteFono(id: number) {
-  confirmTarget.value = { type: 'fonograma', id };
-  confirmMessage.value = '¿Eliminar este fonograma?';
+function confirmDeleteFono(f: Fonograma) {
+  confirmTarget.value = { type: 'fonograma', id: f.clave_fonograma };
+  confirmTitle.value = 'Eliminar fonograma';
+  const titulo = f.titulo?.trim() || 'sin título';
+  confirmMessage.value = `Vas a eliminar el fonograma clave ${f.clave_fonograma} — "${titulo}". Esta acción no se puede deshacer.`;
 }
 
-function confirmDeleteSong(id: number) {
-  confirmTarget.value = { type: 'song', id };
-  confirmMessage.value = '¿Eliminar esta canción?';
+function confirmDeleteSong(s: Song) {
+  confirmTarget.value = { type: 'song', id: s.id };
+  confirmTitle.value = 'Eliminar canción';
+  const title = s.title?.trim() || 'sin título';
+  confirmMessage.value = `Vas a eliminar la canción "${title}" (id ${s.id}). Esta acción no se puede deshacer.`;
 }
 
 function confirmDeleteUser(id: number) {
+  const user = users.value.find((u) => u.id === id);
   confirmTarget.value = { type: 'user', id };
-  confirmMessage.value = '¿Eliminar este usuario?';
+  confirmTitle.value = 'Eliminar usuario';
+  confirmMessage.value = user
+    ? `Vas a eliminar al usuario "${user.username}" (${user.email}). Perderá acceso al panel. Esta acción no se puede deshacer.`
+    : 'Vas a eliminar este usuario. Perderá acceso al panel. Esta acción no se puede deshacer.';
 }
 
 async function executeDelete() {
@@ -390,7 +427,7 @@ async function executeDelete() {
     } else if (confirmTarget.value.type === 'song') {
       await apiService.adminDeleteSong(confirmTarget.value.id);
       loadSongs();
-    } else {
+    } else if (confirmTarget.value.type === 'user') {
       await apiService.adminDeleteUser(confirmTarget.value.id);
       loadUsers();
     }

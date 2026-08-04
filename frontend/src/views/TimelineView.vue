@@ -134,7 +134,13 @@ function setupObserver() {
 }
 
 function getSongsInYear(year: string): Song[] {
-  return (timeline.value[year] ?? []).filter((s) => s.year && s.year !== 's/d');
+  // The backend keys ``timeline`` by year, so the per-song ``year``
+  // field no longer exists. Returning the dict slice as-is would
+  // include the ``s/d`` bucket (which the backend groups under a
+  // single key), so we filter the title-bearing entries only.
+  return (timeline.value[year] ?? []).filter(
+    (s) => s.title && s.title.length > 0
+  );
 }
 
 async function onSongSelect(event: Event, year: string) {

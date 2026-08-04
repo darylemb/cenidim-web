@@ -1,0 +1,64 @@
+# Rollback compose for the Go / Gin backend.
+#
+# Phase 7 keeps this file as the emergency rollback target so
+# operators can flip back to the previous stack without rebuilding
+# images. See docs/CUTOVER.md for the procedure.
+#
+# Use it via:
+#   docker compose -f docker-compose-go.yaml up -d
+#
+# The Go backend (backend/ + backend/Dockerfile) is frozen at commit
+# ``2aab765`` (Phase 0 delivery).
+
+services:
+  db-init:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.init
+      args:
+        - ADMIN_PASS=admin123
+    environment:
+      - ADMIN_PASS=admin123
+    volumes:
+      - ./backend/data:/data
+      - ./LetrasTXT:/app/LetrasTXT:ro
+      - ./db_fonografia.csv:/app/db_fonografia.csv:ro
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        - ADMIN_PASS=admin123
+    ports:
+      - "8000:8080"
+    environment:
+      - DB_PATH=/data/letras.db
+      - JWT_SECRET=cenidim-dev-secret-2024
+      - GIN_MODE=release
+      - GOOGLE_CLIENT_ID=
+      - GOOGLE_CLIENT_SECRET=
+      - GOOGLE_REDIRECT_URL=http://localhost:8000/api/auth/google/callback
+      - FRONTEND_BASE_URL=http://localhost
+    volumes:
+      - ./backend/data:/data
+    healthcheck:
+      test: ["CMD", "./healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:8080"
+    restart: unless-stopped
+    depends_on:
+      - backend

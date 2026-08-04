@@ -322,16 +322,14 @@ const doughnutChartOptions = {
 // ── Year Line Chart ──────────────────────────────────────────
 const yearLineChartData = computed(() => {
   const byYear = stats.value?.songs_by_year ?? {};
-  const sdCount = byYear['s/d'] ?? 0;
+  // s/d (no year) is surfaced via the "Sin año" KPI strip instead of
+  // cluttering the time-axis. Keep the count available for the parent
+  // template's summary line.
   const validYears = Object.keys(byYear)
     .filter((y) => y !== 's/d')
     .sort();
   const labels = [...validYears];
   const data = validYears.map((y) => byYear[y]);
-  if (sdCount > 0) {
-    labels.push('s/d');
-    data.push(sdCount);
-  }
   return {
     labels,
     datasets: [

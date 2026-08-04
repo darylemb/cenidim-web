@@ -3,7 +3,7 @@
     <div class="admin-form-modal modal-content" @click.stop>
       <div class="modal-header">
         <h3>{{ modalTitle }}</h3>
-        <button class="close-btn" @click="$emit('cancel')" aria-label="Cerrar">×</button>
+        <button class="close-btn" @click="requestCancel" aria-label="Cerrar">×</button>
       </div>
 
       <div class="modal-body">
@@ -32,62 +32,85 @@
               <label for="titulo">Título</label>
               <input id="titulo" v-model="form.titulo" type="text" required />
             </div>
-            <div class="form-group">
-              <label for="subtitulo">Subtítulo</label>
-              <input id="subtitulo" v-model="form.subtitulo" type="text" />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="interprete_principal">Intérprete Principal</label>
-                <input id="interprete_principal" v-model="form.interprete_principal" type="text" />
+
+            <details class="form-details">
+              <summary>Detalles adicionales</summary>
+              <div class="form-details-body">
+                <div class="form-group">
+                  <label for="subtitulo">Subtítulo</label>
+                  <input id="subtitulo" v-model="form.subtitulo" type="text" />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="interprete_principal">Intérprete Principal</label>
+                    <input
+                      id="interprete_principal"
+                      v-model="form.interprete_principal"
+                      type="text"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="pais_edicion">País</label>
+                    <input id="pais_edicion" v-model="form.pais_edicion" type="text" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="editora">Editora</label>
+                  <input id="editora" v-model="form.editora" type="text" />
+                </div>
+                <div class="form-group">
+                  <label for="interpretes_invitados">Intérpretes Invitados</label>
+                  <input
+                    id="interpretes_invitados"
+                    v-model="form.interpretes_invitados"
+                    type="text"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="soporte_fisico">Soporte Físico</label>
+                  <input id="soporte_fisico" v-model="form.soporte_fisico" type="text" />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="numero_catalogo">Número Catálogo</label>
+                    <input
+                      id="numero_catalogo"
+                      v-model="form.numero_catalogo"
+                      type="text"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="ciudad_edicion">Ciudad Edición</label>
+                    <input id="ciudad_edicion" v-model="form.ciudad_edicion" type="text" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="pistas">Pistas</label>
+                  <textarea id="pistas" v-model="form.pistas" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="observaciones">Observaciones</label>
+                  <textarea id="observaciones" v-model="form.observaciones" rows="2"></textarea>
+                </div>
               </div>
-              <div class="form-group">
-                <label for="pais_edicion">País</label>
-                <input id="pais_edicion" v-model="form.pais_edicion" type="text" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="editora">Editora</label>
-              <input id="editora" v-model="form.editora" type="text" />
-            </div>
-            <div class="form-group">
-              <label for="interpretes_invitados">Intérpretes Invitados</label>
-              <input id="interpretes_invitados" v-model="form.interpretes_invitados" type="text" />
-            </div>
-            <div class="form-group">
-              <label for="soporte_fisico">Soporte Físico</label>
-              <input id="soporte_fisico" v-model="form.soporte_fisico" type="text" />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="numero_catalogo">Número Catálogo</label>
-                <input id="numero_catalogo" v-model="form.numero_catalogo" type="text" />
-              </div>
-              <div class="form-group">
-                <label for="ciudad_edicion">Ciudad Edición</label>
-                <input id="ciudad_edicion" v-model="form.ciudad_edicion" type="text" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="pistas">Pistas</label>
-              <textarea id="pistas" v-model="form.pistas" rows="2"></textarea>
-            </div>
-            <div class="form-group">
-              <label for="observaciones">Observaciones</label>
-              <textarea id="observaciones" v-model="form.observaciones" rows="2"></textarea>
-            </div>
+            </details>
           </template>
 
           <template v-else-if="formType === 'song'">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="id">ID</label>
-                <input id="id" v-model="form.id" type="number" readonly class="input-readonly" />
-              </div>
-              <div class="form-group">
-                <label for="fonograma_id">Fonograma ID</label>
-                <input id="fonograma_id" v-model="form.fonograma_id" type="number" required />
-              </div>
+            <div class="form-context">
+              <span v-if="isEditing"><strong>ID:</strong> {{ form.id }}</span>
+            </div>
+            <div class="form-group">
+              <label for="fonograma_id">Fonograma</label>
+              <input
+                id="fonograma_id"
+                v-model="form.fonograma_id"
+                type="number"
+                required
+                :readonly="isEditing"
+                :class="{ 'input-readonly': isEditing }"
+                :title="isEditing ? 'Inmutable: el fonograma no se puede cambiar al editar' : ''"
+              />
             </div>
             <div class="form-group">
               <label for="title">Título</label>
@@ -95,63 +118,135 @@
             </div>
             <div class="form-group">
               <label for="album">Álbum</label>
-              <input id="album" v-model="form.album" type="text" />
+              <input
+                id="album"
+                v-model="form.album"
+                type="text"
+                readonly
+                class="input-readonly"
+                title="Derivado del fonograma asociado"
+              />
             </div>
             <div class="form-group">
-              <label for="subtitulo">Subtítulo</label>
-              <input id="subtitulo" v-model="form.subtitulo" type="text" />
+              <label for="lyrics">Letra</label>
+              <textarea id="lyrics" v-model="form.lyrics" rows="6" required></textarea>
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="interprete_principal">Intérprete Principal</label>
-                <input id="interprete_principal" v-model="form.interprete_principal" type="text" />
+
+            <details class="form-details">
+              <summary>Detalles adicionales</summary>
+              <div class="form-details-body">
+                <div class="form-group">
+                  <label for="subtitulo">Subtítulo</label>
+                  <input
+                    id="subtitulo_song"
+                    v-model="form.subtitulo"
+                    type="text"
+                    readonly
+                    class="input-readonly"
+                    title="Derivado del fonograma asociado"
+                  />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="interprete_principal">Intérprete Principal</label>
+                    <input
+                      id="interprete_principal_song"
+                      v-model="form.interprete_principal"
+                      type="text"
+                      readonly
+                      class="input-readonly"
+                      title="Derivado del fonograma asociado"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="year">Año</label>
+                    <input
+                      id="year_song"
+                      v-model="form.year"
+                      type="text"
+                      readonly
+                      class="input-readonly"
+                      title="Derivado del fonograma asociado"
+                    />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="pais_edicion">País</label>
+                    <input
+                      id="pais_edicion_song"
+                      v-model="form.pais_edicion"
+                      type="text"
+                      readonly
+                      class="input-readonly"
+                      title="Derivado del fonograma asociado"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="editora">Editora</label>
+                    <input
+                      id="editora_song"
+                      v-model="form.editora"
+                      type="text"
+                      readonly
+                      class="input-readonly"
+                      title="Derivado del fonograma asociado"
+                    />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="clasificacion">Clasificación</label>
+                  <select id="clasificacion" v-model="form.clasificacion">
+                    <option value="">Sin clasificación</option>
+                    <option value="ESPAÑOL_ESTANDAR">Español Estándar</option>
+                    <option value="ESPAÑOL_REGIONAL">Español Regional</option>
+                    <option value="LENGUA_INDIGENA">Lengua Indígena</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="interpretes_invitados">Intérpretes Invitados</label>
+                  <input
+                    id="interpretes_invitados_song"
+                    v-model="form.interpretes_invitados"
+                    type="text"
+                    readonly
+                    class="input-readonly"
+                    title="Derivado del fonograma asociado"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="filename">Nombre Archivo</label>
+                  <input id="filename" v-model="form.filename" type="text" />
+                </div>
+                <div class="form-group">
+                  <label for="pistas">Pistas</label>
+                  <textarea
+                    id="pistas_song"
+                    v-model="form.pistas"
+                    rows="2"
+                    readonly
+                    class="input-readonly"
+                    title="Derivado del fonograma asociado"
+                  ></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="observaciones">Observaciones</label>
+                  <textarea
+                    id="observaciones_song"
+                    v-model="form.observaciones"
+                    rows="2"
+                    readonly
+                    class="input-readonly"
+                    title="Derivado del fonograma asociado"
+                  ></textarea>
+                </div>
               </div>
-              <div class="form-group">
-                <label for="year">Año</label>
-                <input id="year" v-model="form.year" type="text" />
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="pais_edicion">País</label>
-                <input id="pais_edicion" v-model="form.pais_edicion" type="text" />
-              </div>
-              <div class="form-group">
-                <label for="editora">Editora</label>
-                <input id="editora" v-model="form.editora" type="text" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="clasificacion">Clasificación</label>
-              <select id="clasificacion" v-model="form.clasificacion">
-                <option value="">Sin clasificación</option>
-                <option value="ESPAÑOL_ESTANDAR">Español Estándar</option>
-                <option value="ESPAÑOL_REGIONAL">Español Regional</option>
-                <option value="LENGUA_INDIGENA">Lengua Indígena</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="interpretes_invitados">Intérpretes Invitados</label>
-              <input id="interpretes_invitados" v-model="form.interpretes_invitados" type="text" />
-            </div>
-            <div class="form-group">
-              <label for="filename">Nombre Archivo</label>
-              <input id="filename" v-model="form.filename" type="text" />
-            </div>
-            <div class="form-group">
-              <label for="pistas">Pistas</label>
-              <textarea id="pistas" v-model="form.pistas" rows="2"></textarea>
-            </div>
-            <div class="form-group">
-              <label for="observaciones">Observaciones</label>
-              <textarea id="observaciones" v-model="form.observaciones" rows="2"></textarea>
-            </div>
+            </details>
           </template>
 
           <template v-else-if="formType === 'user'">
-            <div class="form-group">
-              <label for="id">ID</label>
-              <input id="id" v-model="form.id" type="number" readonly class="input-readonly" />
+            <div v-if="isEditing" class="form-context">
+              <span><strong>ID:</strong> {{ form.id }}</span>
             </div>
             <div class="form-group">
               <label for="username">Usuario</label>
@@ -174,8 +269,8 @@
             </div>
             <div class="form-group">
               <label for="role">Rol</label>
-              <select id="role" v-model="form.role" required>
-                <option value="viewer">Viewer</option>
+              <select id="role" v-model="form.role">
+                <option value="viewer">Viewer (predeterminado)</option>
                 <option value="editor">Editor</option>
                 <option value="admin">Admin</option>
               </select>
@@ -183,7 +278,7 @@
           </template>
 
           <div class="form-actions">
-            <button type="button" class="btn-secondary" @click="$emit('cancel')" :disabled="loading">
+            <button type="button" class="btn-secondary" @click="requestCancel" :disabled="loading">
               Cancelar
             </button>
             <button type="submit" class="btn-primary" :disabled="loading">
@@ -193,6 +288,30 @@
         </form>
       </div>
     </div>
+
+    <ConfirmModal
+      v-if="pendingCancel"
+      title="Cambios sin guardar"
+      :message="dirtyCancelMessage"
+      confirm-label="Salir sin guardar"
+      cancel-label="Seguir editando"
+      variant="warning"
+      :loading="false"
+      @confirm="confirmCancel"
+      @cancel="pendingCancel = false"
+    />
+
+    <ConfirmModal
+      v-if="pendingSubmit"
+      :title="submitTitle"
+      :message="submitMessage"
+      confirm-label="Sí, guardar"
+      cancel-label="Volver"
+      variant="primary"
+      :loading="false"
+      @confirm="confirmSubmit"
+      @cancel="pendingSubmit = false"
+    />
   </div>
 </template>
 
@@ -200,6 +319,7 @@
 import { ref, computed, watch } from 'vue';
 import type { Fonograma, Song, User } from '@/types';
 import { apiService } from '@/services/api';
+import ConfirmModal from './ConfirmModal.vue';
 
 type FormType = 'fonograma' | 'song' | 'user';
 
@@ -215,17 +335,180 @@ const emit = defineEmits<{
 
 const loading = ref(false);
 const error = ref('');
+const pendingCancel = ref(false);
+const pendingSubmit = ref(false);
+const originalSnapshot = ref<string>('');
 
 const isEditing = computed(() => props.item !== null);
 
-const modalTitle = computed(() => {
-  const action = isEditing.value ? 'Editar' : 'Agregar';
+const typeLabel = computed(() => {
   const typeMap: Record<FormType, string> = {
     fonograma: 'Fonograma',
     song: 'Canción',
     user: 'Usuario',
   };
-  return `${action} ${typeMap[props.formType]}`;
+  return typeMap[props.formType];
+});
+
+const modalTitle = computed(() => {
+  const action = isEditing.value ? 'Editar' : 'Agregar';
+  return `${action} ${typeLabel.value}`;
+});
+
+const isDirty = computed(() => {
+  if (!originalSnapshot.value) return false;
+  // JSON.stringify is fine for the flat object shape these forms
+  // produce (no functions, no cycles). We exclude ``password`` from
+  // the user form so a freshly-typed-but-unsubmitted password doesn't
+  // keep the form "dirty" forever.
+  if (props.formType === 'user') {
+    const { password: _pw, ...rest } = form.value as Record<string, any>;
+    return JSON.stringify(rest) !== originalSnapshot.value;
+  }
+  return JSON.stringify(form.value) !== originalSnapshot.value;
+});
+
+function snapshotForm(): string {
+  if (props.formType === 'user') {
+    const { password: _pw, ...rest } = form.value as Record<string, any>;
+    return JSON.stringify(rest);
+  }
+  return JSON.stringify(form.value);
+}
+
+// Human-readable label per field, per form type. Used to describe
+// the change in the confirm dialogs so the operator sees *what* is
+// about to be written, not just "the form".
+const fieldLabels: Record<FormType, Record<string, string>> = {
+  fonograma: {
+    clave_fonograma: 'Clave',
+    titulo: 'Título',
+    subtitulo: 'Subtítulo',
+    interprete_principal: 'Intérprete principal',
+    interpretes_invitados: 'Intérpretes invitados',
+    interprete_participante: 'Intérprete participante',
+    soporte_fisico: 'Soporte físico',
+    editora: 'Editora',
+    numero_catalogo: 'N° Catálogo',
+    ciudad_edicion: 'Ciudad de edición',
+    pais_edicion: 'País de edición',
+    anio: 'Año',
+    pistas: 'Pistas',
+    observaciones: 'Observaciones',
+  },
+  song: {
+    id: 'ID',
+    fonograma_id: 'Fonograma',
+    title: 'Título',
+    lyrics: 'Letra',
+    filename: 'Nombre de archivo',
+    clasificacion: 'Clasificación',
+    album: 'Álbum',
+    subtitulo: 'Subtítulo',
+    interprete_principal: 'Intérprete principal',
+    interpretes_invitados: 'Intérpretes invitados',
+    interprete_participante: 'Intérprete participante',
+    soporte_fisico: 'Soporte físico',
+    editora: 'Editora',
+    numero_catalogo: 'N° Catálogo',
+    ciudad_edicion: 'Ciudad',
+    pais_edicion: 'País',
+    year: 'Año',
+    pistas: 'Pistas',
+    observaciones: 'Observaciones',
+  },
+  user: {
+    id: 'ID',
+    username: 'Usuario',
+    email: 'Correo',
+    role: 'Rol',
+    // password is intentionally omitted — never show it back to the operator
+  },
+};
+
+function currentComparableForm(): Record<string, any> {
+  if (props.formType === 'user') {
+    const { password: _pw, ...rest } = form.value as Record<string, any>;
+    return rest;
+  }
+  return { ...form.value };
+}
+
+const dirtyFields = computed<Array<{ key: string; label: string; before: unknown; after: unknown }>>(() => {
+  if (!isDirty.value || !originalSnapshot.value) return [];
+  let original: Record<string, unknown>;
+  try {
+    original = JSON.parse(originalSnapshot.value);
+  } catch {
+    return [];
+  }
+  const labels = fieldLabels[props.formType] ?? {};
+  const current = currentComparableForm();
+  return Object.keys(current)
+    .filter((key) => JSON.stringify(current[key]) !== JSON.stringify(original?.[key]))
+    .map((key) => ({
+      key,
+      label: labels[key] ?? key,
+      before: original?.[key],
+      after: current[key],
+    }));
+});
+
+function formatDirtyFields(max = 3): string {
+  const fields = dirtyFields.value;
+  if (fields.length === 0) return '';
+  if (fields.length === 1) return `1 campo: ${fields[0].label}`;
+  const shown = fields.slice(0, max).map((f) => f.label).join(', ');
+  const rest = fields.length - max;
+  return rest > 0 ? `${fields.length} campos: ${shown} y ${rest} más` : `${fields.length} campos: ${shown}`;
+}
+
+function describeItem(): string {
+  // For create: the form has no `id` yet, so pull whatever the user
+  // typed. For edit: prefer the original item so the operator sees
+  // the canonical identifier (clave, id, email) even if they cleared
+  // it from the form.
+  if (props.formType === 'fonograma') {
+    const f = (props.item as Fonograma | null) ?? (form.value as Record<string, any>);
+    const clave = f?.clave_fonograma ?? 0;
+    const titulo = f?.titulo?.trim() || 'sin título';
+    return `el fonograma clave ${clave} — "${titulo}"`;
+  }
+  if (props.formType === 'song') {
+    const s = (props.item as Song | null) ?? (form.value as Record<string, any>);
+    const title = s?.title?.trim() || 'sin título';
+    return `la canción "${title}"`;
+  }
+  if (props.formType === 'user') {
+    const u = (props.item as User | null) ?? (form.value as Record<string, any>);
+    const username = u?.username?.trim() || 'sin usuario';
+    const email = u?.email ? ` (${u.email})` : '';
+    return `el usuario "${username}"${email}`;
+  }
+  return 'el registro';
+}
+
+const submitTitle = computed(() =>
+  isEditing.value ? `Guardar ${typeLabel.value}` : `Crear ${typeLabel.value}`
+);
+
+const submitMessage = computed(() => {
+  const desc = describeItem();
+  if (isEditing.value) {
+    const fields = formatDirtyFields();
+    return fields
+      ? `Vas a actualizar ${desc}.\n\nCampos modificados: ${fields}.`
+      : `Vas a actualizar ${desc}. ¿Confirmas los cambios?`;
+  }
+  return `Vas a crear ${desc}. ¿Confirmas?`;
+});
+
+const dirtyCancelMessage = computed(() => {
+  const fields = formatDirtyFields();
+  const base = isEditing.value
+    ? `Tienes cambios sin guardar en ${describeItem()}.`
+    : `Tienes cambios sin guardar en este ${typeLabel.value.toLowerCase()}.`;
+  return fields ? `${base} (${fields}) ¿Salir sin guardar?` : `${base} ¿Salir sin guardar?`;
 });
 
 const defaultFonograma = (): Record<string, any> => ({
@@ -249,6 +532,7 @@ const defaultSong = (): Record<string, any> => ({
   id: 0,
   fonograma_id: 0,
   title: '',
+  lyrics: '',
   album: '',
   subtitulo: '',
   interprete_principal: '',
@@ -274,13 +558,14 @@ const defaultUser = (): Record<string, any> => ({
   role: 'viewer',
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const form = ref<Record<string, any>>({});
 
 watch(
   () => props.item,
   (newItem) => {
     error.value = '';
+    pendingCancel.value = false;
+    pendingSubmit.value = false;
     if (newItem) {
       form.value = { ...newItem };
       if (props.formType === 'user') {
@@ -291,11 +576,36 @@ watch(
       else if (props.formType === 'song') form.value = defaultSong();
       else form.value = defaultUser();
     }
+    // Snapshot the freshly-populated form so isDirty can detect
+    // any subsequent user edits.
+    originalSnapshot.value = snapshotForm();
   },
   { immediate: true }
 );
 
+function requestCancel() {
+  if (isDirty.value) {
+    pendingCancel.value = true;
+  } else {
+    emit('cancel');
+  }
+}
+
+function confirmCancel() {
+  pendingCancel.value = false;
+  emit('cancel');
+}
+
 async function handleSubmit() {
+  // Confirm before doing anything destructive-ish: a no-op create is
+  // cheap to undo (just delete the row) but an edit overwrites real
+  // data in the catalog.
+  if (pendingSubmit.value) return;
+  pendingSubmit.value = true;
+}
+
+async function confirmSubmit() {
+  pendingSubmit.value = false;
   error.value = '';
   loading.value = true;
 
@@ -411,6 +721,79 @@ async function handleSubmit() {
 .input-readonly {
   background: var(--color-bg-soft);
   color: var(--color-text-muted);
+}
+
+.form-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.form-context strong {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.form-details {
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-soft);
+}
+
+.form-details > summary {
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  list-style: none;
+  user-select: none;
+  min-height: var(--tap-target-min);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  transition: var(--transition-fast);
+}
+
+.form-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.form-details > summary::before {
+  content: '▸';
+  font-size: 0.75em;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.form-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.form-details > summary:hover {
+  color: var(--color-brand);
+}
+
+.form-details > summary:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.form-details-body {
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-top: var(--hairline-soft);
+}
+
+.form-details-body .form-group:last-child {
+  margin-bottom: 0;
 }
 
 .form-actions {
