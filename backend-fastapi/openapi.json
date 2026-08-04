@@ -271,7 +271,7 @@
           "public"
         ],
         "summary": "Search Songs",
-        "description": "Search songs with optional filters.\n\nTheme/classification are exact-match after lowercasing so case\nvariants collapse into a single bucket. Year range is bounded\nby ``year_from <= year_to``; the helper raises 400 if inverted.\n\nThe ``q`` parameter is also exposed as ``query`` so the existing\nVue dashboard (which sends ``?query=...``) keeps working\nwithout a frontend change.",
+        "description": "Search songs with optional filters.\n\nTheme/classification are exact-match after lowercasing so case\nvariants collapse into a single bucket. Year range is bounded\nby ``year_from <= year_to``; the helper raises 400 if inverted.\n``has_lyrics`` restricts to rows whose ``lyrics`` is non-empty.\n\nThe ``q`` parameter is also exposed as ``query`` so the existing\nVue dashboard (which sends ``?query=...``) keeps working\nwithout a frontend change.",
         "operationId": "search_songs_api_search_get",
         "parameters": [
           {
@@ -430,6 +430,16 @@
                 }
               ],
               "title": "Album"
+            }
+          },
+          {
+            "name": "has_lyrics",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Has Lyrics"
             }
           }
         ],

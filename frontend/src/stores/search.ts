@@ -9,6 +9,7 @@ export const useSearchStore = defineStore('search', () => {
   const clasificacion = ref('');
   const orderBy = ref<string>('id');
   const orderDir = ref<'asc' | 'desc'>('asc');
+  const hasLyrics = ref(false);
   const results = ref<Song[]>([]);
   const total = ref(0);
   const page = ref(1);
@@ -26,13 +27,15 @@ export const useSearchStore = defineStore('search', () => {
     targetLimit = 20,
     targetClasificacion = '',
     targetOrderBy: string = 'id',
-    targetOrderDir: 'asc' | 'desc' = 'asc'
+    targetOrderDir: 'asc' | 'desc' = 'asc',
+    targetHasLyrics = false
   ) {
     loading.value = true;
     page.value = targetPage;
     limit.value = targetLimit;
     orderBy.value = targetOrderBy as typeof orderBy.value;
     orderDir.value = targetOrderDir as typeof orderDir.value;
+    hasLyrics.value = targetHasLyrics;
 
     if (searchTerm !== undefined) query.value = searchTerm;
     if (searchField !== undefined) field.value = searchField as typeof field.value;
@@ -46,7 +49,8 @@ export const useSearchStore = defineStore('search', () => {
         targetLimit,
         clasificacion.value,
         targetOrderBy,
-        targetOrderDir
+        targetOrderDir,
+        targetHasLyrics
       );
       results.value = data.results ?? [];
       total.value = data.total ?? 0;
@@ -64,7 +68,8 @@ export const useSearchStore = defineStore('search', () => {
     clasificacion.value = '';
     orderBy.value = 'id';
     orderDir.value = 'asc';
-    performSearch('', 'all', 1, limit.value, '', 'id', 'asc');
+    hasLyrics.value = false;
+    performSearch('', 'all', 1, limit.value, '', 'id', 'asc', false);
   }
 
   return {
@@ -73,6 +78,7 @@ export const useSearchStore = defineStore('search', () => {
     clasificacion,
     orderBy,
     orderDir,
+    hasLyrics,
     results,
     total,
     page,

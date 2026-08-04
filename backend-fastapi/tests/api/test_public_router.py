@@ -480,6 +480,27 @@ def test_extract_words_keeps_real_lemma_homonyms():
 
 
 @pytest.mark.asyncio
+async def test_search_has_lyrics_filter(app_client, db_session):
+    await _seed(db_session)
+    # Tracks A/B/C have lyrics; Track D has lyrics=None.
+    resp = await app_client.get("/api/search", params={"has_lyrics": "true"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 3
+    assert all(r["lyrics"] for r in body["results"])
+
+    # Combined with a query: only matching rows with lyrics.
+    combo = await app_client.get(
+        "/api/search", params={"query": "quick", "field": "lyrics", "has_lyrics": "true"}
+    )
+    assert combo.json()["total"] == 1  # Track C
+
+    # Without the flag the full set is returned.
+    all_rows = await app_client.get("/api/search")
+    assert all_rows.json()["total"] == 4
+
+
+@pytest.mark.asyncio
 async def test_search_order_by_extra_columns(app_client, db_session):
     await _seed(db_session)
     # Interprete principal is a fonograma-only column (joined). Ordering

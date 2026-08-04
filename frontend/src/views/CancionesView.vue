@@ -57,6 +57,16 @@
           <option value="desc">Descendente</option>
         </select>
       </label>
+
+      <label class="canciones__check-wrap">
+        <input
+          v-model="localHasLyrics"
+          type="checkbox"
+          class="canciones__check"
+          @change="onHasLyricsChange"
+        />
+        <span class="canciones__check-label">Solo con letra</span>
+      </label>
     </section>
 
     <div class="results-table-container">
@@ -263,6 +273,7 @@
  * "Tema: ..." value from each LetrasTXT/*.txt file (no inference).
  */
 import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { useSearchStore } from '@/stores/search';
 import { apiService } from '@/services/api';
 import type { Song } from '@/types';
@@ -272,6 +283,7 @@ import EmptyState from '@/components/EmptyState.vue';
 import { storeToRefs } from 'pinia';
 
 const search = useSearchStore();
+const route = useRoute();
 const { results, total, page, limit, loading } = storeToRefs(search);
 
 // Local view state — fully self-contained.
@@ -279,6 +291,7 @@ const localQuery = ref('');
 const localClasificacion = ref('');
 const localOrderBy = ref<string>('id');
 const localOrderDir = ref<'asc' | 'desc'>('asc');
+const localHasLyrics = ref(false);
 const selectedSongId = ref<number | null>(null);
 const selectedSongData = ref<Song | null>(null);
 const selectedLyrics = ref('');
@@ -324,6 +337,7 @@ function onSortCol(key: string) {
     localClasificacion.value,
     localOrderBy.value,
     localOrderDir.value,
+    localHasLyrics.value,
   );
 }
 
@@ -353,10 +367,16 @@ function runSearch() {
     localClasificacion.value,
     localOrderBy.value,
     localOrderDir.value,
+    localHasLyrics.value,
   );
 }
 
 onMounted(() => {
+  // Support ?has_lyrics=1 deep-link (e.g. the dashboard's "Con letra"
+  // KPI links here).
+  if (route.query.has_lyrics === '1' || route.query.has_lyrics === 'true') {
+    localHasLyrics.value = true;
+  }
   runSearch();
 });
 
@@ -369,6 +389,7 @@ function onQueryChange() {
     localClasificacion.value,
     localOrderBy.value,
     localOrderDir.value,
+    localHasLyrics.value,
   );
 }
 
@@ -381,6 +402,7 @@ function onClasificacionChange() {
     localClasificacion.value,
     localOrderBy.value,
     localOrderDir.value,
+    localHasLyrics.value,
   );
 }
 
@@ -393,6 +415,7 @@ function onOrderByChange() {
     localClasificacion.value,
     localOrderBy.value,
     localOrderDir.value,
+    localHasLyrics.value,
   );
 }
 
@@ -405,6 +428,20 @@ function onOrderDirChange() {
     localClasificacion.value,
     localOrderBy.value,
     localOrderDir.value,
+    localHasLyrics.value,
+  );
+}
+
+function onHasLyricsChange() {
+  search.performSearch(
+    localQuery.value,
+    'all',
+    1,
+    limit.value,
+    localClasificacion.value,
+    localOrderBy.value,
+    localOrderDir.value,
+    localHasLyrics.value,
   );
 }
 
@@ -418,6 +455,7 @@ function onLimitChange(e: Event) {
     localClasificacion.value,
     localOrderBy.value,
     localOrderDir.value,
+    localHasLyrics.value,
   );
 }
 
@@ -430,6 +468,7 @@ function changePage(newPage: number) {
     localClasificacion.value,
     localOrderBy.value,
     localOrderDir.value,
+    localHasLyrics.value,
   );
 }
 
@@ -605,5 +644,28 @@ function badgeClass(clas: string): string {
   margin-left: 4px;
   font-size: 0.7em;
   color: var(--color-brand);
+}
+
+.canciones__check-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target-min);
+  cursor: pointer;
+  user-select: none;
+}
+
+.canciones__check {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-brand);
+  cursor: pointer;
+}
+
+.canciones__check-label {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  white-space: nowrap;
 }
 </style>
