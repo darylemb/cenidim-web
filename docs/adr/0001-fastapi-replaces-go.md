@@ -1,7 +1,7 @@
 # ADR 0001: FastAPI replaces Go as the primary backend
 
-- **Status:** Accepted (Phase 7 cut-over)
-- **Date:** 2026-07-13
+- **Status:** Accepted — Phase 7 cut-over landed; Phase 9 retired the Go tree
+- **Date:** 2026-07-13 (updated 2026-08-03)
 - **Authors:** @darylemb
 
 ## Context
@@ -80,15 +80,9 @@ at the FastAPI service.
 
 ## Rollback
 
-If the cut-over fails, revert with:
-
-```bash
-docker compose down
-docker compose -f docker-compose-go.yaml up -d
-```
-
-The Go stack is frozen at commit `2aab765` (Phase 0) so the
-rollback has a deterministic image.
+The Go rollback was retired in Phase 9: `docker-compose-go.yaml` was
+removed. The frozen Go stack still exists at commit `2aab765` in git
+history if an emergency rebuild is ever needed.
 
 ## Phases
 
@@ -100,10 +94,8 @@ rollback has a deterministic image.
 | 4 | `feature/fastapi-backend` | Merged | Frontend parity + OpenAPI drift guard |
 | 5 | `feature/fastapi-backend` | Merged | uvicorn smoke test + CI + scripts/smoke.sh |
 | 6 | `feature/fastapi-backend` | Merged | Alembic + metrics + structured logging |
-| 7 | `feature/fastapi-backend` | **This PR** | Cut-over: docker-compose points at FastAPI |
-
-After Phase 7 lands, Phase 8 (post-cutover) retires the Go tree
-in a follow-up PR.
+| 7 | `feature/fastapi-backend` | **Cut-over** | docker-compose points at FastAPI |
+| 9 | `sandbox` | **Done** | Retired `backend/` tree, Go rollback compose + Go CI job; db build ported to Python |
 
 ## References
 

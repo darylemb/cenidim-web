@@ -1,17 +1,15 @@
-# Coolify production stack — Phase 7 cut-over.
+# Coolify production stack — Phase 9 (Go backend retired).
 #
 # Same shape as ``docker-compose.yaml`` but with Coolify-friendly
 # conventions (named volume, no host port for the backend, secret
 # placeholders resolved by Coolify's env store, ``app-internal``
 # bridge + ``public-network``).
-#
-# Rollback is documented in docs/CUTOVER.md.
 
 services:
   db-init:
     build:
       context: .
-      dockerfile: backend/Dockerfile.init
+      dockerfile: docker/db-init.Dockerfile
       args:
         - ADMIN_PASS
     environment:

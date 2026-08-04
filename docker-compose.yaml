@@ -1,26 +1,24 @@
-# Default stack — Phase 7 cut-over.
+# Default stack — Phase 9 (Go backend retired).
 #
-# After Phase 7 the ``backend`` service is the FastAPI / Python
-# implementation. The Go / Gin service lives in `docker-compose-go.yaml`
-# for emergency rollback (see docs/CUTOVER.md).
+# The only backend is FastAPI / Python. The Go / Gin service and its
+# rollback compose were removed (see docs/CUTOVER.md Phase 9). The
+# db-init sidecar is a single Python+spaCy stage (docker/db-init.Dockerfile).
 #
-# Frontend is unchanged: nginx still proxies /api/* to whichever
-# backend service is on port 8000.
+# Frontend is unchanged: nginx proxies /api/* to the backend on 8000.
 
 services:
   # db-init regenerates letras.db from CSV + LetrasTXT + the classifier.
-  # The classifier stage now produces a FastAPI-compatible DB
-  # (same schema, same snake_case columns, same FK semantics).
+  # It is a single Python+spaCy stage (build → classify → normalize).
   db-init:
     build:
       context: .
-      dockerfile: backend/Dockerfile.init
+      dockerfile: docker/db-init.Dockerfile
       args:
         - ADMIN_PASS=admin123
     environment:
       - ADMIN_PASS=admin123
     volumes:
-      - ./backend/data:/data
+      - ./data:/data
       - ./LetrasTXT:/app/LetrasTXT:ro
       - ./db_fonografia.csv:/app/db_fonografia.csv:ro
     restart: "no"
@@ -29,7 +27,6 @@ services:
     image: cenidim-backend:latest
     # FastAPI / Pydantic v2 implementation. See backend-fastapi/Dockerfile
     # for the multi-stage build (uv-managed deps, non-root runtime).
-    image: cenidim-backend:latest
     build:
       context: .
       dockerfile: backend-fastapi/Dockerfile
@@ -50,7 +47,7 @@ services:
       - RESEND_API_KEY=
       - CENIDIM_EMAIL_FROM=no-reply@cenidim.local
     volumes:
-      - ./backend/data:/data
+      - ./data:/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).status == 200 else 1)"]
       interval: 30s

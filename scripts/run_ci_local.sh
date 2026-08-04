@@ -3,23 +3,14 @@
 #
 # Mirrors the GitHub Actions workflow so we can sanity-check before
 # pushing. Order:
-#   1. Backend (Go) lint + tests (still required by the docker-build
-#      job's Go-tree dependency).
-#   2. Backend (FastAPI) lint + tests + openapi drift guard.
-#   3. Frontend lint + typecheck + tests.
-#   4. Docker compose build + boot + smoke check + teardown.
+#   1. Backend (FastAPI) lint + tests + openapi drift guard.
+#   2. Frontend lint + typecheck + tests.
+#   3. Docker compose build + boot + smoke check + teardown.
 #
 # Exits non-zero on the first failure so we can chain it under
 # `set -e` in CI.
 
 set -e
-
-echo "=== Backend (Go) lint + tests ==="
-cd backend
-go mod download
-golangci-lint run
-go test ./...
-cd ..
 
 echo "=== Backend (FastAPI) lint + tests ==="
 cd backend-fastapi
@@ -45,8 +36,7 @@ docker compose build
 # Boot the FastAPI stack (default compose after Phase 7).
 docker compose up -d
 
-# Wait for /healthz; the FastAPI compose uses /healthz, not
-# the Go /health.
+# Wait for /healthz (FastAPI endpoint).
 max_wait=45
 count=0
 while [ $count -lt $max_wait ]; do
