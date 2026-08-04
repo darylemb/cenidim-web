@@ -7,14 +7,19 @@ Fecha: 3 de agosto de 2026
 El corpus de letras `LetrasTXT/` tiene **175** archivos .txt. Al reconstruir la
 base con el pipeline Python (build → clasificar → normalizar), el matcher por
 **título interno** del archivo (la primera línea del .txt, la identidad real de
-la canción) encontró correspondencia para **89** de ellos en el catálogo
+la canción) encontró correspondencia para **117 canciones** (68 archivos únicos;
+una misma canción puede estar en varios fonogramas) en el catálogo
 (`db_fonografia.csv`, 3,858 canciones). Los otros **86** archivos corresponden
 a canciones que **no están catalogadas** en el CSV (o están con un título que
 no es la misma canción).
 
-El número máximo de canciones con letra es ~89, no 175: el catálogo CSV no
+El número máximo de canciones con letra es ~117, no 175: el catálogo CSV no
 incluye esas 86 canciones, aunque sus letras existen. Para llegar a 175 hace
 falta agregar esas canciones al catálogo (o confirmar que no pertenecen).
+
+> Nota: el matcher limpia los sufijos de pista del catálogo (`; Lado 2:`,
+> `(F. Gabilondo S.)`) antes de comparar, de modo que canciones como "La clase
+> de música (V. Rincón); Lado 2:" matchean su archivo "LA CLASE DE MÚSICA.txt".
 
 ## Listado por álbum
 

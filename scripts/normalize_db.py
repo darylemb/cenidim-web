@@ -145,6 +145,17 @@ def clean_lyrics_body(lyrics: str, song_title: str = "") -> str:
 _ARTICLES = ("el ", "la ", "los ", "las ", "un ", "una ", "unos ", "unas ")
 
 
+def _clean_track_suffix(s: str) -> str:
+    """Drop per-track suffixes the catalog appends to titles, e.g.
+    ``"; Lado 2:"``, ``"(Lado B)"``, ``"; Cara A"``. The lyric .txt
+    internal title has the clean song name, so matching must too.
+    """
+    s = re.sub(r"\s*;\s*Lado\s*[A-Z0-9:.-]*\s*$", "", s, flags=re.I)
+    s = re.sub(r"\s*\(\s*Lado\s*[A-Z0-9:.-]*\s*\)\s*$", "", s, flags=re.I)
+    s = re.sub(r"\s*;\s*Cara\s*[A-Z0-9]+\s*$", "", s, flags=re.I)
+    return s
+
+
 def _normalize_title(s: str) -> str:
     """Mirror of the Go builder's ``normalize``.
 
@@ -259,7 +270,7 @@ def fix_lyrics_match(con: sqlite3.Connection, letras_dir: str) -> int:
     rows = cur.fetchall()
     changed = 0
     for song_id, title, _filename in rows:
-        nt = _normalize_title(title or "")
+        nt = _normalize_title(_clean_track_suffix(title or ""))
         if not nt or len(nt) < 3:
             # Can't evaluate -> clear to avoid wrong lyrics.
             cur.execute("UPDATE songs SET lyrics = '', filename = '' WHERE id = ?", (song_id,))
