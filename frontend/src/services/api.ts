@@ -267,13 +267,16 @@ export const apiService = {
     page = 1,
     limit = 50,
     sort = '',
-    dir: 'asc' | 'desc' = 'asc'
+    dir: 'asc' | 'desc' = 'asc',
+    hasLyrics = false
   ): Promise<PaginatedResponse<Song>> => {
     const q = fonogramaId ? `&fonograma_id=${fonogramaId}` : '';
     const s = sort ? `&sort=${encodeURIComponent(sort)}&dir=${dir}` : '';
-    const response = await fetch(`${BASE_URL}/admin/songs?page=${page}&limit=${limit}${q}${s}`, {
-      headers: { ...authHeaders() },
-    });
+    const lyr = hasLyrics ? '&has_lyrics=true' : '';
+    const response = await fetch(
+      `${BASE_URL}/admin/songs?page=${page}&limit=${limit}${q}${s}${lyr}`,
+      { headers: { ...authHeaders() } }
+    );
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error');
     return data;

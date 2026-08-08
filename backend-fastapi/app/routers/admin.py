@@ -295,12 +295,16 @@ async def admin_list_songs(
     limit: int = Query(50, ge=1, le=500),
     sort: str | None = Query(default=None, max_length=64),
     dir: str = Query(default="asc", pattern="^(asc|desc)$"),
+    has_lyrics: bool = Query(default=False),
 ) -> dict[str, Any]:
     base = select(Song, Fonograma).join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
     count_q = select(func.count()).select_from(Song)
     if fonograma_id is not None:
         base = base.where(Song.fonograma_id == fonograma_id)
         count_q = count_q.where(Song.fonograma_id == fonograma_id)
+    if has_lyrics:
+        base = base.where(Song.lyrics.is_not(None), Song.lyrics != "")
+        count_q = count_q.where(Song.lyrics.is_not(None), Song.lyrics != "")
     total = (await db.execute(count_q)).scalar_one()
     base = _apply_sort(base, sort, dir, _SONG_SORT_COLUMNS, Song.id)
     rows = (await db.execute(base.offset((page - 1) * limit).limit(limit))).all()

@@ -490,3 +490,32 @@ async def test_admin_songs_sort_unknown_key_falls_back(db_session, app_client):
     )
     titles = [r["title"] for r in response.json()["results"]]
     assert titles == ["Alfa", "Zeta"]
+
+
+@pytest.mark.asyncio
+async def test_admin_songs_filter_has_lyrics(db_session, app_client):
+    """admin_list_songs supports the same has_lyrics filter as /api/search."""
+    from app.models.fonograma import Fonograma
+    from app.models.song import Song
+    from tests.conftest import db_module
+
+    await make_admin()
+    await login_as(app_client, "admin", "admin1234")
+
+    sm = db_module.session.get_sessionmaker()
+    async with sm() as session:
+        session.add(Fonograma(clave_fonograma=8, titulo="Album"))
+        await session.flush()
+        session.add(Song(fonograma_id=8, title="Con letra", lyrics="la la la"))
+        session.add(Song(fonograma_id=8, title="Sin letra", lyrics=None))
+        await session.commit()
+
+    response = await app_client.get("/api/admin/songs")
+    assert response.json()["total"] == 2
+
+    response = await app_client.get(
+        "/api/admin/songs", params={"has_lyrics": "true"}
+    )
+    body = response.json()
+    assert body["total"] == 1
+    assert [r["title"] for r in body["results"]] == ["Con letra"]

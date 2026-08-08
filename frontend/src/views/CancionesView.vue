@@ -170,40 +170,14 @@
       </div>
     </div>
 
-    <div v-if="total > 0" class="pagination-container">
-      <div class="pagination-info">
-        Mostrando <strong>{{ results.length }}</strong> de <strong>{{ total }}</strong> resultados
-      </div>
-      <div class="pagination-controls">
-        <button class="pagination-btn" :disabled="page === 1" @click="changePage(page - 1)">
-          &laquo; Anterior
-        </button>
-        <div class="pagination-pages">
-          <button
-            v-for="p in pageNumbers"
-            :key="p"
-            :class="['page-num', { active: p === page }]"
-            @click="changePage(p)"
-          >
-            {{ p }}
-          </button>
-        </div>
-        <button
-          class="pagination-btn"
-          :disabled="page === totalPages"
-          @click="changePage(page + 1)"
-        >
-          Siguiente &raquo;
-        </button>
-      </div>
-      <div class="pagination-limit">
-        <select :value="limit" @change="onLimitChange">
-          <option value="20">20 por página</option>
-          <option value="50">50 por página</option>
-          <option value="100">100 por página</option>
-        </select>
-      </div>
-    </div>
+    <PaginationBar
+      :page="page"
+      :limit="limit"
+      :total="total"
+      :shown="results.length"
+      @change="changePage"
+      @limit="onLimitChange"
+    />
 
     <LyricModal
       v-if="selectedSongId"
@@ -232,7 +206,7 @@
  * `scripts/classify_songs.py` runs, that column holds the literal
  * "Tema: ..." value from each LetrasTXT/*.txt file (no inference).
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useSearchStore } from '@/stores/search';
 import { apiService } from '@/services/api';
@@ -240,6 +214,7 @@ import type { Song } from '@/types';
 import LyricModal from '@/components/LyricModal.vue';
 import ThemeBadge from '@/components/ThemeBadge.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import PaginationBar from '@/components/PaginationBar.vue';
 import { storeToRefs } from 'pinia';
 
 const search = useSearchStore();
@@ -292,23 +267,6 @@ function onSortCol(key: string) {
     localHasLyrics.value,
   );
 }
-
-const totalPages = computed(() => Math.ceil(total.value / limit.value));
-const pageNumbers = computed(() => {
-  const pages = [];
-  const total = totalPages.value;
-  const current = page.value;
-  if (total <= 5) {
-    for (let i = 1; i <= total; i++) pages.push(i);
-  } else if (current <= 3) {
-    for (let i = 1; i <= 5; i++) pages.push(i);
-  } else if (current >= total - 2) {
-    for (let i = total - 4; i <= total; i++) pages.push(i);
-  } else {
-    for (let i = current - 2; i <= current + 2; i++) pages.push(i);
-  }
-  return pages;
-});
 
 function runSearch() {
   search.performSearch(
@@ -397,8 +355,7 @@ function onHasLyricsChange() {
   );
 }
 
-function onLimitChange(e: Event) {
-  const newLimit = parseInt((e.target as HTMLSelectElement).value, 10);
+function onLimitChange(newLimit: number) {
   search.performSearch(
     localQuery.value,
     'all',
