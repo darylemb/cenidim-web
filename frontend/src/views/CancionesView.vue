@@ -80,25 +80,14 @@
                row defines the geometry, so the table never reflows when
                filters/page change (review request 03/ago/2026). -->
           <colgroup>
-            <col style="width: 72px" />
-            <col style="width: 190px" />
-            <col style="width: 170px" />
-            <col style="width: 130px" />
-            <col style="width: 160px" />
-            <col style="width: 130px" />
-            <col style="width: 130px" />
-            <col style="width: 84px" />
-            <col style="width: 130px" />
-            <col style="width: 100px" />
-            <col style="width: 100px" />
-            <col style="width: 92px" />
+            <col style="width: 64px" />
+            <col style="width: 26%" />
+            <col style="width: 24%" />
+            <col style="width: 20%" />
             <col style="width: 70px" />
-            <col style="width: 210px" />
-            <col style="width: 210px" />
+            <col style="width: 14%" />
+            <col style="width: 14%" />
             <col style="width: 150px" />
-            <col style="width: 130px" />
-            <col style="width: 150px" />
-            <col style="width: 96px" />
           </colgroup>
           <thead>
             <tr>
@@ -123,83 +112,46 @@
           </thead>
           <tbody>
             <tr v-for="song in results" :key="song.id">
-              <td data-label="Clave" class="mono">{{ song.fonograma_id }}</td>
+              <td data-label="N°" class="mono">{{ song.fonograma_id }}</td>
               <td data-label="Pista" class="table-cell-truncate">
                 <span class="table-cell-text" :title="song.title">{{ song.title }}</span>
               </td>
               <td data-label="Álbum" class="table-cell-truncate">
                 <span class="table-cell-text" :title="song.album">{{ song.album }}</span>
               </td>
-              <td data-label="Subtítulo" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.subtitulo">{{ song.subtitulo }}</span>
-              </td>
-              <td data-label="Intérprete Principal" class="table-cell-truncate">
+              <td data-label="Intérprete" class="table-cell-truncate">
                 <span class="table-cell-text" :title="song.interprete_principal">{{
                   song.interprete_principal
                 }}</span>
               </td>
-              <td data-label="Intérpretes Invitados" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.interpretes_invitados">{{
-                  song.interpretes_invitados
-                }}</span>
-              </td>
-              <td data-label="Intérprete Participante" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.interprete_participante">{{
-                  song.interprete_participante
-                }}</span>
-              </td>
-              <td data-label="Soporte Físico" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.soporte_fisico">{{
-                  song.soporte_fisico
-                }}</span>
-              </td>
-              <td data-label="Editora" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.editora">{{ song.editora }}</span>
-              </td>
-              <td data-label="N° Catálogo" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.numero_catalogo">{{
-                  song.numero_catalogo
-                }}</span>
-              </td>
-              <td data-label="Ciudad" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.ciudad_edicion">{{
-                  song.ciudad_edicion
-                }}</span>
-              </td>
-              <td data-label="País" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.pais_edicion">{{ song.pais_edicion }}</span>
-              </td>
               <td data-label="Año" class="table-cell-truncate mono">
                 <span class="table-cell-text" :title="song.year">{{ song.year }}</span>
               </td>
-              <td data-label="Pistas" class="table-cell-truncate cell-pistas">
-                <span class="table-cell-text" :title="song.pistas">{{ song.pistas }}</span>
-              </td>
-              <td data-label="Observaciones" class="table-cell-truncate">
-                <span class="table-cell-text" :title="song.observaciones">{{
-                  song.observaciones
-                }}</span>
-              </td>
-              <td data-label="Archivo" class="table-cell-truncate mono">
-                <span class="table-cell-text" :title="song.filename">{{ song.filename }}</span>
+              <td data-label="Tema">
+                <ThemeBadge :theme="song.tema ?? ''" />
               </td>
               <td data-label="Clasificación">
                 <span :class="['clasificacion-badge', badgeClass(song.clasificacion)]">
                   {{ labelText(song.clasificacion) }}
                 </span>
               </td>
-              <td data-label="Tema">
-                <ThemeBadge :theme="song.tema ?? ''" />
-              </td>
               <td data-label="Acción">
-                <button v-if="song.filename" class="action-btn" @click="openLyrics(song.id)">
-                  Ver Letra
-                </button>
-                <span v-else class="table-cell-muted">—</span>
+                <div class="canciones__row-actions">
+                  <button
+                    v-if="song.filename"
+                    class="action-btn"
+                    @click="openSongDetails(song)"
+                  >
+                    Ver letra
+                  </button>
+                  <button class="action-btn action-btn--ghost" @click="openSongDetails(song)">
+                    Ver ficha
+                  </button>
+                </div>
               </td>
             </tr>
             <tr v-if="!loading && results.length === 0">
-              <td colspan="19">
+              <td colspan="8">
                 <EmptyState
                   label="No se encontraron canciones para los criterios aplicados."
                   description="Pruebe a relajar los criterios, o use la sección de filtros arriba."
@@ -297,28 +249,19 @@ const selectedSongData = ref<Song | null>(null);
 const selectedLyrics = ref('');
 const loadingLyrics = ref(false);
 
-// Column model for the catalog table. ``key`` is the backend order_by
-// value; ``sortable`` false for the action column. Clicking a sortable
-// header toggles asc/desc and refetches (review request 03/ago/2026).
+// Column model for the catalog table. Only the columns a non-technical
+// user needs at a glance; the rest (subtitulo, intérpretes invitados,
+// soporte físico, editora, nº catálogo, pistas, observaciones, archivo)
+// are shown in the detail ("Ver ficha") modal. ``key`` is the backend
+// order_by value; ``sortable`` false for the action column.
 const songCols: Array<{ key: string; label: string; sortable: boolean }> = [
-  { key: 'clave', label: 'Clave', sortable: true },
+  { key: 'clave', label: 'N°', sortable: true },
   { key: 'title', label: 'Pista', sortable: true },
   { key: 'album', label: 'Álbum', sortable: true },
-  { key: 'subtitulo', label: 'Subtítulo', sortable: true },
-  { key: 'interprete_principal', label: 'Intérprete Principal', sortable: true },
-  { key: 'interpretes_invitados', label: 'Intérpretes Invitados', sortable: true },
-  { key: 'interprete_participante', label: 'Intérprete Participante', sortable: true },
-  { key: 'soporte_fisico', label: 'Soporte Físico', sortable: true },
-  { key: 'editora', label: 'Editora', sortable: true },
-  { key: 'numero_catalogo', label: 'N° Catálogo', sortable: true },
-  { key: 'ciudad_edicion', label: 'Ciudad', sortable: true },
-  { key: 'pais_edicion', label: 'País', sortable: true },
+  { key: 'interprete_principal', label: 'Intérprete', sortable: true },
   { key: 'year', label: 'Año', sortable: true },
-  { key: 'pistas', label: 'Pistas', sortable: true },
-  { key: 'observaciones', label: 'Observaciones', sortable: true },
-  { key: 'filename', label: 'Archivo', sortable: true },
-  { key: 'clasificacion', label: 'Clasificación', sortable: true },
   { key: 'tema', label: 'Tema', sortable: true },
+  { key: 'clasificacion', label: 'Clasificación', sortable: true },
   { key: 'actions', label: 'Acción', sortable: false },
 ];
 
@@ -472,12 +415,15 @@ function changePage(newPage: number) {
   );
 }
 
-async function openLyrics(songId: number) {
-  selectedSongId.value = songId;
+async function openSongDetails(song: Song) {
+  selectedSongId.value = song.id;
+  selectedSongData.value = song;
   loadingLyrics.value = true;
   try {
-    const data = await apiService.getSongDetail(songId);
-    selectedSongData.value = data;
+    // The row from /api/search already carries album/year/metadata;
+    // the detail endpoint adds the lyrics.
+    const data = await apiService.getSongDetail(song.id);
+    selectedSongData.value = data ?? song;
     selectedLyrics.value = data?.lyrics ?? '';
   } catch {
     selectedLyrics.value = 'Error al cargar la letra.';
@@ -666,6 +612,18 @@ function badgeClass(clas: string): string {
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
   color: var(--color-text);
+  white-space: nowrap;
+}
+
+.canciones__row-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.canciones__row-actions .action-btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
   white-space: nowrap;
 }
 </style>
