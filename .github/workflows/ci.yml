@@ -147,7 +147,7 @@ jobs:
         run: |
           mkdir -p /tmp/verifier-db
           docker compose cp \
-            backend-fastapi:/data/letras.db /tmp/verifier-db/letras.db
+            backend:/data/letras.db /tmp/verifier-db/letras.db
           cd backend-fastapi
           pip install --quiet httpx
           PYTHONPATH=. python scripts/verify_api.py \

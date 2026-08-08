@@ -73,12 +73,16 @@
           <span class="kpi__value display mono kpi__value--accent">+{{ stats?.recently_added ?? 0 }}</span>
           <span class="kpi__hint">Catálogo completo · últimos 30 días</span>
         </article>
-        <article class="kpi">
+        <router-link
+          class="kpi kpi--link"
+          to="/canciones?has_lyrics=1"
+          :aria-label="`Ver ${stats?.songs_with_lyrics ?? 0} canciones con letra`"
+        >
           <span class="kpi__label">Con letra</span>
           <span class="kpi__value display mono">{{ stats?.songs_with_lyrics ?? 0 }}</span>
           <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · de {{ stats?.total_songs ?? 0 }} visibles</span>
           <span class="kpi__hint" v-else>En {{ stats?.catalog_total ?? '–' }} indexadas</span>
-        </article>
+        </router-link>
         <article class="kpi">
           <span class="kpi__label">Años distintos</span>
           <span class="kpi__value display mono">{{ Object.keys(stats?.songs_by_year ?? {}).filter(y => y !== 's/d').length }}</span>
@@ -646,6 +650,22 @@ const themeChartOptions = {
 
 .kpi--warning {
   background: rgba(201, 122, 74, 0.08);
+}
+
+.kpi--link {
+  text-decoration: none;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.kpi--link:hover,
+.kpi--link:focus-visible {
+  background: var(--color-bg-hover);
+  box-shadow: inset 0 -3px 0 var(--color-brand);
+}
+
+.kpi--link:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: -2px;
 }
 
 .kpi--warning .kpi__value {

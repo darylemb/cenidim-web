@@ -225,3 +225,17 @@ def test_find_lyrics_file_matches_internal_title(tmp_path, bdb):
 
     # "La rana" must NOT match the araña file (internal title differs).
     assert bdb.find_lyrics_file(str(tmp_path), "La rana", idx) == ""
+
+
+def test_find_lyrics_file_ignores_track_suffixes(tmp_path, bdb):
+    # The catalog appends per-track suffixes ("; Lado 2:", "(V. Rincón)")
+    # to song titles. The lyric file's internal title is the clean name,
+    # so the matcher must strip those suffixes before scoring.
+    (tmp_path / "LA CLASE DE MUSICA.txt").write_text(
+        "LA CLASE DE MÚSICA\n\nLa Melodía y la Armonía.\n",
+        encoding="utf-8",
+    )
+    idx = bdb._index_lyrics_by_internal_title(str(tmp_path))
+    assert bdb.find_lyrics_file(
+        str(tmp_path), "La clase de música (V. Rincón); Lado 2:", idx
+    ).endswith("LA CLASE DE MUSICA.txt")

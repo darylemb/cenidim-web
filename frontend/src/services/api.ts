@@ -31,7 +31,8 @@ export const apiService = {
     limit = 20,
     clasificacion = '',
     orderBy = 'id',
-    orderDir = 'asc'
+    orderDir = 'asc',
+    hasLyrics = false
   ): Promise<SearchResponse> => {
     try {
       const params = new URLSearchParams({
@@ -44,6 +45,9 @@ export const apiService = {
       });
       if (clasificacion) {
         params.set('clasificacion', clasificacion);
+      }
+      if (hasLyrics) {
+        params.set('has_lyrics', 'true');
       }
       const response = await fetch(`${BASE_URL}/search?${params.toString()}`);
       if (!response.ok) {

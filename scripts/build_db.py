@@ -39,7 +39,11 @@ try:
 except ImportError:
     bcrypt = None  # type: ignore[assignment]
 
-from normalize_db import _match_score, _normalize_title  # noqa: E402
+from normalize_db import (  # noqa: E402
+    _clean_track_suffix,
+    _match_score,
+    _normalize_title,
+)
 
 TRACK_RE = re.compile(r"\d+\.\s+")
 TRAILING_PAREN_RE = re.compile(r"\s*\([^)]*\)\s*$")
@@ -142,7 +146,7 @@ def find_lyrics_file(
     index: list[tuple[str, str]] | None = None,
 ) -> str:
     """Best .txt for ``target_title``, scored against the INTERNAL title."""
-    nt = _normalize_title(target_title)
+    nt = _normalize_title(_clean_track_suffix(target_title))
     if len(nt) < 3:
         return ""
 

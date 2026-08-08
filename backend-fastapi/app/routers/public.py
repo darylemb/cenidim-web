@@ -151,12 +151,14 @@ async def search_songs(
     year_to: YearToQ = None,
     clasificacion: ClasificacionList = None,
     album: AlbumQ = None,
+    has_lyrics: bool = False,
 ) -> dict:
     """Search songs with optional filters.
 
     Theme/classification are exact-match after lowercasing so case
     variants collapse into a single bucket. Year range is bounded
     by ``year_from <= year_to``; the helper raises 400 if inverted.
+    ``has_lyrics`` restricts to rows whose ``lyrics`` is non-empty.
 
     The ``q`` parameter is also exposed as ``query`` so the existing
     Vue dashboard (which sends ``?query=...``) keeps working
@@ -164,6 +166,11 @@ async def search_songs(
     """
     if year_from is not None and year_to is not None and year_from > year_to:
         raise HTTPException(status_code=400, detail="year_from must be <= year_to")
+
+    def _lyrics_clause(stmt):
+        if has_lyrics:
+            stmt = stmt.where(Song.lyrics.is_not(None), Song.lyrics != "")
+        return stmt
 
     stmt = select(Song, Fonograma).join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
 
@@ -196,6 +203,8 @@ async def search_songs(
     if clases:
         stmt = stmt.where(Song.clasificacion.in_(clases))
 
+    stmt = _lyrics_clause(stmt)
+
     # Total count.
     count_q = (
         select(func.count())
@@ -224,6 +233,7 @@ async def search_songs(
         count_q = count_q.where(theme_filter)
     if clases:
         count_q = count_q.where(Song.clasificacion.in_(clases))
+    count_q = _lyrics_clause(count_q)
 
     total = (await db.execute(count_q)).scalar_one()
 
@@ -297,10 +307,19 @@ async def search_songs(
 
 @router.get("/song/{song_id}", response_model=SongOut)
 async def get_song_detail(song_id: int, db: DbDep) -> SongOut:
-    song = (await db.execute(select(Song).where(Song.id == song_id))).scalar_one_or_none()
-    if song is None:
+    row = (
+        await db.execute(
+            select(Song, Fonograma)
+            .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
+            .where(Song.id == song_id)
+        )
+    ).first()
+    if row is None:
         raise HTTPException(status_code=404, detail="Song not found")
-    return song_to_out(song)
+    song, fonograma = row
+    # Pass the joined fonograma so the detail includes album / year /
+    # subtitulo / intérprete — same flat shape as /api/search results.
+    return song_to_out(song, fonograma)
 
 
 # ---------------------------------------------------------------------------

@@ -338,8 +338,13 @@ async def test_get_song_detail(app_client, db_session):
 
     response = await app_client.get(f"/api/song/{sid}")
     assert response.status_code == 200
-    assert response.json()["id"] == sid
-    assert response.json()["title"] == first.title
+    body = response.json()
+    assert body["id"] == sid
+    assert body["title"] == first.title
+    # The detail must include the joined fonograma fields (same flat
+    # shape as /api/search) — album/year/subtitulo are not None.
+    assert body["album"] is not None
+    assert body["year"] is not None
 
 
 @pytest.mark.asyncio
@@ -477,6 +482,27 @@ def test_extract_words_keeps_real_lemma_homonyms():
     # "tema" inside a lyric line (not a marker line) is kept.
     words = _extract_words("el tema de la canción es el amor")
     assert "tema" in words
+
+
+@pytest.mark.asyncio
+async def test_search_has_lyrics_filter(app_client, db_session):
+    await _seed(db_session)
+    # Tracks A/B/C have lyrics; Track D has lyrics=None.
+    resp = await app_client.get("/api/search", params={"has_lyrics": "true"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 3
+    assert all(r["lyrics"] for r in body["results"])
+
+    # Combined with a query: only matching rows with lyrics.
+    combo = await app_client.get(
+        "/api/search", params={"query": "quick", "field": "lyrics", "has_lyrics": "true"}
+    )
+    assert combo.json()["total"] == 1  # Track C
+
+    # Without the flag the full set is returned.
+    all_rows = await app_client.get("/api/search")
+    assert all_rows.json()["total"] == 4
 
 
 @pytest.mark.asyncio
