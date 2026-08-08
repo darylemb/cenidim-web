@@ -1,33 +1,43 @@
-# Cenidim Web - Frontend
+# Cenidim Web – Frontend
 
-This directory contains the user interface for the Cenidim Web Application, built with **React**.
+Vue 3 + TypeScript SPA for the Cenidim Web Application, built with
+**Vite**. It talks to the FastAPI backend at `/api` and is served by an
+unprivileged Nginx container (see `frontend/Dockerfile`).
 
 ## Features
 
-- **Institutional Design System**: Faithfully replicates the required visual identity with precise typography and colors (Guinda `#751428` and Gold `#C5A46C`).
-- **Search Engine (Canciones)**: Dynamically fetches data from the Go backend to filter through albums, track names, and lyrics without reloading the page. Features an elegant modal to display full song lyrics.
-- **Analytics Dashboards**: Integrates `Chart.js` to visualize overall database metrics, including songs per album distribution and classification breakdown.
-- **Timeline View**: Horizontal scrolling timeline with smooth animations to explore songs organized by year.
-- **Authentication**: JWT-based authentication with role-based access control (viewer, editor, admin).
+- **Catálogo (Canciones)**: search across titles, albums and lyrics
+  with free-text + classification filters, "Solo con letra", sortable
+  columns, and a pagination bar (20 / 50 / 100 per page).
+- **Dashboard**: KPIs, timelines and charts (vue-chartjs), plus a
+  responsive word cloud rendered as frequency-scaled chips.
+- **Panel de Administración**: role-gated (viewer / editor / admin)
+  CRUD over fonogramas, canciones and usuarios, with server-side
+  sorting and shared pagination.
+- **Auth**: JWT with HttpOnly cookies, password reset via email, and
+  role-based access control.
 
 ## Available Scripts
 
-In the project directory, you can run:
+Run from `frontend/`:
 
-### `npm start`
-Runs the application in development mode.
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser. 
-*Note: Any unknown requests made by the frontend are automatically proxied to the backend at `http://localhost:8000` thanks to the `proxy` field configured in `package.json`.*
+| Command | What it does |
+|---------|--------------|
+| `npm install` | Install dependencies |
+| `npm run dev` | Vite dev server on `:5173`, proxies `/api` to the backend |
+| `npm run build` | TypeScript check (`vue-tsc --noEmit`) + production build |
+| `npm run typecheck` | `vue-tsc --noEmit` only |
+| `npm run lint` / `lint:fix` | ESLint |
+| `npm run test` | Vitest watch mode |
+| `npm run test -- --run` | One-shot test run (CI) |
+| `npm run test:coverage` | Coverage report |
 
-### `npm run build`
-Builds the app for production to the `build` folder.
-It correctly bundles React in production mode and optimizes the build for best performance and minified files.
+## Docker
 
-### `npm test`
-Launches the test runner in interactive watch mode.
+The frontend is built with **Vite** (not react-scripts) and served from
+`frontend/Dockerfile` using `nginx-unprivileged:alpine` (non-root, port
+80). The production bundle is emitted to `frontend/dist/` and committed
+so the committed artifact matches what the Nginx image serves.
 
-## Docker Deployment
-
-A `Dockerfile.frontend` configuration is included to build the static React bundle using a multi-stage process. The final compiled assets are served using a lightweight **Nginx** web server. 
-
-For standard deployment, it is highly recommended to use the `docker-compose.yml` file located in the root directory to orchestrate both the frontend and backend services simultaneously.
+For full-stack orchestration, use the root `docker-compose.yaml` (or
+`docker-compose-coolify.yaml` for the Coolify deployment).
