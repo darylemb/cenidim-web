@@ -435,11 +435,13 @@ def _alias_theme_from_request(request: Request) -> str | None:
     the Go (Gin) backend. The original FastAPI routes accept only
     ``?tema=``. Accept both for one release so the frontend has
     time to standardise on one of them.
+
+    ``request.query_params`` decodes percent-encoding; the raw
+    ``request.url.query`` string would hand back the encoded value
+    (``Creaci%C3%B3n%2FDestrucci%C3%B3n``) which never matches a theme
+    with tildes, slashes or spaces.
     """
-    for tok in request.url.query.split("&"):
-        if tok.startswith("theme="):
-            return tok.split("=", 1)[1]
-    return None
+    return request.query_params.get("theme")
 
 
 @router.get("/stats", response_model=StatsResponse)

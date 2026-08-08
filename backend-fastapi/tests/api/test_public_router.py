@@ -524,6 +524,19 @@ async def test_search_order_by_extra_columns(app_client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_search_theme_alias_decodes_special_chars(app_client, db_session):
+    await _seed(db_session)
+    # The dashboard filters via /api/stats?theme= (English alias). A theme
+    # with a slash arrives percent-encoded; the alias must decode it.
+    stats = await app_client.get(
+        "/api/stats",
+        params={"theme": "Vida/Muerte"},
+    )
+    assert stats.status_code == 200
+    assert stats.json()["total_songs"] == 2  # Track A + Track C
+
+
+@pytest.mark.asyncio
 async def test_search_theme_filter_none_sentinel(app_client, db_session):
     await _seed(db_session)
     # Track D has tema=None; the dashboard's "Sin tema" chip sends

@@ -48,6 +48,9 @@
         <button type="submit" class="auth-submit" :disabled="loading">
           {{ loading ? 'Cargando...' : mode === 'login' ? 'Acceder' : 'Crear Cuenta' }}
         </button>
+        <router-link v-if="mode === 'login'" class="auth-forgot" to="/forgot">
+          ¿Olvidaste tu contraseña?
+        </router-link>
       </form>
     </div>
   </div>

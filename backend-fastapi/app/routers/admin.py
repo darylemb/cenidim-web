@@ -8,6 +8,7 @@ Role tiers (from the Go ``RequireRole`` middleware):
 The router deliberately mirrors the Go ``handlers/admin.go`` surface
 so the FastAPI cutover (Phase 7 in the master plan) is a clean swap.
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,9 +16,10 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.types import Integer
 
 from app.deps import DbDep, require_role
 from app.models.audit_log import AuditLog
@@ -97,6 +99,44 @@ def _user_id_param(id: int = Path(ge=1, description="user id")) -> int:
 # Fonogramas
 # ---------------------------------------------------------------------------
 
+# Whitelist of sortable columns -> SQLAlchemy expression. Numeric fields
+# (clave_fonograma, anio) are cast so "10" sorts after "2", matching how
+# /api/search orders numeric columns. anio is stored as String and may
+# hold "s/d" / "" / NULL, so blanks sort last (same trick as public.py).
+_FONO_SORT_COLUMNS: dict[str, Any] = {
+    "clave_fonograma": Fonograma.clave_fonograma,
+    "titulo": Fonograma.titulo,
+    "interprete_principal": Fonograma.interprete_principal,
+    "anio": case(
+        (Fonograma.anio.is_(None), 1),
+        (Fonograma.anio == "", 1),
+        (Fonograma.anio == "s/d", 1),
+        else_=0,
+    ),
+    "anio_value": func.cast(Fonograma.anio, Integer),
+    "pais_edicion": Fonograma.pais_edicion,
+    "editora": Fonograma.editora,
+}
+
+_SONG_SORT_COLUMNS: dict[str, Any] = {
+    "id": Song.id,
+    "title": Song.title,
+    "fonograma_id": Song.fonograma_id,
+    "clasificacion": Song.clasificacion,
+}
+
+
+def _apply_sort(
+    stmt: Any,
+    sort: str | None,
+    dir: str,
+    columns: dict[str, Any],
+    default_col: Any,
+) -> Any:
+    """Apply a whitelisted ORDER BY. Unknown keys fall back to the default."""
+    col = columns.get(sort or "", default_col)
+    return stmt.order_by(col.asc() if dir != "desc" else col.desc())
+
 
 @router.get("/fonogramas", response_model=PaginatedResponse)
 async def admin_list_fonogramas(
@@ -104,16 +144,19 @@ async def admin_list_fonogramas(
     _: User = Depends(require_role("viewer")),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=200),
+    sort: str | None = Query(default=None, max_length=64),
+    dir: str = Query(default="asc", pattern="^(asc|desc)$"),
 ) -> dict[str, Any]:
     total = (await db.execute(select(func.count()).select_from(Fonograma))).scalar_one()
-    rows = (
-        await db.execute(
-            select(Fonograma)
-            .order_by(Fonograma.clave_fonograma)
-            .offset((page - 1) * limit)
-            .limit(limit)
-        )
-    ).scalars().all()
+    stmt = select(Fonograma)
+    # Numeric-aware ordering: blank/absent years sink to the end; real
+    # years are compared by their integer value, not lexically.
+    if (sort or "") == "anio":
+        stmt = _apply_sort(stmt, "anio", dir, _FONO_SORT_COLUMNS, Fonograma.clave_fonograma)
+        stmt = _apply_sort(stmt, "anio_value", dir, _FONO_SORT_COLUMNS, Fonograma.clave_fonograma)
+    else:
+        stmt = _apply_sort(stmt, sort, dir, _FONO_SORT_COLUMNS, Fonograma.clave_fonograma)
+    rows = (await db.execute(stmt.offset((page - 1) * limit).limit(limit))).scalars().all()
     return {
         "results": [fonograma_to_out(f).model_dump() for f in rows],
         "total": total,
@@ -129,18 +172,14 @@ async def admin_get_fonograma(
     _: User = Depends(require_role("viewer")),
 ) -> Fonograma:
     row = (
-        await db.execute(
-            select(Fonograma).where(Fonograma.clave_fonograma == id)
-        )
+        await db.execute(select(Fonograma).where(Fonograma.clave_fonograma == id))
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="Fonograma not found")
     return row
 
 
-@router.post(
-    "/fonogramas", response_model=FonogramaOut, status_code=status.HTTP_201_CREATED
-)
+@router.post("/fonogramas", response_model=FonogramaOut, status_code=status.HTTP_201_CREATED)
 async def admin_create_fonograma(
     db: DbDep,
     body: FonogramaOut,
@@ -189,9 +228,7 @@ async def admin_update_fonograma(
     actor: User = Depends(require_role("editor")),
 ) -> Fonograma:
     existing = (
-        await db.execute(
-            select(Fonograma).where(Fonograma.clave_fonograma == id)
-        )
+        await db.execute(select(Fonograma).where(Fonograma.clave_fonograma == id))
     ).scalar_one_or_none()
     if existing is None:
         raise HTTPException(status_code=404, detail="Fonograma not found")
@@ -231,9 +268,7 @@ async def admin_delete_fonograma(
     # Manual cascade: drop songs first so SQLAlchemy doesn't fight
     # the FK ON DELETE CASCADE that the Go migration creates.
     await db.execute(delete(Song).where(Song.fonograma_id == id))
-    result = await db.execute(
-        delete(Fonograma).where(Fonograma.clave_fonograma == id)
-    )
+    result = await db.execute(delete(Fonograma).where(Fonograma.clave_fonograma == id))
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="Fonograma not found")
     await _record_audit(
@@ -258,23 +293,21 @@ async def admin_list_songs(
     fonograma_id: int | None = Query(default=None, ge=1),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=500),
+    sort: str | None = Query(default=None, max_length=64),
+    dir: str = Query(default="asc", pattern="^(asc|desc)$"),
+    has_lyrics: bool = Query(default=False),
 ) -> dict[str, Any]:
-    base = (
-        select(Song, Fonograma)
-        .join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
-    )
+    base = select(Song, Fonograma).join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
     count_q = select(func.count()).select_from(Song)
     if fonograma_id is not None:
         base = base.where(Song.fonograma_id == fonograma_id)
         count_q = count_q.where(Song.fonograma_id == fonograma_id)
+    if has_lyrics:
+        base = base.where(Song.lyrics.is_not(None), Song.lyrics != "")
+        count_q = count_q.where(Song.lyrics.is_not(None), Song.lyrics != "")
     total = (await db.execute(count_q)).scalar_one()
-    rows = (
-        await db.execute(
-            base.order_by(Song.id)
-            .offset((page - 1) * limit)
-            .limit(limit)
-        )
-    ).all()
+    base = _apply_sort(base, sort, dir, _SONG_SORT_COLUMNS, Song.id)
+    rows = (await db.execute(base.offset((page - 1) * limit).limit(limit))).all()
     results = [song_to_out(song, fonograma).model_dump() for song, fonograma in rows]
     return {
         "results": results,
@@ -319,9 +352,7 @@ async def admin_update_song(
     id: Annotated[int, _song_id_param],
     actor: User = Depends(require_role("editor")),
 ) -> UserCreatedResponse:
-    existing = (
-        await db.execute(select(Song).where(Song.id == id))
-    ).scalar_one_or_none()
+    existing = (await db.execute(select(Song).where(Song.id == id))).scalar_one_or_none()
     if existing is None:
         raise HTTPException(status_code=404, detail="Song not found")
     if body.title is not None and body.title.strip():
@@ -373,9 +404,7 @@ async def admin_list_users(
     return list(rows)
 
 
-@router.post(
-    "/users", response_model=UserCreateOut, status_code=status.HTTP_201_CREATED
-)
+@router.post("/users", response_model=UserCreateOut, status_code=status.HTTP_201_CREATED)
 async def admin_create_user(
     db: DbDep,
     body: UserCreateIn,
@@ -418,9 +447,7 @@ async def admin_update_user(
     id: Annotated[int, _user_id_param],
     actor: User = Depends(require_role("admin")),
 ) -> UserCreatedResponse:
-    existing = (
-        await db.execute(select(User).where(User.id == id))
-    ).scalar_one_or_none()
+    existing = (await db.execute(select(User).where(User.id == id))).scalar_one_or_none()
     if existing is None:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -460,21 +487,15 @@ async def admin_delete_user(
     id: Annotated[int, _user_id_param],
     actor: User = Depends(require_role("admin")),
 ) -> UserCreatedResponse:
-    existing = (
-        await db.execute(select(User).where(User.id == id))
-    ).scalar_one_or_none()
+    existing = (await db.execute(select(User).where(User.id == id))).scalar_one_or_none()
     if existing is None:
         raise HTTPException(status_code=404, detail="User not found")
     if existing.role == "admin":
         admin_count = (
-            await db.execute(
-                select(func.count()).select_from(User).where(User.role == "admin")
-            )
+            await db.execute(select(func.count()).select_from(User).where(User.role == "admin"))
         ).scalar_one()
         if admin_count <= 1:
-            raise HTTPException(
-                status_code=400, detail="Cannot delete the last admin"
-            )
+            raise HTTPException(status_code=400, detail="Cannot delete the last admin")
     await db.execute(delete(User).where(User.id == id))
     await _record_audit(
         db,
@@ -507,12 +528,14 @@ async def admin_list_emails(
         count_q = count_q.where(EmailOutbox.failed_at.is_not(None))
     total = (await db.execute(count_q)).scalar_one()
     rows = (
-        await db.execute(
-            base.order_by(EmailOutbox.sent_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                base.order_by(EmailOutbox.sent_at.desc()).offset((page - 1) * limit).limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     results = [
         {
             "id": row.id,
@@ -556,12 +579,14 @@ async def admin_list_audit_log(
         count_q = count_q.where(AuditLog.action == action)
     total = (await db.execute(count_q)).scalar_one()
     rows = (
-        await db.execute(
-            base.order_by(AuditLog.occurred_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
+        (
+            await db.execute(
+                base.order_by(AuditLog.occurred_at.desc()).offset((page - 1) * limit).limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     results = [
         {
             "id": row.id,

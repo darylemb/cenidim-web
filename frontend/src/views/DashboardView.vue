@@ -60,7 +60,7 @@
           <span class="kpi__label">Total canciones</span>
           <span class="kpi__value display mono">{{ stats?.total_songs ?? 0 }}</span>
           <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · {{ stats?.catalog_total ?? '–' }} en catálogo</span>
-          <span class="kpi__hint" v-else>Con letra en catálogo</span>
+          <span class="kpi__hint" v-else>Todo el catálogo</span>
         </article>
         <article class="kpi">
           <span class="kpi__label">Álbumes</span>
@@ -68,7 +68,7 @@
           <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · colección única por disco</span>
           <span class="kpi__hint" v-else>Colección única por disco</span>
         </article>
-        <article class="kpi">
+        <article v-if="showRecentlyAdded" class="kpi">
           <span class="kpi__label">Agregadas recientemente</span>
           <span class="kpi__value display mono kpi__value--accent">+{{ stats?.recently_added ?? 0 }}</span>
           <span class="kpi__hint">Catálogo completo · últimos 30 días</span>
@@ -81,19 +81,19 @@
           <span class="kpi__label">Con letra</span>
           <span class="kpi__value display mono">{{ stats?.songs_with_lyrics ?? 0 }}</span>
           <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · de {{ stats?.total_songs ?? 0 }} visibles</span>
-          <span class="kpi__hint" v-else>En {{ stats?.catalog_total ?? '–' }} indexadas</span>
+          <span class="kpi__hint" v-else>De {{ stats?.catalog_total ?? '–' }} canciones del archivo</span>
         </router-link>
         <article class="kpi">
-          <span class="kpi__label">Años distintos</span>
+          <span class="kpi__label">Años con canciones</span>
           <span class="kpi__value display mono">{{ Object.keys(stats?.songs_by_year ?? {}).filter(y => y !== 's/d').length }}</span>
           <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · rango temporal activo</span>
-          <span class="kpi__hint" v-else>Catálogo completo</span>
+          <span class="kpi__hint" v-else>Décadas cubiertas por el archivo</span>
         </article>
         <article class="kpi">
-          <span class="kpi__label">Temas distintos</span>
+          <span class="kpi__label">Temas del catálogo</span>
           <span class="kpi__value display mono">{{ stats?.distinct_themes ?? 0 }}</span>
           <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · en {{ stats?.total_songs ?? 0 }} canciones</span>
-          <span class="kpi__hint" v-else>En catálogo completo</span>
+          <span class="kpi__hint" v-else>En todo el archivo</span>
         </article>
         <article v-if="(stats?.songs_without_year ?? 0) > 0" class="kpi kpi--warning">
           <span class="kpi__label">Sin año</span>
@@ -130,23 +130,23 @@
            have to consult an external glossary to understand what
            the visualization measures. -->
       <section class="dashboard__grid">
-        <article class="chart-card" aria-label="Tipología lingüística">
+        <article class="chart-card" aria-label="Tipo de español">
           <header class="chart-header">
-            <span class="eyebrow">Tipología lingüística</span>
-            <h2 class="chart-header__title display">Clasificación</h2>
+            <span class="eyebrow">Tipo de español</span>
+            <h2 class="chart-header__title display">Cómo se habla</h2>
             <p class="chart-header__caption">
-              Distribución por categoría de español.
+              El tipo de lenguaje que usan las letras de las canciones.
               <ChartInfoButton :info="chartInfo.clasificacion" />
             </p>
           </header>
-          <div class="chart-canvas" role="img" aria-label="Gráfico de clasificación lingüística">
+          <div class="chart-canvas" role="img" aria-label="Gráfico del tipo de español">
             <Doughnut v-if="hasClasificacionData" :data="clasificacionChartData" :options="doughnutChartOptions" />
             <EmptyState v-else label="Sin datos de clasificación" />
           </div>
           <ul class="chart-card__legend" aria-label="Leyenda">
-            <li><strong>Estándar</strong> &lt; 5% palabras OOV — vocabulario cotidiano</li>
-            <li><strong>Regional</strong> 5–18% OOV — regionalismos sin presencia indígena</li>
-            <li><strong>Indígena</strong> contiene palabras de la lista <code>PALABRAS_INDIGENAS</code> o &gt; 18% OOV</li>
+            <li><strong>Estándar</strong> — vocabulario de todos los días</li>
+            <li><strong>Regional</strong> — incluye palabras de regiones de México</li>
+            <li><strong>Indígena</strong> — incluye palabras de lenguas indígenas</li>
           </ul>
         </article>
 
@@ -165,23 +165,23 @@
           </div>
         </article>
 
-        <article class="chart-card" aria-label="Nivel de vocabulario fuera del modelo">
+        <article class="chart-card" aria-label="Vocabulario de las letras">
           <header class="chart-header">
-            <span class="eyebrow">Léxico</span>
-            <h2 class="chart-header__title display">Índice OOV</h2>
+            <span class="eyebrow">Vocabulario de las letras</span>
+            <h2 class="chart-header__title display">Lenguaje</h2>
             <p class="chart-header__caption">
-              Porcentaje de palabras no reconocidas por spaCy <code>es_core_news_md</code>.
+              Qué tan común o especializado es el lenguaje de las letras.
               <ChartInfoButton :info="chartInfo.oov" />
             </p>
           </header>
-          <div class="chart-canvas" role="img" aria-label="Gráfico de índice OOV por canción">
+          <div class="chart-canvas" role="img" aria-label="Gráfico del lenguaje de las letras">
             <Bar v-if="hasOovData" :data="oovChartData" :options="oovChartOptions" />
-            <EmptyState v-else label="Sin datos de OOV" />
+            <EmptyState v-else label="Sin datos de vocabulario" />
           </div>
           <ul class="chart-card__legend" aria-label="Leyenda">
-            <li><strong>Baja</strong> &lt; 5% OOV</li>
-            <li><strong>Media</strong> 5–18% OOV</li>
-            <li><strong>Alta</strong> &gt; 18% OOV</li>
+            <li><strong>Baja</strong> — palabras comunes, fáciles de entender</li>
+            <li><strong>Media</strong> — algunas palabras poco frecuentes o regionales</li>
+            <li><strong>Alta</strong> — vocabulario poco común o de lenguas indígenas</li>
           </ul>
         </article>
       </section>
@@ -267,6 +267,16 @@ watch(
 const isEmptyResult = computed(() => (stats.value?.total_songs ?? 0) === 0);
 
 const hasActiveFilters = computed(() => !filters.isEmpty);
+
+// The "Agregadas recientemente" KPI is only meaningful when a small
+// share of the catalog was added in the last 30 days. After a DB
+// rebuild every row gets a fresh created_at, so recently_added equals
+// the whole catalog — showing "+3858" would be misleading.
+const showRecentlyAdded = computed(() => {
+  const total = stats.value?.total_songs ?? 0;
+  const recent = stats.value?.recently_added ?? 0;
+  return total === 0 || recent < total * 0.9;
+});
 
 const hasClasificacionData = computed(
   () => Object.keys(stats.value?.songs_by_clasificacion ?? {}).length > 0,

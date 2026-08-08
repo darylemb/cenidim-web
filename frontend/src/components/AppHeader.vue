@@ -10,7 +10,7 @@
       </div>
       <div v-if="user" class="header-user">
         <span class="header-username">{{ user.username }}</span>
-        <span :class="['role-badge', `role-${user.role}`]">{{ user.role }}</span>
+        <span :class="['role-badge', `role-${user.role}`]">{{ roleLabel(user.role) }}</span>
         <button class="btn-secondary btn-sm" @click="handleLogout">Cerrar</button>
       </div>
       <button v-else class="btn-primary" @click="openAuth">Acceder</button>
@@ -25,6 +25,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 import { storeToRefs } from 'pinia';
 import AppNavBar from '@/components/AppNavBar.vue';
+import { roleLabel } from '@/utils/roles';
 
 const router = useRouter();
 const auth = useAuthStore();

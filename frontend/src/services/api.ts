@@ -208,8 +208,14 @@ export const apiService = {
     return response.json();
   },
 
-  adminListFonogramas: async (page = 1, limit = 20): Promise<PaginatedResponse<Song>> => {
-    const response = await fetch(`${BASE_URL}/admin/fonogramas?page=${page}&limit=${limit}`, {
+  adminListFonogramas: async (
+    page = 1,
+    limit = 20,
+    sort = '',
+    dir: 'asc' | 'desc' = 'asc'
+  ): Promise<PaginatedResponse<Song>> => {
+    const s = sort ? `&sort=${encodeURIComponent(sort)}&dir=${dir}` : '';
+    const response = await fetch(`${BASE_URL}/admin/fonogramas?page=${page}&limit=${limit}${s}`, {
       headers: { ...authHeaders() },
     });
     const data = await response.json();
@@ -259,12 +265,18 @@ export const apiService = {
   adminListSongs: async (
     fonogramaId = '',
     page = 1,
-    limit = 50
+    limit = 50,
+    sort = '',
+    dir: 'asc' | 'desc' = 'asc',
+    hasLyrics = false
   ): Promise<PaginatedResponse<Song>> => {
     const q = fonogramaId ? `&fonograma_id=${fonogramaId}` : '';
-    const response = await fetch(`${BASE_URL}/admin/songs?page=${page}&limit=${limit}${q}`, {
-      headers: { ...authHeaders() },
-    });
+    const s = sort ? `&sort=${encodeURIComponent(sort)}&dir=${dir}` : '';
+    const lyr = hasLyrics ? '&has_lyrics=true' : '';
+    const response = await fetch(
+      `${BASE_URL}/admin/songs?page=${page}&limit=${limit}${q}${s}${lyr}`,
+      { headers: { ...authHeaders() } }
+    );
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Error');
     return data;

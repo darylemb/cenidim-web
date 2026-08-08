@@ -404,4 +404,118 @@ async def test_admin_emails_endpoint(db_session, app_client):
         "/api/admin/emails?only_failures=true"
     )
     assert response.status_code == 200
-    assert response.json()["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_admin_fonogramas_sort_numeric_and_pages(db_session, app_client):
+    """Sort is server-side across all pages; numeric fields order as numbers."""
+    from app.models.fonograma import Fonograma
+    from tests.conftest import db_module
+
+    await make_admin()
+    await login_as(app_client, "admin", "admin1234")
+
+    sm = db_module.session.get_sessionmaker()
+    async with sm() as session:
+        for i in (10, 2, 3, 11, 1):
+            session.add(
+                Fonograma(
+                    clave_fonograma=i,
+                    titulo=f"Album {i}",
+                    anio=str(i) if i <= 3 else "s/d",
+                )
+            )
+        await session.commit()
+
+    # Ascending numeric: 1,2,3,10,11 (NOT lexical 1,10,11,2,3).
+    response = await app_client.get(
+        "/api/admin/fonogramas", params={"page": 1, "limit": 20, "sort": "clave_fonograma", "dir": "asc"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 5
+    keys = [r["clave_fonograma"] for r in body["results"]]
+    assert keys == [1, 2, 3, 10, 11]
+
+    # Descending reverses across the whole set.
+    response = await app_client.get(
+        "/api/admin/fonogramas", params={"page": 1, "limit": 20, "sort": "clave_fonograma", "dir": "desc"}
+    )
+    keys = [r["clave_fonograma"] for r in response.json()["results"]]
+    assert keys == [11, 10, 3, 2, 1]
+
+    # anio sorts numerically (1,2,3) with blanks last.
+    response = await app_client.get(
+        "/api/admin/fonogramas", params={"page": 1, "limit": 20, "sort": "anio", "dir": "asc"}
+    )
+    keys = [r["clave_fonograma"] for r in response.json()["results"]]
+    assert keys == [1, 2, 3, 10, 11]
+
+    # Pagination reports total + page so the UI can render "de Y".
+    response = await app_client.get(
+        "/api/admin/fonogramas", params={"page": 1, "limit": 2}
+    )
+    body = response.json()
+    assert body["total"] == 5
+    assert body["page"] == 1
+    assert len(body["results"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_admin_songs_sort_unknown_key_falls_back(db_session, app_client):
+    """Unknown sort keys degrade to the default id order instead of 500."""
+    from app.models.fonograma import Fonograma
+    from app.models.song import Song
+    from tests.conftest import db_module
+
+    await make_admin()
+    await login_as(app_client, "admin", "admin1234")
+
+    sm = db_module.session.get_sessionmaker()
+    async with sm() as session:
+        session.add(Fonograma(clave_fonograma=7, titulo="Album"))
+        await session.flush()
+        session.add(Song(fonograma_id=7, title="Zeta"))
+        session.add(Song(fonograma_id=7, title="Alfa"))
+        await session.commit()
+
+    response = await app_client.get(
+        "/api/admin/songs", params={"sort": "not_a_column", "dir": "asc"}
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+
+    response = await app_client.get(
+        "/api/admin/songs", params={"sort": "title", "dir": "asc"}
+    )
+    titles = [r["title"] for r in response.json()["results"]]
+    assert titles == ["Alfa", "Zeta"]
+
+
+@pytest.mark.asyncio
+async def test_admin_songs_filter_has_lyrics(db_session, app_client):
+    """admin_list_songs supports the same has_lyrics filter as /api/search."""
+    from app.models.fonograma import Fonograma
+    from app.models.song import Song
+    from tests.conftest import db_module
+
+    await make_admin()
+    await login_as(app_client, "admin", "admin1234")
+
+    sm = db_module.session.get_sessionmaker()
+    async with sm() as session:
+        session.add(Fonograma(clave_fonograma=8, titulo="Album"))
+        await session.flush()
+        session.add(Song(fonograma_id=8, title="Con letra", lyrics="la la la"))
+        session.add(Song(fonograma_id=8, title="Sin letra", lyrics=None))
+        await session.commit()
+
+    response = await app_client.get("/api/admin/songs")
+    assert response.json()["total"] == 2
+
+    response = await app_client.get(
+        "/api/admin/songs", params={"has_lyrics": "true"}
+    )
+    body = response.json()
+    assert body["total"] == 1
+    assert [r["title"] for r in body["results"]] == ["Con letra"]
