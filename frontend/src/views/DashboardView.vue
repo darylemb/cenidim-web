@@ -68,7 +68,7 @@
           <span class="kpi__hint" v-if="hasActiveFilters">Filtrado · colección única por disco</span>
           <span class="kpi__hint" v-else>Colección única por disco</span>
         </article>
-        <article class="kpi">
+        <article v-if="showRecentlyAdded" class="kpi">
           <span class="kpi__label">Agregadas recientemente</span>
           <span class="kpi__value display mono kpi__value--accent">+{{ stats?.recently_added ?? 0 }}</span>
           <span class="kpi__hint">Catálogo completo · últimos 30 días</span>
@@ -267,6 +267,16 @@ watch(
 const isEmptyResult = computed(() => (stats.value?.total_songs ?? 0) === 0);
 
 const hasActiveFilters = computed(() => !filters.isEmpty);
+
+// The "Agregadas recientemente" KPI is only meaningful when a small
+// share of the catalog was added in the last 30 days. After a DB
+// rebuild every row gets a fresh created_at, so recently_added equals
+// the whole catalog — showing "+3858" would be misleading.
+const showRecentlyAdded = computed(() => {
+  const total = stats.value?.total_songs ?? 0;
+  const recent = stats.value?.recently_added ?? 0;
+  return total === 0 || recent < total * 0.9;
+});
 
 const hasClasificacionData = computed(
   () => Object.keys(stats.value?.songs_by_clasificacion ?? {}).length > 0,

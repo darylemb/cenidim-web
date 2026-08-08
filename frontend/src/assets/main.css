@@ -499,6 +499,21 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+/* Ghost variant: quiet secondary action ("Ver ficha") next to a filled
+   button, so the action column doesn't read as two primary buttons. */
+.action-btn--ghost {
+  background-color: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  box-shadow: none;
+}
+
+.action-btn--ghost:hover {
+  background-color: var(--color-bg-hover);
+  color: var(--color-brand);
+  border-color: var(--color-brand);
+}
+
 /* --- Table Design --- */
 
 .results-table-container {

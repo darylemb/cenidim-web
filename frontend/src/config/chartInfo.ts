@@ -1,12 +1,10 @@
 /**
  * chartInfo.ts — single source of truth for the long-form
  * descriptions that the dashboard's chart-level info buttons
- * surface. Reviewer feedback (01/jul/2026) asked for explicit
- * definitions of each chart so that the methodology section of
- * the eventual essay can cite the dashboard verbatim.
+ * surface. Written for a NON-TECHNICAL audience (the artistic /
+ * research team): no spaCy, tokens, OOV, or developer acronyms.
  *
- * Keep language consistent with `docs/GLOSARIO.md`. If you change
- * a definition here, update the glossary to match.
+ * If you change a definition here, update docs/GLOSARIO.md to match.
  */
 
 export interface ChartInfo {
@@ -24,11 +22,11 @@ export interface ChartInfo {
 
 export const chartInfo: ChartInfo = {
   cancionesPorAnio:
-    'Cada punto representa el total de canciones cuyo fonograma (LP / cassette) tiene como año de publicación ese valor. El bucket “s/d” agrupa los fonogramas sin año asignado. Un mismo disco puede aportar varias canciones si cada pista está individualizada en la tabla `pistas` del CSV.',
+    'Cada punto muestra cuántas canciones del archivo tienen ese año de publicación (el del disco donde aparecieron). El recuadro "s/d" agrupa los discos a los que aún no se les ha asignado año. Si un disco tiene varias canciones, cada canción cuenta por separado.',
   clasificacion:
-    'Categorización lingüística calculada por scripts/classify_songs.py sobre el cuerpo de la letra (descarta título, autor, marcadores `Dura: Tema: Personajes:` y paréntesis cortos). Se usa el modelo spaCy `es_core_news_md` y se reporta la categoría dominante: ESPAÑOL_ESTANDAR (vocabulario cotidiano, &lt; 5 % OOV), ESPAÑOL_REGIONAL (regionalismos, 5–18 % OOV) o LENGUA_INDIGENA (palabras de la lista PALABRAS_INDIGENAS o &gt; 18 % OOV).',
-  tema: 'Cuenta de canciones por valor del campo `Tema:` (lo que las autoras del cancionero escribieron al pie del .txt, antes de `Personajes:`). Las variantes con distinta capitalización (“Vida/ muerte” vs “Vida/ Muerte”) se colapsan bajo un único bucket canónico (Title Case por segmento). El bucket vacío representa canciones sin `Tema:` y se omite del dashboard.',
-  oov: 'Porcentaje de tokens que spaCy `es_core_news_md` no reconoce en su vocabulario, calculado canción por canción. BAJA (&lt; 5 %) sugiere español estándar; MEDIA (5–18 %) sugiere regionalismos; ALTA (&gt; 18 %) sugiere vocabulario indígena o altamente local. La lista cerrada `PALABRAS_INDIGENAS` eleva la canción a LENGUA_INDIGENA aunque el OOV baje.',
+    'Cómo se habla en la letra de cada canción, según el programa de análisis de texto del archivo. Se divide en tres grupos:\n- Estándar: vocabulario de todos los días.\n- Regional: incluye palabras y expresiones propias de regiones de México.\n- Indígena: incluye palabras de lenguas indígenas, o vocabulario muy poco común.\nCada canción se clasifica en el grupo que mejor la describe.',
+  tema: 'Cuenta de canciones por el tema que las autoras del cancionero escribieron al pie de cada letra. Las variantes con mayúsculas o espacios distintos (p. ej. "Vida/ muerte" y "Vida/ Muerte") se unen en un solo tema. Las canciones sin tema no aparecen en esta gráfica.',
+  oov: 'Qué tan cotidiano o especializado es el vocabulario de las letras.\n- Baja: palabras comunes, fáciles de entender.\n- Media: hay algunas palabras poco frecuentes o regionales.\n- Alta: vocabulario poco común, antiguo o de lenguas indígenas.\nEs una forma rápida de ver si las canciones usan lenguaje de todos los días o uno más especializado.',
   nubePalabras:
-    'Top-N (por defecto 200) palabras más frecuentes extraídas del cuerpo de la letra. El backend normaliza a minúsculas antes de contar (Mamá / mamá colapsan en una sola entrada) y descarta palabras de 1 carácter, números, stop-words del español estándar y los marcadores de metadatos (Dura:, Tema:, Personajes:, Autor:) que el preproceso elimina. El tamaño de fuente refleja la frecuencia logarítmica.',
+    'Las palabras que más se repiten en las letras del archivo. Las palabras más grandes son las que aparecen con más frecuencia. Se ignoran palabras vacías (como "el", "de", "que"), números y encabezados, para que solo se vean palabras con contenido.',
 };
