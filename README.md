@@ -8,7 +8,7 @@ The application serves a digital archive of musical lyrics — the CENIDIM child
 
 ## Architecture
 
-1. **Backend (FastAPI – Pydantic v2)**: the production backend since Phase 7 of the Go → FastAPI cut-over. SQLAlchemy 2.0 ORM, JWT auth with HttpOnly cookies + CSRF double-submit, refresh-token rotation via `RefreshTokenRevocation`, Prometheus `/metrics`, structured JSON logging, Alembic migrations. See `backend-fastapi/` and `docs/adr/0001-fastapi-replaces-go.md`. The Go / Gin backend was **retired in Phase 9** (the `backend/` tree and rollback compose are gone).
+1. **Backend (FastAPI – Pydantic v2)**: the production backend since Phase 7 of the Go → FastAPI cut-over. SQLAlchemy 2.0 ORM, JWT auth with HttpOnly cookies + CSRF double-submit, refresh-token rotation via `RefreshTokenRevocation`, Prometheus `/metrics`, structured JSON logging, Alembic migrations. See [`backend-fastapi/README.md`](backend-fastapi/README.md) and `docs/adr/0001-fastapi-replaces-go.md`. The Go / Gin backend was **retired in Phase 9** (the `backend/` tree and rollback compose are gone).
 2. **Frontend (Vue 3 + TypeScript)**: SPA served via an **unprivileged Nginx** container. State is managed with Pinia; routing with Vue Router; charts with vue-chartjs. Build tool is Vite. Requires **Node 24**.
 3. **Data management**: a three-step Python pipeline that parses the raw songbook and lyrics into a structured SQLite database.
    - `scripts/build_db.py` seeds `letras.db` from `db_fonografia.csv` + `LetrasTXT/` (Python port of the old Go builder, byte-compatible) inside the `db-init` Docker sidecar.
@@ -45,6 +45,7 @@ The FastAPI service reads configuration from environment variables prefixed with
 | `CORS_ALLOWED_ORIGINS` | No | `http://localhost,http://localhost:3000,http://localhost:8000` | Comma-separated list of allowed CORS origins. |
 | `FRONTEND_BASE_URL` / `CENIDIM_FRONTEND_BASE_URL` | For email links | `http://localhost` | SPA origin used to build the redirect target in password-reset emails. |
 | `RESEND_API_KEY` | For outbound email | empty (dev outbox) | Resend API key; when empty, `email_outbox` table receives every send instead. |
+| `CENIDIM_EMAIL_DEMO_PRINT_BODY` | No | `0` | Dev only: include the plaintext reset link in the `/forgot` response so a local reviewer can complete the flow without a mail server. |
 
 Operators set the env vars via their platform's secret store (Coolify,
 Kubernetes, etc.). The `.gitignore` already excludes any local `.env`.
@@ -122,9 +123,11 @@ env vars, and the login page renders only the password form.
 
 Roles: `viewer` (read) < `editor` (write) < `admin` (delete + user management). Password-reset emails are sent via Resend when `RESEND_API_KEY` is set; otherwise they land in the `email_outbox` table for dev.
 
+The initial admin is created by `scripts/build_db.sh` from the `ADMIN_PASS` env var (see `scripts/build_db.py`).
+
 ## Testing and Quality
 
-- **Backend (FastAPI)**: `cd backend-fastapi && PYTHONPATH=. uv run pytest tests/`. **235 tests pass at 96% coverage** with ruff clean. Coverage gate: 95% (`--cov-fail-under=95` in `pyproject.toml`).
+- **Backend (FastAPI)**: `cd backend-fastapi && PYTHONPATH=. uv run pytest tests/`. **235 tests pass at 96% coverage** with ruff clean. Coverage gate: 80% (`--cov-fail-under=80` in `pyproject.toml`; current coverage is well above).
 - **Frontend**: `cd frontend && npm run test -- --run` (Vitest + Vue Test Utils). **265 tests pass** (9 skipped). Strict TypeScript — `npm run typecheck` runs in CI.
 - **End-to-end backend smoke**: `cd backend-fastapi && PYTHONPATH=. uv run pytest tests/integration/test_uvicorn_smoke.py`. Boots a real uvicorn subprocess and exercises /healthz, /metrics, /openapi.json, /api/auth/register, /api/auth/login, /api/auth/me, /api/auth/logout, /api/search, /api/stats, /api/admin/* 401, and the 422 validation path.
 - **Post-deploy smoke script**: `backend-fastapi/scripts/smoke.sh http://localhost:8000`. Returns non-zero on the first failing check; intended to run after every `docker compose up`.
