@@ -14,7 +14,7 @@
             <ThemeBadge :theme="song.tema ?? ''" />
           </div>
 
-          <dl v-if="detailRows.length" class="song-ficha" aria-label="Ficha de la canción">
+          <dl v-if="showDetails && detailRows.length" class="song-ficha" aria-label="Ficha de la canción">
             <template v-for="row in detailRows" :key="row.label">
               <dt>{{ row.label }}</dt>
               <dd>{{ row.value }}</dd>
@@ -66,6 +66,9 @@ const props = defineProps<{
   } | null
   lyrics: string
   loading: boolean
+  /** When true, show the full "ficha" (metadata) above the lyrics.
+   *  "Ver letra" passes false so it only shows the lyrics. */
+  showDetails?: boolean
 }>()
 
 defineEmits<{ close: () => void }>()

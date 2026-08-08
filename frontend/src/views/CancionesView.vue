@@ -131,16 +131,20 @@
                 <ThemeBadge :theme="song.tema ?? ''" />
               </td>
               <td data-label="Clasificación">
-                <span :class="['clasificacion-badge', badgeClass(song.clasificacion)]">
+                <span
+                  v-if="song.clasificacion"
+                  :class="['clasificacion-badge', badgeClass(song.clasificacion)]"
+                >
                   {{ labelText(song.clasificacion) }}
                 </span>
+                <span v-else class="table-cell-muted">—</span>
               </td>
               <td data-label="Acción">
                 <div class="canciones__row-actions">
                   <button
                     v-if="song.filename"
                     class="action-btn"
-                    @click="openSongDetails(song)"
+                    @click="openLyrics(song)"
                   >
                     Ver letra
                   </button>
@@ -203,6 +207,7 @@
       :song="selectedSongData"
       :lyrics="selectedLyrics"
       :loading="loadingLyrics"
+      :show-details="modalShowDetails"
       @close="selectedSongId = null"
     />
   </div>
@@ -248,6 +253,7 @@ const selectedSongId = ref<number | null>(null);
 const selectedSongData = ref<Song | null>(null);
 const selectedLyrics = ref('');
 const loadingLyrics = ref(false);
+const modalShowDetails = ref(false);
 
 // Column model for the catalog table. Only the columns a non-technical
 // user needs at a glance; the rest (subtitulo, intérpretes invitados,
@@ -416,6 +422,15 @@ function changePage(newPage: number) {
 }
 
 async function openSongDetails(song: Song) {
+  await openLyricModal(song, true)
+}
+
+async function openLyrics(song: Song) {
+  await openLyricModal(song, false)
+}
+
+async function openLyricModal(song: Song, showDetails: boolean) {
+  modalShowDetails.value = showDetails;
   selectedSongId.value = song.id;
   selectedSongData.value = song;
   loadingLyrics.value = true;

@@ -565,16 +565,6 @@ body {
   white-space: nowrap;
 }
 
-.table-cell-truncate:hover .table-cell-text {
-  white-space: normal;
-  overflow: visible;
-  position: relative;
-  z-index: 2;
-  background: var(--color-panel);
-  box-shadow: var(--shadow-md);
-  padding: 0.35rem 0.5rem;
-}
-
 /* Wider room for long track lists */
 .results-table--wide .cell-pistas {
   min-width: 180px;
