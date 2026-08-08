@@ -40,4 +40,15 @@ describe('AuthPage', () => {
     await getByText('Registrarse').click();
     expect(screen.getByLabelText('Correo')).toBeTruthy();
   });
+
+  it('shows the forgot-password link on the login tab', () => {
+    render(AuthPage);
+    expect(screen.getByText('¿Olvidaste tu contraseña?')).toBeTruthy();
+  });
+
+  it('hides the forgot-password link on the register tab', async () => {
+    const { getByText } = render(AuthPage);
+    await getByText('Registrarse').click();
+    expect(screen.queryByText('¿Olvidaste tu contraseña?')).toBeNull();
+  });
 });

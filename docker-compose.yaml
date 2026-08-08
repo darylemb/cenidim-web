@@ -46,6 +46,13 @@ services:
       # sends in development.
       - RESEND_API_KEY=
       - CENIDIM_EMAIL_FROM=no-reply@cenidim.local
+
+      # Dev only: include the plaintext reset link in the /forgot
+      # response so a local reviewer can complete the flow without a
+      # mail server. Coolify (production) does not set this.
+      - CENIDIM_EMAIL_DEMO_PRINT_BODY=1
+      # Dev only: the local frontend is served on port 80 (nginx).
+      - CENIDIM_FRONTEND_BASE_URL=http://localhost
     volumes:
       - ./data:/data
     healthcheck:
