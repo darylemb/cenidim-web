@@ -4,7 +4,7 @@
       <span class="eyebrow">Vocabulario recurrente</span>
       <p class="word-cloud__caption">
         Top {{ topWords.length }} palabras más frecuentes del cuerpo de la letra.
-        Tamaño = frecuencia logarítmica.
+        Las palabras más grandes son las que más se repiten.
         <ChartInfoButton :info="chartInfo.nubePalabras" />
       </p>
     </header>
@@ -118,11 +118,30 @@ const fontScale = computed(() =>
   Math.max(0.45, Math.min(baseWidth.value / REF_W, baseHeight.value / REF_H)),
 );
 
-const palette = [
+// Light-theme palette: warm inks on the cream background.
+const lightPalette = [
   '#1a1612', '#751428', '#c5a46c', '#c97a4a', '#6b8068', '#2c4a6e',
   '#9a2a2a', '#7c3aed', '#1d4ed8', '#047857', '#d97706', '#be185d',
   '#4a4239', '#8a7f6e', '#a16207', '#3a3128',
 ];
+
+// Dark-theme palette: lighter/brighter inks that stay visible on the
+// deep warm-brown background (dark inks would disappear).
+const darkPalette = [
+  '#f3ede0', '#c5a46c', '#e0a35e', '#8fbfa0', '#7fa3d8', '#e07b9a',
+  '#d9a0c8', '#a0c86f', '#e0b6a0', '#c9a86c', '#9bb8d8', '#e08f6f',
+  '#c5b89c', '#a8b8d0', '#d8b45a', '#b08fbf',
+];
+
+const palette = ref(lightPalette);
+if (typeof window !== 'undefined' && window.matchMedia) {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const apply = (dark: boolean) => {
+    palette.value = dark ? darkPalette : lightPalette;
+  };
+  apply(mq.matches);
+  mq.addEventListener?.('change', (e) => apply(e.matches));
+}
 
 /**
  * Tighter filter: the backend already does the heavy normalization
@@ -142,7 +161,7 @@ const topWords = computed(() => {
  */
 const cloudLayout = computed<LayoutWord[]>(() => {
   return packWordCloud(topWords.value, baseWidth.value, baseHeight.value, {
-    palette,
+    palette: palette.value,
     fontScale: fontScale.value,
   });
 });

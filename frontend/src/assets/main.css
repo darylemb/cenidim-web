@@ -154,7 +154,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #fff;
+  background-color: var(--color-panel);
   border-bottom: 1px solid var(--border-light);
   padding: 0.5rem 2rem;
   gap: 1.5rem;
@@ -214,7 +214,7 @@ body {
 
 .nav-btn-reset {
   padding: 0.5rem 0.75rem;
-  background-color: white;
+  background-color: var(--color-panel);
   border: 1px solid var(--border-light);
   color: var(--text-secondary);
   font-weight: 500;
@@ -321,7 +321,7 @@ body {
   flex-direction: row;
   gap: 0.75rem;
   margin-bottom: 2.5rem;
-  background: white;
+  background: var(--color-panel);
   padding: 1rem;
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-sm);
@@ -365,7 +365,7 @@ body {
     top: 100%;
     left: 0;
     right: 0;
-    background: white;
+    background: var(--color-panel);
     flex-direction: column;
     padding: 0.5rem 0;
     border-bottom: 1px solid var(--border-light);
@@ -460,14 +460,14 @@ body {
 .nav-search input:focus,
 .nav-search select:focus {
   outline: none;
-  background-color: #fff;
+  background-color: var(--color-panel);
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(117, 20, 40, 0.1);
 }
 
 .btn-reset {
   padding: 0.75rem 1.25rem;
-  background-color: white;
+  background-color: var(--color-panel);
   border: 1px solid var(--border-light);
   color: var(--text-secondary);
   font-weight: 500;
@@ -519,7 +519,7 @@ body {
 .results-table-container {
   position: relative;
   border: 1px solid var(--border-light);
-  background: white;
+  background: var(--color-panel);
   box-shadow: var(--shadow-sm);
   /* Fixed minimum height so the container doesn't jump between pages */
   min-height: 600px;
@@ -563,16 +563,6 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.table-cell-truncate:hover .table-cell-text {
-  white-space: normal;
-  overflow: visible;
-  position: relative;
-  z-index: 2;
-  background: #fff;
-  box-shadow: var(--shadow-md);
-  padding: 0.35rem 0.5rem;
 }
 
 /* Wider room for long track lists */
@@ -637,7 +627,7 @@ body {
 }
 
 .kpi-card {
-  background: white;
+  background: var(--color-panel);
   padding: 1.5rem;
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-sm);
@@ -687,7 +677,7 @@ body {
 }
 
 .chart-container {
-  background: white;
+  background: var(--color-panel);
   padding: 1.5rem;
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-sm);
@@ -747,7 +737,7 @@ body {
 
 .pagination-btn {
   padding: 0.5rem 1rem;
-  background-color: white;
+  background-color: var(--color-panel);
   border: 1px solid var(--border-light);
   color: var(--text-primary);
   font-size: 0.875rem;
@@ -778,7 +768,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: white;
+  background-color: var(--color-panel);
   border: 1px solid var(--border-light);
   color: var(--text-secondary);
   font-size: 0.875rem;
@@ -802,7 +792,7 @@ body {
   padding: 0.5rem 2rem 0.5rem 0.75rem;
   font-size: 0.875rem;
   border: 1px solid var(--border-light);
-  background-color: white;
+  background-color: var(--color-panel);
   color: var(--text-secondary);
   cursor: pointer;
   appearance: none;
@@ -848,7 +838,7 @@ body {
 }
 
 .modal-content {
-  background-color: white;
+  background-color: var(--color-panel);
   width: 100%;
   max-width: 640px;
   max-height: 80vh;
@@ -861,7 +851,7 @@ body {
 
 .modal-header {
   padding: 1.5rem 2rem;
-  background: white;
+  background: var(--color-panel);
   border-bottom: 1px solid var(--border-light);
   display: flex;
   justify-content: space-between;
@@ -1144,7 +1134,7 @@ body {
 .stylized-select {
   width: 100%;
   appearance: none;
-  background-color: white;
+  background-color: var(--color-panel);
   border: 2px solid var(--accent);
   padding: 0.5rem 1rem;
   font-family: inherit;
@@ -1186,7 +1176,7 @@ body {
 }
 
 .lyrics-modal {
-  background: white;
+  background: var(--color-panel);
   width: 100%;
   max-width: 700px;
   max-height: 85vh;
@@ -1341,7 +1331,7 @@ body {
 .timeline-card {
   position: relative;
   border: 1px solid var(--border-light);
-  background: white;
+  background: var(--color-panel);
   box-shadow: var(--shadow-sm);
   padding: 1rem 0.9rem 0.9rem;
   opacity: 0;
@@ -1419,7 +1409,7 @@ body {
 .stylized-select {
   width: 100%;
   appearance: none;
-  background-color: white;
+  background-color: var(--color-panel);
   border: 1px solid rgba(117, 20, 40, 0.35);
   padding: 0.5rem 0.9rem;
   font-family: inherit;
@@ -1526,7 +1516,7 @@ body {
 }
 
 .auth-card {
-  background: white;
+  background: var(--color-panel);
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-md);
   padding: 2.5rem 2rem;
@@ -1714,7 +1704,7 @@ body {
 }
 
 .btn-secondary {
-  background: white;
+  background: var(--color-panel);
   color: var(--text-secondary);
   border: 1px solid var(--border-light);
   padding: 0.5rem 1rem;
@@ -1954,7 +1944,7 @@ body {
 
 .admin-pagination button {
   padding: 0.3rem 0.75rem;
-  background: white;
+  background: var(--color-panel);
   border: 1px solid var(--border-light);
   cursor: pointer;
   font-family: inherit;
@@ -2171,7 +2161,7 @@ body {
   gap: 0.15rem;
   margin-bottom: 1rem;
   padding: 0.5rem 1rem;
-  background: white;
+  background: var(--color-panel);
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-sm);
 }
@@ -2200,7 +2190,7 @@ body {
   width: 100%;
   padding: 0.6rem 0.8rem;
   border: 2px solid var(--border-light);
-  background: white;
+  background: var(--color-panel);
   font-family: inherit;
   font-size: 0.8rem;
   font-weight: 500;

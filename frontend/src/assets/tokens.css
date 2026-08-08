@@ -23,6 +23,11 @@
   --color-surface: rgba(250, 247, 240, 0.85);
   --color-ink: #1a1612;           /* Tinta: warm black, no slate */
 
+  /* Elevated panels (tables, cards, modals). Light: near-white crema;
+     dark: deep warm brown. Components must use this, not `white`. */
+  --color-panel: #fffdf7;
+  --color-panel-soft: #f6f1e6;
+
   /* ── Text ──────────────────────────────────────────── */
   --color-text: var(--color-ink);
   --color-text-secondary: #4a4239;
@@ -136,6 +141,9 @@
     --color-bg-soft: #25201a;
     --color-bg-hover: #322a22;
     --color-surface: rgba(26, 22, 18, 0.85);
+
+    --color-panel: #25201a;
+    --color-panel-soft: #1f1b16;
 
     --color-text: #f3ede0;
     --color-text-secondary: #c5b89c;

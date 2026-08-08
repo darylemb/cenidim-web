@@ -53,7 +53,7 @@ describe('AppHeader.vue', () => {
     const w = makeWrapper(true);
     expect(w.find('.header-user').exists()).toBe(true);
     expect(w.find('.header-username').text()).toBe('admin');
-    expect(w.find('.role-badge').text()).toBe('admin');
+    expect(w.find('.role-badge').text()).toBe('Administrador');
     expect(w.text()).toContain('Cerrar');
     expect(w.find('.btn-primary').exists()).toBe(false);
   });

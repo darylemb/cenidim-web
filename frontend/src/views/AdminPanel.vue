@@ -4,7 +4,7 @@
       <h2 class="page-title">Panel de Administración</h2>
       <div class="admin-user-info">
         <span class="admin-username">{{ auth.user?.username }}</span>
-        <span :class="['role-badge', `role-${auth.user?.role}`]">{{ auth.user?.role }}</span>
+        <span :class="['role-badge', `role-${auth.user?.role}`]">{{ roleLabel(auth.user?.role) }}</span>
       </div>
     </div>
 
@@ -210,7 +210,7 @@
               <td>{{ u.username }}</td>
               <td>{{ u.email }}</td>
               <td>
-                <span :class="['role-badge', `role-${u.role}`]">{{ u.role }}</span>
+                <span :class="['role-badge', `role-${u.role}`]">{{ roleLabel(u.role) }}</span>
               </td>
               <td>
                 <div class="admin-actions">
@@ -258,6 +258,7 @@ import type { Fonograma, Song, User } from '@/types';
 import SortableHeader from '@/components/SortableHeader.vue';
 import ConfirmModal from '@/components/ConfirmModal.vue';
 import AdminFormModal from '@/components/AdminFormModal.vue';
+import { roleLabel } from '@/utils/roles';
 
 const auth = useAuthStore();
 

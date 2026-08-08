@@ -53,7 +53,7 @@ describe('AdminPanel.vue', () => {
   it('shows the current admin user', () => {
     const w = makeWrapper('admin');
     expect(w.find('.admin-username').text()).toBe('admin');
-    expect(w.find('.role-badge').text()).toBe('admin');
+    expect(w.find('.role-badge').text()).toBe('Administrador');
   });
 
   it('always renders the Fonogramas and Canciones tabs', () => {

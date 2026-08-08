@@ -6,12 +6,15 @@
         <div class="lyrics-content">
           <h3>{{ song.title }}</h3>
           <p class="album-info">{{ song.album }}<template v-if="song.year"> · {{ song.year }}</template></p>
+          <p v-if="song.interprete_principal" class="song-interpret">
+            {{ song.interprete_principal }}
+          </p>
 
           <div class="lyrics-meta">
             <ThemeBadge :theme="song.tema ?? ''" />
           </div>
 
-          <dl v-if="detailRows.length" class="song-ficha" aria-label="Ficha de la canción">
+          <dl v-if="showDetails && detailRows.length" class="song-ficha" aria-label="Ficha de la canción">
             <template v-for="row in detailRows" :key="row.label">
               <dt>{{ row.label }}</dt>
               <dd>{{ row.value }}</dd>
@@ -24,6 +27,14 @@
             <div class="loader small"></div>
           </div>
           <pre v-else>{{ lyrics || 'Letra no disponible' }}</pre>
+
+          <router-link
+            :to="{ path: '/canciones', query: { query: song.title } }"
+            class="lyrics-catalog-link"
+            @click="$emit('close')"
+          >
+            Ver en el catálogo →
+          </router-link>
         </div>
       </div>
     </div>
@@ -55,6 +66,9 @@ const props = defineProps<{
   } | null
   lyrics: string
   loading: boolean
+  /** When true, show the full "ficha" (metadata) above the lyrics.
+   *  "Ver letra" passes false so it only shows the lyrics. */
+  showDetails?: boolean
 }>()
 
 defineEmits<{ close: () => void }>()
@@ -88,6 +102,23 @@ const detailRows = computed<Array<{ label: string; value: string }>>(() => {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+.song-interpret {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: var(--space-1) 0 0;
+}
+
+.lyrics-catalog-link {
+  display: inline-block;
+  margin-top: var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-brand);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .song-ficha {
