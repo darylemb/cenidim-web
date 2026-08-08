@@ -1820,6 +1820,32 @@ body {
   margin-bottom: 1rem;
 }
 
+.admin-section-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.admin-lyrics-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.admin-lyrics-check__input {
+  accent-color: var(--color-brand);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.admin-lyrics-check__label {
+  user-select: none;
+}
+
 .admin-section-header h3 {
   font-size: 1.1rem;
   font-weight: 700;

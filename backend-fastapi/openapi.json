@@ -1267,6 +1267,16 @@
               "default": "asc",
               "title": "Dir"
             }
+          },
+          {
+            "name": "has_lyrics",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Has Lyrics"
+            }
           }
         ],
         "responses": {

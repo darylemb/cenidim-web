@@ -108,9 +108,20 @@
     <div v-if="activeTab === 'songs'">
       <div class="admin-section-header">
         <h3>Canciones</h3>
-        <button v-if="auth.isEditor" class="btn-primary" @click="openSongForm(null)">
-          + Agregar
-        </button>
+        <div class="admin-section-controls">
+          <label class="admin-lyrics-check">
+            <input
+              v-model="songHasLyrics"
+              type="checkbox"
+              class="admin-lyrics-check__input"
+              @change="onSongHasLyricsChange"
+            />
+            <span class="admin-lyrics-check__label">Solo con letra</span>
+          </label>
+          <button v-if="auth.isEditor" class="btn-primary" @click="openSongForm(null)">
+            + Agregar
+          </button>
+        </div>
       </div>
       <div class="admin-table-wrap">
         <table class="admin-table">
@@ -157,27 +168,14 @@
           </tbody>
         </table>
       </div>
-      <div class="admin-pagination">
-        <button
-          :disabled="songPage === 1"
-          @click="
-            songPage--;
-            loadSongs();
-          "
-        >
-          Anterior
-        </button>
-        <span>Página {{ songPage }} de {{ songTotalPages }}</span>
-        <button
-          :disabled="songPage >= songTotalPages"
-          @click="
-            songPage++;
-            loadSongs();
-          "
-        >
-          Siguiente
-        </button>
-      </div>
+      <PaginationBar
+        :page="songPage"
+        :limit="songLimit"
+        :total="songTotal"
+        :shown="songs.length"
+        @change="onSongPageChange"
+        @limit="onSongLimitChange"
+      />
     </div>
 
     <!-- Users Tab -->
@@ -256,6 +254,7 @@ import { useAuthStore } from '@/stores/auth';
 import { apiService } from '@/services/api';
 import type { Fonograma, Song, User } from '@/types';
 import SortableHeader from '@/components/SortableHeader.vue';
+import PaginationBar from '@/components/PaginationBar.vue';
 import ConfirmModal from '@/components/ConfirmModal.vue';
 import AdminFormModal from '@/components/AdminFormModal.vue';
 import { roleLabel } from '@/utils/roles';
@@ -274,8 +273,9 @@ const songSortKey = ref('');
 const songSortDir = ref<'asc' | 'desc'>('asc');
 const fonoTotal = ref(0);
 const songTotal = ref(0);
+const songLimit = ref(50);
+const songHasLyrics = ref(false);
 const fonoTotalPages = computed(() => Math.max(1, Math.ceil(fonoTotal.value / 20)));
-const songTotalPages = computed(() => Math.max(1, Math.ceil(songTotal.value / 50)));
 const confirmTarget = ref<
   | { type: 'fonograma' | 'song' | 'user'; id: number; label?: string }
   | null
@@ -332,15 +332,32 @@ async function loadSongs() {
     const data = await apiService.adminListSongs(
       '',
       songPage.value,
-      50,
+      songLimit.value,
       songSortKey.value,
       songSortDir.value,
+      songHasLyrics.value,
     );
     songs.value = data.results;
     songTotal.value = data.total ?? 0;
   } catch (e) {
     console.error(e);
   }
+}
+
+function onSongHasLyricsChange() {
+  songPage.value = 1;
+  loadSongs();
+}
+
+function onSongPageChange(newPage: number) {
+  songPage.value = newPage;
+  loadSongs();
+}
+
+function onSongLimitChange(newLimit: number) {
+  songLimit.value = newLimit;
+  songPage.value = 1;
+  loadSongs();
 }
 
 async function loadUsers() {
