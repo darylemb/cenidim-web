@@ -70,17 +70,20 @@
     </section>
 
     <div class="results-table-container">
-      <div v-if="loading" class="loading-overlay">
+      <!-- Full-screen overlay only on the very first load (no rows yet).
+           Re-ordering / re-filtering keeps the table visible so the
+           screen doesn't flash on every click. -->
+      <div v-if="loading && results.length === 0" class="loading-overlay">
         <div class="spinner"></div>
         <p>Buscando en el archivo del CENIDIM…</p>
       </div>
       <div class="table-scroll-wrapper">
-        <table :class="['results-table', 'results-table--wide', { loadingopacity: loading }]">
+        <table :class="['results-table', 'results-table--wide']">
           <!-- Fixed column widths: with table-layout:fixed the header
                row defines the geometry, so the table never reflows when
                filters/page change (review request 03/ago/2026). -->
           <colgroup>
-            <col style="width: 64px" />
+            <col style="width: 80px" />
             <col style="width: 26%" />
             <col style="width: 24%" />
             <col style="width: 20%" />
