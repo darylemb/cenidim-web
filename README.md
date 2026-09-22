@@ -4,11 +4,11 @@ This repository contains the full stack web application for **Cenidim** (Centro 
 
 The application serves a digital archive of musical lyrics — the CENIDIM children's songbook collection — and lets researchers search by title, album, or lyric content, browse statistical dashboards, and (for admins) manage the catalog and user accounts. The frontend follows a single design-token reference (Fraunces + Outfit + JetBrains Mono on a vino/mostaza/crema palette) so every page is visually consistent.
 
-**Glossary & terminology**: see [`docs/GLOSARIO.md`](docs/GLOSARIO.md) for the canonical definitions of every chart, KPI, and category shown on the dashboard. The frontend's `ⓘ` info buttons on each chart source their long-form text from `frontend/src/config/chartInfo.ts`.
+**Glossary & terminology**: the frontend's `ⓘ` info buttons on each chart source their long-form text from `frontend/src/config/chartInfo.ts`, which is the canonical definition of every chart, KPI, and category shown on the dashboard.
 
 ## Architecture
 
-1. **Backend (FastAPI – Pydantic v2)**: the production backend since Phase 7 of the Go → FastAPI cut-over. SQLAlchemy 2.0 ORM, JWT auth with HttpOnly cookies + CSRF double-submit, refresh-token rotation via `RefreshTokenRevocation`, Prometheus `/metrics`, structured JSON logging, Alembic migrations. See [`backend-fastapi/README.md`](backend-fastapi/README.md) and `docs/adr/0001-fastapi-replaces-go.md`. The Go / Gin backend was **retired in Phase 9** (the `backend/` tree and rollback compose are gone).
+1. **Backend (FastAPI – Pydantic v2)**: the production backend since Phase 7 of the Go → FastAPI cut-over. SQLAlchemy 2.0 ORM, JWT auth with HttpOnly cookies + CSRF double-submit, refresh-token rotation via `RefreshTokenRevocation`, Prometheus `/metrics`, structured JSON logging, Alembic migrations. See [`backend-fastapi/README.md`](backend-fastapi/README.md). The Go / Gin backend was **retired in Phase 9** of the cut-over (the `backend/` tree and rollback compose are gone; the decision record lives in git history).
 2. **Frontend (Vue 3 + TypeScript)**: SPA served via an **unprivileged Nginx** container. State is managed with Pinia; routing with Vue Router; charts with vue-chartjs. Build tool is Vite. Requires **Node 24**.
 3. **Data management**: a three-step Python pipeline that parses the raw songbook and lyrics into a structured SQLite database.
    - `scripts/build_db.py` seeds `letras.db` from `db_fonografia.csv` + `LetrasTXT/` (Python port of the old Go builder, byte-compatible) inside the `db-init` Docker sidecar.
@@ -42,8 +42,8 @@ The FastAPI service reads configuration from environment variables prefixed with
 | `CENIDIM_LOG_FORMAT` | No | `json` | `json` for production (Promtail / Grafana friendly) or `text` for human-readable. |
 | `CENIDIM_WORKERS` | No | `2` | uvicorn worker count (production). |
 | `CENIDIM_EMAIL_FROM` | For Resend | `no-reply@cenidim.local` | Sender for outbound password-reset emails. |
-| `CORS_ALLOWED_ORIGINS` | No | `http://localhost,http://localhost:3000,http://localhost:8000` | Comma-separated list of allowed CORS origins. |
-| `FRONTEND_BASE_URL` / `CENIDIM_FRONTEND_BASE_URL` | For email links | `http://localhost` | SPA origin used to build the redirect target in password-reset emails. |
+| `CORS_ALLOWED_ORIGINS` | No | `localhost` trio + `app://hoppscotch` + `file://` | Comma-separated list of allowed CORS origins. |
+| `FRONTEND_BASE_URL` / `CENIDIM_FRONTEND_BASE_URL` | For email links | `http://localhost:3000` | SPA origin used to build the redirect target in password-reset emails. |
 | `RESEND_API_KEY` | For outbound email | empty (dev outbox) | Resend API key; when empty, `email_outbox` table receives every send instead. |
 | `CENIDIM_EMAIL_DEMO_PRINT_BODY` | No | `0` | Dev only: include the plaintext reset link in the `/forgot` response so a local reviewer can complete the flow without a mail server. |
 
@@ -92,7 +92,7 @@ npm run dev   # Vite dev server on :5173, proxies /api to the backend
 
 Other useful frontend scripts:
 ```bash
-npm run typecheck   # vue-tsc --noEmit
+npx vue-tsc --noEmit   # standalone typecheck (also runs inside `npm run build`)
 npm run lint        # ESLint
 npm run test        # Vitest watch mode
 npm run test -- --run   # one-shot (CI)
@@ -128,12 +128,12 @@ The initial admin is created by `scripts/build_db.sh` from the `ADMIN_PASS` env 
 ## Testing and Quality
 
 - **Backend (FastAPI)**: `cd backend-fastapi && PYTHONPATH=. uv run pytest tests/`. **235 tests pass at 96% coverage** with ruff clean. Coverage gate: 80% (`--cov-fail-under=80` in `pyproject.toml`; current coverage is well above).
-- **Frontend**: `cd frontend && npm run test -- --run` (Vitest + Vue Test Utils). **265 tests pass** (9 skipped). Strict TypeScript — `npm run typecheck` runs in CI.
+- **Frontend**: `cd frontend && npm run test -- --run` (Vitest + Vue Test Utils). **265 tests pass** (9 skipped). Strict TypeScript — the typecheck (`vue-tsc --noEmit`) runs inside `npm run build` in CI.
 - **End-to-end backend smoke**: `cd backend-fastapi && PYTHONPATH=. uv run pytest tests/integration/test_uvicorn_smoke.py`. Boots a real uvicorn subprocess and exercises /healthz, /metrics, /openapi.json, /api/auth/register, /api/auth/login, /api/auth/me, /api/auth/logout, /api/search, /api/stats, /api/admin/* 401, and the 422 validation path.
 - **Post-deploy smoke script**: `backend-fastapi/scripts/smoke.sh http://localhost:8000`. Returns non-zero on the first failing check; intended to run after every `docker compose up`.
-- **Design tokens**: `bash scripts/audit_design_tokens.sh frontend/src 0.05` verifies that no more than 5 % of style-bearing lines use hard-coded hex colors or px values outside `tokens.css`. SC-009 of the spec requires this drift to stay below 2 % at the end of the project.
+- **Design tokens**: `bash scripts/audit_design_tokens.sh frontend/src 0.05` verifies that no more than 5 % of style-bearing lines use hard-coded hex colors or px values outside `tokens.css`.
 - **End-to-end CI**: `scripts/run_ci_local.sh` runs the full sequence (backend lint + test → frontend lint + typecheck + test → docker compose build + health check).
-- **Code review**: `scripts/run_code_review_all.sh` is the pre-merge gate (FR-027 of spec 004 / SC-010). It batches all source files and invokes the `/code-review` command on each batch. **This is opt-in**: the agent never runs it automatically. To run it before opening a PR:
+- **Code review**: `scripts/run_code_review_all.sh` is the optional pre-merge gate. It batches all source files and invokes the `/code-review` command on each batch. **This is opt-in**: the agent never runs it automatically. To run it before opening a PR:
   ```bash
   ./scripts/run_code_review_all.sh
   # review-reports/code-review-<timestamp>/summary.md will list OK / failed / skipped batches
@@ -186,6 +186,5 @@ When changing the backend env vars, only the `environment:` block of the `backen
 
 ## License
 
-See `LICENSE` (not included in this README; check the repository root).
-# retrigger ci
-<!-- CI: Tue Jul 14 22:23:24 CST 2026 -->
+No `LICENSE` file is shipped with the repository at this time; all
+rights remain with the project owner until one is added.

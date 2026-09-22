@@ -17,20 +17,36 @@ unprivileged Nginx container (see `frontend/Dockerfile`).
 - **Auth**: JWT with HttpOnly cookies, password reset via email, and
   role-based access control.
 
+## Requirements
+
+- **Node.js 24** (the version pinned in CI via `actions/setup-node`).
+
 ## Available Scripts
 
 Run from `frontend/`:
 
 | Command | What it does |
 |---------|--------------|
-| `npm install` | Install dependencies |
+| `npm install` / `npm ci` | Install dependencies |
 | `npm run dev` | Vite dev server on `:5173`, proxies `/api` to the backend |
 | `npm run build` | TypeScript check (`vue-tsc --noEmit`) + production build |
-| `npm run typecheck` | `vue-tsc --noEmit` only |
+| `npx vue-tsc --noEmit` | Standalone typecheck (no dedicated npm script) |
 | `npm run lint` / `lint:fix` | ESLint |
 | `npm run test` | Vitest watch mode |
 | `npm run test -- --run` | One-shot test run (CI) |
 | `npm run test:coverage` | Coverage report |
+| `npm run test:e2e` | Playwright end-to-end tests (needs the stack running) |
+
+### Known issue: `localStorage` under Node ≥ 22
+
+Recent Node versions ship a built-in `localStorage` global that
+shadows jsdom's and makes ~63 tests fail with
+`Cannot read properties of undefined (reading 'clear')`. Workaround
+until the test setup is patched:
+
+```bash
+NODE_OPTIONS="--localstorage-file=/tmp/ls" npm run test -- --run
+```
 
 ## Docker
 

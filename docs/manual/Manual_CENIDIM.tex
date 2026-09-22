@@ -1,0 +1,713 @@
+% =====================================================================
+%  Manual del sistema --- Cancionero Infantil CENIDIM
+%  Compilar con:  pdflatex Manual_CENIDIM.tex  (dos pasadas para el índice)
+%  Solo requiere paquetes estándar de TeX Live / MiKTeX.
+% =====================================================================
+\documentclass[11pt,letterpaper,twoside]{report}
+
+% ---------- Paquetes base ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla,es-noindentfirst]{babel}
+\usepackage[margin=2.6cm,headheight=14pt]{geometry}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{listings}
+\usepackage{microtype}
+\usepackage{underscore}          % guiones bajos seguros y cortables en texto
+\usepackage{amssymb}             % \checkmark, \square
+\usepackage{lastpage}
+\usepackage[colorlinks=true,
+            linkcolor=cenidim-vino,
+            urlcolor=cenidim-vino,
+            citecolor=cenidim-vino]{hyperref}
+
+% ---------- Paleta institucional (design tokens del frontend) ----------
+\definecolor{cenidim-vino}{HTML}{751428}     % --color-brand
+\definecolor{cenidim-vino-osc}{HTML}{5A0F1D} % --color-brand-dark
+\definecolor{cenidim-mostaza}{HTML}{C5A46C}  % --color-brand-light
+\definecolor{cenidim-crema}{HTML}{FAF7F0}    % --color-bg
+\definecolor{cenidim-tinta}{HTML}{1A1612}    % --color-ink
+\definecolor{cenidim-gris}{HTML}{8A7F6E}     % --color-text-muted
+
+% ---------- Encabezado / pie ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\small\itshape Manual del sistema --- Cancionero CENIDIM}
+\fancyhead[RO]{\small\itshape\leftmark}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\color{cenidim-mostaza}\hrule width\headwidth height 0.4pt}
+
+% ---------- Títulos ----------
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\color{cenidim-vino}}
+  {\filleft\large\MakeUppercase{\chaptertitlename}\ \thechapter}
+  {12pt}{\titlerule[1.2pt]\vspace{6pt}\huge}
+\titlespacing*{\chapter}{0pt}{-20pt}{28pt}
+
+% ---------- Listings ----------
+\lstdefinestyle{shell}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{cenidim-crema},
+  frame=single, framerule=0.3pt, rulecolor=\color{cenidim-mostaza},
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  xleftmargin=6pt, xrightmargin=6pt,
+  aboveskip=10pt, belowskip=10pt,
+}
+\lstset{style=shell}
+
+% ---------- Utilidades ----------
+\providecommand{\nopagecolor}{\pagecolor{white}} % kernels antiguos
+\newcommand{\ok}{\textcolor{cenidim-vino}{\textbf{\checkmark}}}
+\newcommand{\pend}{\textcolor{cenidim-mostaza}{$\square$}}
+\newcommand{\codigo}[1]{\texttt{#1}}
+\emergencystretch=2em                     % evita overfull en texto justificado
+\setlist{itemsep=2pt,topsep=4pt}
+
+% =====================================================================
+\begin{document}
+
+% ==================== PORTADA ====================
+\begin{titlepage}
+  \pagecolor{cenidim-crema}
+  \begin{center}
+    \vspace*{1.5cm}
+
+    {\color{cenidim-mostaza}\rule{\textwidth}{1.5pt}}\\[4pt]
+    {\color{cenidim-vino}\rule{\textwidth}{0.6pt}}
+
+    \vspace{2.2cm}
+    {\small\scshape Centro Nacional de Investigación, Documentación\\[2pt]
+     e Información Musical ``Carlos Chávez''}\\[1.8cm]
+
+    {\Huge\bfseries\color{cenidim-vino} Cancionero Infantil\\[6pt] CENIDIM}\\[0.9cm]
+    {\LARGE\color{cenidim-tinta} Manual del sistema}\\[0.5cm]
+    {\large\itshape Plataforma web de consulta, análisis y administración\\ del archivo de letras de canciones}
+
+    \vspace{2.6cm}
+    \begin{tabular}{rl}
+      \textbf{Versión del documento:} & 1.0 \\
+      \textbf{Versión del sistema:}   & 0.2.0 \\
+      \textbf{Fecha:}                 & Septiembre de 2026 \\
+      \textbf{Rama de referencia:}    & \codigo{sandbox} \\
+      \textbf{Despliegue:}            & \codigo{cenidim.darylemb.dev} \\
+    \end{tabular}
+
+    \vfill
+    {\color{cenidim-vino}\rule{\textwidth}{0.6pt}}\\[4pt]
+    {\color{cenidim-mostaza}\rule{\textwidth}{1.5pt}}
+  \end{center}
+\end{titlepage}
+\nopagecolor
+
+% ---------- Portadilla ----------
+\thispagestyle{empty}
+\vspace*{6cm}
+\begin{center}
+  {\large\itshape Documento entregable del proyecto.}\\[4pt]
+  {\small Describe la arquitectura, la instalación, el uso, la referencia
+   de la API, el estado de calidad verificado y el trabajo pendiente.}
+\end{center}
+\cleardoublepage
+
+% ==================== ÍNDICES ====================
+\pagenumbering{roman}
+\tableofcontents
+\cleardoublepage
+\listoftables
+\cleardoublepage
+\pagenumbering{arabic}
+
+% =====================================================================
+\chapter{Introducción}
+% =====================================================================
+
+\section{Propósito del sistema}
+La plataforma \textbf{Cancionero CENIDIM} es una aplicación web que da
+acceso público y administrado al archivo digital del cancionero
+infantil del Centro Nacional de Investigación, Documentación e
+Información Musical ``Carlos Chávez''. Permite:
+
+\begin{itemize}
+  \item Buscar canciones por título, álbum (fonograma) o contenido de
+        la letra.
+  \item Explorar el catálogo en una \emph{línea de tiempo} por año de
+        registro.
+  \item Consultar un \emph{tablero estadístico} con métricas del
+        corpus: distribución por año, por tema, por clasificación
+        lingüística, niveles de léxico (OOV) y nube de palabras.
+  \item Administrar el catálogo (fonogramas y canciones), las cuentas
+        de usuario y la auditoría operativa (roles
+        \emph{viewer}/\emph{editor}/\emph{admin}).
+\end{itemize}
+
+\section{Cifras del corpus}
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lr}
+    \toprule
+    \textbf{Indicador} & \textbf{Valor} \\
+    \midrule
+    Canciones indexadas            & 3\,858 \\
+    Fonogramas (álbumes)           & 280    \\
+    Temas catalogados (distintos)  & $\sim$24 canónicos \\
+    Clasificaciones lingüísticas   & 3 (estándar, regional, indígena) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Volumen del archivo al momento de esta edición.}
+  \label{tab:corpus}
+\end{table}
+
+Los temas (\codigo{Tema:} en los archivos fuente) son asignados por
+catalogadores humanos; el sistema \emph{no} los infiere. Las variantes
+de escritura (mayúsculas, espacios, errores tipográficos conocidos) se
+pliegan a formas canónicas mediante \codigo{canonical_tema}
+(\codigo{backend-fastapi/app/models/theme_normalization.py}).
+
+\section{Alcance de este manual}
+Este documento es el manual entregable del proyecto. Cubre la
+arquitectura (cap.~\ref{cap:arquitectura}), el pipeline de datos
+(cap.~\ref{cap:pipeline}), la instalación y el despliegue
+(cap.~\ref{cap:instalacion}), el uso de la aplicación
+(cap.~\ref{cap:usuario}), la referencia de la API
+(cap.~\ref{cap:api}), el estado de calidad verificado
+(cap.~\ref{cap:calidad}) y el trabajo pendiente
+(cap.~\ref{cap:pendientes}).
+
+% =====================================================================
+\chapter{Arquitectura del sistema}
+\label{cap:arquitectura}
+% =====================================================================
+
+\section{Vista general}
+El sistema sigue una arquitectura de tres capas desplegada con
+Docker Compose:
+
+\begin{center}
+\begin{tabular}{ccl}
+  \toprule
+  \textbf{Servicio} & \textbf{Puerto} & \textbf{Función} \\
+  \midrule
+  \codigo{frontend} & 80   & SPA Vue~3 servida por Nginx (sin root) \\
+  \codigo{backend}  & 8000 & API FastAPI / uvicorn \\
+  \codigo{db-init}  & ---  & Sidecar que regenera \codigo{letras.db} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+El frontend consume la API bajo el prefijo \codigo{/api} (proxy Nginx en
+producción, proxy Vite en desarrollo). La base de datos es
+\textbf{SQLite} (\codigo{letras.db}), regenerada de forma determinista
+por el sidecar \codigo{db-init} a partir de las fuentes, por lo que el
+archivo binario es un artefacto de ejecución, no una fuente editada a
+mano.
+
+\section{Componentes}
+
+\subsection{Backend --- FastAPI / Pydantic v2}
+\begin{itemize}
+  \item SQLAlchemy 2.0 (ORM) sobre el esquema \codigo{letras.db}
+        (columnas \codigo{snake_case}); modelos en
+        \codigo{app/models/}.
+  \item Autenticación: hash de contraseñas sha256+bcrypt, JWT con
+        \codigo{python-jose}, cookies HttpOnly + CSRF
+        \emph{double-submit}, rotación de refresh tokens con revocación
+        (tabla \codigo{RefreshTokenRevocation}).
+  \item Autorización por roles:
+        \codigo{viewer} $<$ \codigo{editor} $<$ \codigo{admin}, vía la
+        fábrica \codigo{require_role(...)} en \codigo{app/deps.py}.
+  \item Observabilidad: \codigo{/metrics} en formato Prometheus y
+        logging JSON estructurado (\codigo{app/\allowbreak observability.py},
+        \codigo{app/\allowbreak logging_config.py}).
+  \item Migraciones con Alembic; en producción
+        (\codigo{CENIDIM\_ENV=\allowbreak prod})
+        el esquema \emph{no} se autocrea.
+  \item Correo (recuperación de contraseña) vía Resend; en desarrollo,
+        bandeja local en la tabla \codigo{email_outbox}.
+\end{itemize}
+
+\subsection{Frontend --- Vue 3 + TypeScript}
+\begin{itemize}
+  \item SPA con Vite, Vue Router 4, Pinia (stores \codigo{auth},
+        \codigo{search}, \codigo{ui}, \codigo{filters}).
+  \item Gráficas con \codigo{vue-chartjs} (Chart.js).
+  \item TypeScript en modo \emph{strict}; estilos con design tokens
+        (\codigo{src/assets/tokens.css}: Fraunces + Outfit + JetBrains
+        Mono sobre paleta vino/mostaza/crema).
+\end{itemize}
+
+\subsection{Datos}
+\begin{itemize}
+  \item Fuentes: \codigo{db_fonografia.csv} (metadata de fonogramas) y
+        \codigo{LetrasTXT/*.txt} (letras con línea \codigo{Tema:}).
+  \item Artefacto: \codigo{letras.db} (SQLite) montado en
+        \codigo{/data/letras.db} dentro del contenedor.
+\end{itemize}
+
+\section{Decisiones de arquitectura registradas}
+El backend original en Go/Gin fue reemplazado por FastAPI y retirado
+en la ``Fase~9'' del plan de migración. La decisión y sus
+consecuencias se documentaron en el ADR
+\codigo{docs/adr/\allowbreak 0001-fastapi-replaces-go.md} y el runbook
+\codigo{docs/CUTOVER.md}; ambos archivos fueron retirados del árbol en
+la limpieza posterior (commit \codigo{ff4303b}) y permanecen accesibles
+en la historia de git. El backend de Go permanece
+disponible en la historia de git (commit \codigo{2aab765}) solo como
+referencia de emergencia.
+
+% =====================================================================
+\chapter{Pipeline de datos}
+\label{cap:pipeline}
+% =====================================================================
+
+La base de datos se construye en tres pasos encadenados por
+\codigo{scripts/build_db.sh} (o por el contenedor \codigo{db-init}):
+
+\begin{enumerate}
+  \item \textbf{Construcción} --- \codigo{scripts/build_db.py}: parsea
+        \codigo{db_fonografia.csv} + \codigo{LetrasTXT/} y genera
+        \codigo{letras.db} (port a Python del antiguo builder en Go,
+        con salida byte-compatible). Crea el usuario administrador
+        inicial si se define \codigo{ADMIN_PASS}.
+  \item \textbf{Clasificación} --- \codigo{scripts/classify_songs.py}:
+        con spaCy (\codigo{es_core_news_md}) calcula el porcentaje de
+        palabras fuera de vocabulario (OOV) de cada letra y escribe
+        \codigo{song_stats}:
+        \begin{center}
+        \begin{tabular}{lll}
+          \toprule
+          \textbf{Clasificación} & \textbf{Criterio} \\
+          \midrule
+          \codigo{ESPANOL_ESTANDAR}  & OOV $< 5\%$ \\
+          \codigo{ESPANOL_REGIONAL}  & $5\% \le$ OOV $\le 18\%$ \\
+          \codigo{LENGUA_INDIGENA}   & OOV $> 18\%$ o léxico indígena \\
+          \bottomrule
+        \end{tabular}
+        \end{center}
+  \item \textbf{Normalización} --- \codigo{scripts/normalize_db.py}:
+        limpia el cuerpo de las letras (cabeceras, líneas
+        \codigo{Dura:}/\codigo{Tema:}/\codigo{Personajes:}, iniciales),
+        normaliza temas y revalida la correspondencia letra$\,\leftrightarrow\,$título.
+        Es idempotente y conservadora (verificada con tests).
+\end{enumerate}
+
+\paragraph{Puntos de integridad verificados.}
+Tras la normalización, 366 letras fueron limpiadas y 0 conservan
+marcadores de metadatos residuales; el título y autor permanecen en
+sus columnas dedicadas, por lo que la nube de palabras y el léxico OOV
+reflejan únicamente el texto de la canción.
+
+% =====================================================================
+\chapter{Instalación y despliegue}
+\label{cap:instalacion}
+% =====================================================================
+
+\section{Requisitos}
+\begin{itemize}
+  \item Docker + Docker Compose (vía recomendada), \emph{o}
+  \item Python $\ge 3.12$ con \codigo{uv}; Node.js~24; spaCy
+        \codigo{es_core_news_md} para regenerar la base de datos.
+\end{itemize}
+
+\section{Despliegue con Docker (recomendado)}
+\begin{lstlisting}
+docker compose up --build -d
+backend-fastapi/scripts/smoke.sh http://localhost:8000
+\end{lstlisting}
+
+Servicios resultantes:
+\begin{itemize}
+  \item Frontend: \codigo{http://localhost} (Nginx no privilegiado).
+  \item API: \codigo{http://\allowbreak localhost:\allowbreak 8000/\allowbreak healthz};
+        métricas en \codigo{/metrics}; especificación en
+        \codigo{/\allowbreak openapi.json}.
+\end{itemize}
+
+Para producción (Coolify) se usa \codigo{docker-compose-coolify.yaml}
+con volumen nombrado y secretos del gestor; el archivo por defecto
+sigue siendo válido.
+
+\section{Desarrollo local sin Docker}
+\begin{lstlisting}
+# Backend
+cd backend-fastapi
+uv sync
+PYTHONPATH=. uv run pytest tests/
+uv run uvicorn app.main:app --port 8000 --reload
+
+# Frontend (Node 24)
+cd frontend
+npm install
+npm run dev          # Vite en :5173, proxy /api -> :8000
+\end{lstlisting}
+
+\section{Variables de entorno}
+\begin{longtable}{p{5.2cm}p{2.1cm}p{7.2cm}}
+  \toprule
+  \textbf{Variable} & \textbf{Requerida} & \textbf{Descripción} \\
+  \midrule
+  \endhead
+  \codigo{CENIDIM_JWT_SECRET} & Sí (prod) &
+    Secreto de firma JWT ($\ge$ 256 bits;
+    \codigo{openssl rand -hex 32}). Sin él el backend no arranca en
+    producción. \\
+  \codigo{CENIDIM_DB_PATH} & No & Ruta a \codigo{letras.db}
+    (def. \codigo{letras.db}). \\
+  \codigo{CENIDIM_ENV} & No & \codigo{dev} permite autocrear el
+    esquema; \codigo{prod} exige Alembic. \\
+  \codigo{CENIDIM_LOG_FORMAT} & No & \codigo{json} (producción) o
+    \codigo{text}. \\
+  \codigo{CENIDIM_WORKERS} & No & Workers de uvicorn (def. 2). \\
+  \codigo{CORS_ALLOWED_ORIGINS} & No & Orígenes permitidos,
+    separados por comas. \\
+  \codigo{RESEND_API_KEY} & Para correo & Sin ella, los envíos caen en
+    la tabla \codigo{email_outbox}. \\
+  \codigo{CENIDIM_EMAIL_FROM} & Para correo & Remitente de correos de
+    recuperación. \\
+  \codigo{FRONTEND_BASE_URL} & Para correo & Origen del SPA para los
+    enlaces de restablecimiento. \\
+  \codigo{ADMIN_PASS} & Al sembrar & Contraseña del administrador
+    inicial (build_db). \\
+  \bottomrule
+  \caption{Variables de entorno del backend.}
+  \label{tab:envvars}
+\end{longtable}
+
+\section{Autenticación}
+El inicio de sesión es usuario + contraseña (Google OAuth fue retirado
+en la migración a FastAPI). \codigo{POST /api/auth/login} emite las
+cookies HttpOnly \codigo{cenidim_session} (JWT de acceso),
+\codigo{cenidim_refresh} y \codigo{cenidim_csrf}. Los endpoints
+\codigo{/forgot} y \codigo{/reset} implementan recuperación por correo
+(Resend o bandeja de desarrollo).
+
+% =====================================================================
+\chapter{Manual de usuario}
+\label{cap:usuario}
+% =====================================================================
+
+\section{Vistas de la aplicación}
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Ruta} & \textbf{Vista} & \textbf{Acceso} \\
+    \midrule
+    \codigo{/}          & Línea de tiempo   & Público \\
+    \codigo{/canciones} & Catálogo buscable & Público \\
+    \codigo{/dashboards}& Tablero estadístico & Público \\
+    \codigo{/admin}     & Panel de administración & JWT + rol \\
+    \codigo{/login}     & Inicio de sesión  & Público \\
+    \codigo{/forgot}, \codigo{/reset} & Recuperación & Público \\
+    \bottomrule
+  \end{tabular}
+  \caption{Mapa de rutas del frontend.}
+  \label{tab:rutas}
+\end{table}
+
+\subsection{Línea de tiempo}
+Agrupa las canciones por año de registro del fonograma y permite abrir
+cada pieza para leer su letra y metadatos.
+
+\subsection{Catálogo (\emph{Canciones})}
+Búsqueda paginada por título, álbum o contenido; filtros combinables
+por tema, rango de años, clasificación lingüística y fonograma. La
+columna de número no se trunca y el ordenamiento no produce parpadeo.
+
+\subsection{Tablero estadístico}
+KPIs del catálogo (canciones indexadas, álbumes en el filtro activo,
+temas distintos), gráficas por año, por tema, por clasificación y por
+nivel OOV, y nube de palabras por frecuencia. Cada gráfica tiene un
+ícono \raisebox{0pt}{$\circledast$}\,(i) con explicación en lenguaje no
+técnico; el texto fuente canónico es
+\codigo{frontend/src/config/chartInfo.ts} (el glosario editorial
+\codigo{docs/GLOSARIO.md} fue retirado del árbol en la limpieza de
+\codigo{ff4303b}; disponible en la historia de git).
+
+\subsection{Panel de administración}
+CRUD de fonogramas, canciones y usuarios con paginación y ordenamiento
+del lado del servidor; consulta de la bandeja de correo
+(\codigo{email_outbox}) y de la bitácora de auditoría. La jerarquía de
+roles es \codigo{viewer} (lectura) $<$ \codigo{editor} (escritura) $<$
+\codigo{admin} (borrado y gestión de usuarios).
+
+% =====================================================================
+\chapter{Referencia de la API}
+\label{cap:api}
+% =====================================================================
+
+La especificación completa y normativa es
+\codigo{backend-fastapi/openapi.json} (OpenAPI 3.1, regenerable con
+\codigo{scripts/generate_openapi.py} y vigilada por un guardia de
+deriva en CI). Resumen:
+
+\section{Públicos}
+\begin{longtable}{p{4.6cm}p{9.8cm}}
+  \toprule
+  \textbf{Endpoint} & \textbf{Descripción} \\
+  \midrule
+  \endhead
+  \codigo{GET /healthz}     & Health check (Docker). \\
+  \codigo{GET /metrics}     & Métricas Prometheus. \\
+  \codigo{GET /openapi.json}& Especificación OpenAPI 3.1. \\
+  \codigo{GET /api/search}  & Búsqueda paginada; \codigo{?query=} o \codigo{?q=}. \\
+  \codigo{GET /api/song/\{id\}} & Detalle y letra de una canción. \\
+  \codigo{GET /api/timeline}& Canciones agrupadas por año. \\
+  \codigo{GET /api/stats}   & Métricas del tablero; honra los filtros
+    compartidos (\codigo{tema}, \codigo{year_from}, \codigo{year_to},
+    \codigo{clasificacion}, \codigo{album}, \codigo{q}). \\
+  \codigo{GET /api/word-cloud} & Frecuencias de palabras (def. 200,
+    máx. 500 vía \codigo{?limit=}). \\
+  \bottomrule
+  \caption{Endpoints públicos.}
+  \label{tab:api-publica}
+\end{longtable}
+
+\section{Autenticación (\texttt{/api/auth/*})}
+\begin{longtable}{p{4.6cm}p{9.8cm}}
+  \toprule
+  \textbf{Endpoint} & \textbf{Descripción} \\
+  \midrule
+  \endhead
+  \codigo{POST /login}    & Emite cookies de sesión + \codigo{\{token, user\}}. \\
+  \codigo{POST /register} & Auto-registro (si está habilitado). \\
+  \codigo{POST /forgot}   & Siempre 200; envía enlace de un solo uso. \\
+  \codigo{POST /reset}    & Consume el token y fija la nueva contraseña. \\
+  \codigo{POST /refresh}  & Rota el refresh token (revoca el \codigo{jti} anterior). \\
+  \codigo{POST /logout}   & Revoca el refresh token y limpia cookies. \\
+  \codigo{GET /me}        & Perfil del usuario autenticado. \\
+  \bottomrule
+  \caption{Endpoints de autenticación.}
+  \label{tab:api-auth}
+\end{longtable}
+
+\section{Administración (\texttt{/api/admin/*})}
+Requieren JWT y rol suficiente. CRUD completo de \codigo{fonogramas},
+\codigo{songs} y \codigo{users}; más los operativos
+\codigo{GET /emails} (bandeja, filtro \codigo{only_failures}) y
+\codigo{GET /audit} (bitácora, filtros \codigo{actor_id},
+\codigo{action}).
+
+% =====================================================================
+\chapter{Calidad, pruebas e integración continua}
+\label{cap:calidad}
+% =====================================================================
+
+\section{Estado verificado}
+Los siguientes resultados fueron \emph{ejecutados y verificados} sobre
+la rama \codigo{sandbox} en la fecha de este documento:
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Verificación} & \textbf{Comando} & \textbf{Resultado} \\
+    \midrule
+    Tests backend   & \codigo{pytest tests/}        & \ok\ 235 pasan, cob. 96.13\% \\
+    Lint backend    & \codigo{ruff check app/ tests/} & \ok\ limpio \\
+    Tipos frontend  & \codigo{vue-tsc --noEmit}      & \ok\ limpio \\
+    Lint frontend   & \codigo{npm run lint}          & \ok\ 0 errores, 17 advertencias \\
+    Tests frontend  & \codigo{vitest --run}          & \ok\ 265 pasan, 9 omitidos$^{\ast}$ \\
+    Tipos backend   & \codigo{mypy app/}             & \pend\ 41 errores (ver \S\ref{cap:pendientes}) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Panel de calidad. $^{\ast}$Requieren el ajuste de
+    \codigo{localStorage} descrito en el capítulo~\ref{cap:pendientes}.}
+  \label{tab:calidad}
+\end{table}
+
+\section{Puertas de calidad configuradas}
+\begin{itemize}
+  \item Cobertura backend $\ge 80\%$ (\codigo{--cov-fail-under},
+        \codigo{pyproject.toml}); cobertura actual 96.13\%.
+  \item Umbrales de cobertura frontend en \codigo{vitest.config.ts}
+        (líneas/sentencias 95\%, ramas 83\%, funciones 70\%).
+  \item Guardia de deriva OpenAPI: \codigo{openapi.json} se regenera y
+        se compara en CI.
+  \item Auditoría de design tokens:
+        \codigo{scripts/audit_design_tokens.sh} limita los valores en
+        duro fuera de \codigo{tokens.css}.
+  \item Escaneo de vulnerabilidades con Trivy (imágenes y filesystem)
+        en el job de Docker.
+  \item Humo post-despliegue:
+        \codigo{backend-fastapi/scripts/smoke.sh} (código de salida no
+        cero al primer fallo) y verificador extremo a extremo
+        \codigo{scripts/verify_api.py} que cruza cada endpoint contra
+        la base en disco.
+  \item Pre-commit: ruff (lint+formato), mypy, ganchos estándar.
+  \item Réplica local del CI: \codigo{scripts/run_ci_local.sh}.
+\end{itemize}
+
+\section{Jobs de CI (GitHub Actions)}
+\codigo{lint}, \codigo{typecheck} (build con vue-tsc), \codigo{test},
+\codigo{fastapi-checks} (ruff + pytest + deriva OpenAPI) y
+\codigo{docker-build} / \codigo{docker-build-fastapi} (build + health +
+smoke + Trivy + verificador E2E).
+
+% =====================================================================
+\chapter{Estado del proyecto y trabajo pendiente}
+\label{cap:pendientes}
+% =====================================================================
+
+\section{Veredicto}
+El sistema es \textbf{funcionalmente completo y está desplegado} en
+producción (\codigo{cenidim.\allowbreak darylemb.dev}). La suite de backend está
+íntegramente en verde y la de frontend también, una vez resuelto el
+conflicto de entorno descrito abajo. No obstante, la entrega formal
+debería ir precedida de la limpieza que se lista a continuación.
+
+\section{Pendientes técnicos}
+\begin{longtable}{p{0.9cm}p{3.4cm}p{9.4cm}}
+  \toprule
+  & \textbf{Área} & \textbf{Pendiente} \\
+  \midrule
+  \endhead
+  \pend & Tipado backend &
+    \codigo{mypy app/} reporta \textbf{41 errores} en 7 archivos
+    (p.\,ej. \codigo{public.py}, \codigo{admin.py}, \codigo{main.py}).
+    El hook de pre-commit ejecuta mypy, por lo que bloquea commits;
+    conviene corregirlos o ajustar la configuración de forma
+    deliberada. \\
+  \pend & Tests frontend &
+    Con Node $\ge$ 24, el \codigo{localStorage} nativo sombrea al de
+    jsdom y 63 pruebas fallan
+    (\codigo{Cannot read properties of undefined}). Solución:
+    fijar \codigo{globalThis.localStorage} en
+    \codigo{src/test/setup.ts} o exportar
+    \codigo{NODE\_OPTIONS=\allowbreak --localstorage-file=<tmp>} en CI. Verificado:
+    con el ajuste pasan los 265 tests. \\
+  \pend & Dependencias frontend &
+    \codigo{npm audit}: \textbf{15 vulnerabilidades} (1 crítica,
+    10 altas, incl. \codigo{ws} en \codigo{vue-wordcloud}). Revisar
+    \codigo{npm audit fix} o sustituir el componente de nube. \\
+  \pend & Higiene del repo &
+    La limpieza de \codigo{ff4303b} ya retiró \codigo{test-auth.js},
+    \codigo{untitled41.py}, \codigo{datos.html}, \codigo{index.html} y
+    \codigo{plans/}. Quedan: \codigo{Clasificacion.csv} y
+    \codigo{clasification.csv} (ninguno es referenciado por el pipeline,
+    que usa \codigo{db_fonografia.csv}) y dos \codigo{letras.db}
+    divergentes trackeados (\codigo{/letras.db} y
+    \codigo{/data/letras.db}). \\
+  \pend & Documentación &
+    La misma limpieza eliminó \emph{toda} la documentación
+    (\codigo{docs/}: ADR, CUTOVER, GLOSARIO, respuestas al cliente) más
+    \codigo{AGENTS.md} y \codigo{CHANGELOG.md}; si fue intencional,
+    conviene decidir si se restauran o se acepta su pérdida. Los README
+    fueron corregidos en la rama \codigo{release} para no referenciar
+    archivos inexistentes. Sigue sin existir un archivo
+    \codigo{LICENSE}; \codigo{.gitignore} lista
+    \codigo{docker-compose.yaml} aunque está trackeado. \\
+  \pend & Observabilidad &
+    Deprecación FastAPI: \codigo{on_event} en \codigo{app/main.py}
+    debe migrarse a manejadores \emph{lifespan}. \\
+  \bottomrule
+  \caption{Pendientes técnicos detectados en la revisión.}
+  \label{tab:pendientes-tec}
+\end{longtable}
+
+\section{Pendientes editoriales (con el equipo del archivo)}
+\begin{itemize}
+  \item Catálogo canónico de temas: colapsar conceptos distintos con
+        nombres parecidos (los meros errores tipográficos ya se pliegan
+        con \codigo{TEMA_TYPO_MAP}).
+  \item Homogeneizar la terminología del tablero con los documentos
+        de trabajo y el ensayo (las etiquetas \emph{in-app} ya tienen
+        explicaciones \raisebox{0pt}{$\circledast$}\,(i)).
+  \item \begin{sloppypar}Revisar el listado de canciones sin catalogar
+        (documento \codigo{CANCIONES-SIN-CATALOGAR-2026-08-03.md} en
+        \codigo{docs/}, retirado del árbol en \codigo{ff4303b} y
+        recuperable de la historia de git) para el acervo aún sin
+        tema.\end{sloppypar}
+\end{itemize}
+
+\section{Riesgos y notas de operación}
+\begin{itemize}
+  \item \codigo{CENIDIM_JWT_SECRET} es obligatorio en producción; el
+        backend no arranca sin él.
+  \item \codigo{letras.db} es regenerable: ante corrupción basta
+        reiniciar el stack (\codigo{db-init} lo reconstruye).
+  \item El rollback a Go ya no existe como árbol; solo queda el commit
+        congelado \codigo{2aab765} en la historia.
+\end{itemize}
+
+% =====================================================================
+\appendix
+\chapter{Glosario breve}
+% =====================================================================
+
+\begin{description}[style=nextline]
+  \item[Fonograma] Registro de álbum/disco fuente del que provienen las
+    canciones; unidad de colección (280 en el corpus).
+  \item[OOV] \emph{Out Of Vocabulary}: porcentaje de palabras de una
+    letra que el modelo spaCy no reconoce. Proxy de qué tan cotidiano
+    o especializado es el lenguaje.
+  \item[Tema] Descriptor editorial asignado por catalogadores humanos
+    (línea \codigo{Tema:} del archivo fuente). Nunca se infiere por
+    palabras clave.
+  \item[Clasificación lingüística] Tipología automática por letra:
+    español estándar, español regional o lengua indígena (umbrales OOV
+    en \S\ref{cap:pipeline}).
+  \item[db-init] Servicio sidecar de Docker que reconstruye
+    \codigo{letras.db} (build $\to$ clasifica $\to$ normaliza) antes de
+    que arranque el backend.
+  \item[email\_outbox] Tabla-bandeja donde caen los correos de
+    recuperación cuando no hay \codigo{RESEND_API_KEY} (desarrollo).
+  \item[ADR] \emph{Architecture Decision Record}; el de este proyecto
+    es \codigo{docs/adr/\allowbreak 0001-\allowbreak fastapi-\allowbreak replaces-\allowbreak go.md}
+    (retirado del árbol en \codigo{ff4303b}; en la historia de git).
+\end{description}
+
+El glosario canónico completo, con la definición de cada KPI y gráfica
+del tablero, era \codigo{docs/GLOSARIO.md} (retirado en
+\codigo{ff4303b}); en la aplicación, la fuente viva es
+\codigo{frontend/src/\allowbreak config/\allowbreak chartInfo.ts}.
+
+% =====================================================================
+\begin{thebibliography}{9}
+\addcontentsline{toc}{chapter}{Referencias}
+% =====================================================================
+
+\bibitem{readme} Repositorio del proyecto,
+  \textit{README.md} (raíz) y \textit{backend-fastapi/README.md}.
+
+\bibitem{adr} ADR 0001: \textit{FastAPI reemplaza a Go},
+  \codigo{docs/adr/0001-fastapi-replaces-go.md} (retirado del árbol en
+  \codigo{ff4303b}; recuperable de la historia de git).
+
+\bibitem{cutover} \textit{Cutover Playbook --- Fases 7 y 9},
+  \codigo{docs/CUTOVER.md} (ídem).
+
+\bibitem{glosario} \textit{Glosario del tablero},
+  \codigo{docs/GLOSARIO.md} (ídem; la fuente viva en la aplicación es
+  \codigo{frontend/src/config/chartInfo.ts}).
+
+\bibitem{review} \textit{Respuestas a las 16 observaciones del tablero},
+  \codigo{docs/REVIEW-2026-07-01-STATUS.md} y
+  \codigo{docs/RESPUESTAS-CLIENTE-CENIDIM-2026-07-28.md} (ídem).
+
+\bibitem{openapi} Especificación OpenAPI 3.1 de la API,
+  \codigo{backend-fastapi/openapi.json}.
+
+\bibitem{fastapi} Documentación de FastAPI,
+  \url{https://fastapi.tiangolo.com/}.
+
+\bibitem{vue} Documentación de Vue 3, \url{https://vuejs.org/};
+  Pinia, \url{https://pinia.vuejs.org/};
+  Vue Router, \url{https://router.vuejs.org/}.
+
+\bibitem{spacy} spaCy, modelo español \codigo{es_core_news_md},
+  \url{https://spacy.io/models/es}.
+
+\bibitem{chartjs} Chart.js, \url{https://www.chartjs.org/};
+  envoltorio \codigo{vue-chartjs}.
+
+\end{thebibliography}
+
+\end{document}

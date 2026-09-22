@@ -7,8 +7,9 @@ the `letras.db` SQLite database produced by the data pipeline
 `db-init` Docker sidecar).
 
 This is the **production backend** — the Go / Gin backend was retired in
-Phase 9 of the cut-over (see `docs/adr/0001-fastapi-replaces-go.md` in
-the repo root). There is no rollback service.
+Phase 9 of the cut-over (the decision record and cut-over playbook were
+removed in a later docs cleanup; see git history, e.g. PR #24 and the
+frozen Go tree at commit `2aab765`). There is no rollback service.
 
 ## Stack
 
