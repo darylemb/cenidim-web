@@ -8,13 +8,13 @@ The application serves a digital archive of musical lyrics — the CENIDIM child
 
 ## Architecture
 
-1. **Backend (FastAPI – Pydantic v2)**: the production backend since Phase 7 of the Go → FastAPI cut-over. SQLAlchemy 2.0 ORM, JWT auth with HttpOnly cookies + CSRF double-submit, refresh-token rotation via `RefreshTokenRevocation`, Prometheus `/metrics`, structured JSON logging, Alembic migrations. See [`backend-fastapi/README.md`](backend-fastapi/README.md). The Go / Gin backend was **retired in Phase 9** of the cut-over (the `backend/` tree and rollback compose are gone; the decision record lives in git history).
+1. **Backend (FastAPI – Pydantic v2)**: the production backend since Phase 7 of the Go → FastAPI cut-over. SQLAlchemy 2.0 ORM, JWT auth with HttpOnly cookies + CSRF double-submit, refresh-token rotation via `RefreshTokenRevocation`, Prometheus `/metrics`, structured JSON logging, Alembic migrations. See [`backend/README.md`](backend/README.md). The Go / Gin backend was **retired in Phase 9** of the cut-over (the `backend/` tree and rollback compose are gone; the decision record lives in git history).
 2. **Frontend (Vue 3 + TypeScript)**: SPA served via an **unprivileged Nginx** container. State is managed with Pinia; routing with Vue Router; charts with vue-chartjs. Build tool is Vite. Requires **Node 24**.
 3. **Data management**: a three-step Python pipeline that parses the raw songbook and lyrics into a structured SQLite database.
    - `scripts/build_db.py` seeds `letras.db` from `db_fonografia.csv` + `LetrasTXT/` (Python port of the old Go builder, byte-compatible) inside the `db-init` Docker sidecar.
    - `scripts/classify_songs.py` uses **spaCy** (`es_core_news_md`) to compute OOV percentages and classify each song as `ESPAÑOL_ESTANDAR` / `ESPAÑOL_REGIONAL` / `LENGUA_INDIGENA`.
    - `scripts/normalize_db.py` cleans lyrics, normalizes themes, and re-validates the lyric↔title match.
-4. **Themes**: the `Tema: ...` line at the end of each `LetrasTXT/*.txt` file is the single source of truth — themes are written by the human cataloguers, **not** inferred by keyword matching. The backend folds case / whitespace variants and curated typos into canonical buckets via `canonical_tema` (`backend-fastapi/app/models/theme_normalization.py`, mirrored by the API's `_tema_filter_variants`). The UI cycles a curated palette of swatches by hashing the theme key (`frontend/src/config/themes.ts`), so any new theme gets a colour automatically and nothing crashes on an unknown value.
+4. **Themes**: the `Tema: ...` line at the end of each `LetrasTXT/*.txt` file is the single source of truth — themes are written by the human cataloguers, **not** inferred by keyword matching. The backend folds case / whitespace variants and curated typos into canonical buckets via `canonical_tema` (`backend/app/models/theme_normalization.py`, mirrored by the API's `_tema_filter_variants`). The UI cycles a curated palette of swatches by hashing the theme key (`frontend/src/config/themes.ts`), so any new theme gets a colour automatically and nothing crashes on an unknown value.
 
 ## Setup Instructions
 
@@ -67,7 +67,7 @@ normalize). The backend waits for it via `depends_on.condition:
 service_completed_successfully`. The FastAPI service then applies any pending
 Alembic migrations against the freshly-produced DB on first boot.
 
-`backend-fastapi/Dockerfile` is multi-stage: it installs Python deps via `uv`
+`backend/Dockerfile` is multi-stage: it installs Python deps via `uv`
 (no `pip install` wheel-build headaches) and runs the API as a non-root user
 on `0.0.0.0:8000`.
 
@@ -77,7 +77,7 @@ on `0.0.0.0:8000`.
 
 **Backend (FastAPI):**
 ```bash
-cd backend-fastapi
+cd backend
 uv sync
 PYTHONPATH=. uv run pytest tests/    # 235 tests, 96% coverage
 PYTHONPATH=. uv run uvicorn app.main:app --port 8000 --reload
@@ -103,9 +103,9 @@ npm run build      # typecheck + Vite production build
 Backend scripts:
 ```bash
 ./scripts/build_db.sh         # regenerates letras.db from CSV + lyrics (used in db-init container too)
-backend-fastapi/scripts/smoke.sh http://localhost:8000   # post-boot health check
-backend-fastapi/scripts/generate_openapi.py              # refresh openapi.json
-(cd backend-fastapi && uv run alembic upgrade head)      # apply migrations
+backend/scripts/smoke.sh http://localhost:8000   # post-boot health check
+backend/scripts/generate_openapi.py              # refresh openapi.json
+(cd backend && uv run alembic upgrade head)      # apply migrations
 ```
 
 ## Authentication
@@ -127,10 +127,10 @@ The initial admin is created by `scripts/build_db.sh` from the `ADMIN_PASS` env 
 
 ## Testing and Quality
 
-- **Backend (FastAPI)**: `cd backend-fastapi && PYTHONPATH=. uv run pytest tests/`. **235 tests pass at 96% coverage** with ruff clean. Coverage gate: 80% (`--cov-fail-under=80` in `pyproject.toml`; current coverage is well above).
+- **Backend (FastAPI)**: `cd backend && PYTHONPATH=. uv run pytest tests/`. **235 tests pass at 96% coverage** with ruff clean. Coverage gate: 80% (`--cov-fail-under=80` in `pyproject.toml`; current coverage is well above).
 - **Frontend**: `cd frontend && npm run test -- --run` (Vitest + Vue Test Utils). **265 tests pass** (9 skipped). Strict TypeScript — the typecheck (`vue-tsc --noEmit`) runs inside `npm run build` in CI.
-- **End-to-end backend smoke**: `cd backend-fastapi && PYTHONPATH=. uv run pytest tests/integration/test_uvicorn_smoke.py`. Boots a real uvicorn subprocess and exercises /healthz, /metrics, /openapi.json, /api/auth/register, /api/auth/login, /api/auth/me, /api/auth/logout, /api/search, /api/stats, /api/admin/* 401, and the 422 validation path.
-- **Post-deploy smoke script**: `backend-fastapi/scripts/smoke.sh http://localhost:8000`. Returns non-zero on the first failing check; intended to run after every `docker compose up`.
+- **End-to-end backend smoke**: `cd backend && PYTHONPATH=. uv run pytest tests/integration/test_uvicorn_smoke.py`. Boots a real uvicorn subprocess and exercises /healthz, /metrics, /openapi.json, /api/auth/register, /api/auth/login, /api/auth/me, /api/auth/logout, /api/search, /api/stats, /api/admin/* 401, and the 422 validation path.
+- **Post-deploy smoke script**: `backend/scripts/smoke.sh http://localhost:8000`. Returns non-zero on the first failing check; intended to run after every `docker compose up`.
 - **Design tokens**: `bash scripts/audit_design_tokens.sh frontend/src 0.05` verifies that no more than 5 % of style-bearing lines use hard-coded hex colors or px values outside `tokens.css`.
 - **End-to-end CI**: `scripts/run_ci_local.sh` runs the full sequence (backend lint + test → frontend lint + typecheck + test → docker compose build + health check).
 - **Code review**: `scripts/run_code_review_all.sh` is the optional pre-merge gate. It batches all source files and invokes the `/code-review` command on each batch. **This is opt-in**: the agent never runs it automatically. To run it before opening a PR:
@@ -141,7 +141,7 @@ The initial admin is created by `scripts/build_db.sh` from the `ADMIN_PASS` env 
 
 ## API Endpoints
 
-The full FastAPI surface is documented as an OpenAPI 3.1 spec at `backend-fastapi/openapi.json` (regenerable via `backend-fastapi/scripts/generate_openapi.py`; CI guards drift). The condensed list:
+The full FastAPI surface is documented as an OpenAPI 3.1 spec at `backend/openapi.json` (regenerable via `backend/scripts/generate_openapi.py`; CI guards drift). The condensed list:
 
 ### Public
 - `GET /healthz` — health check (used by the Docker healthcheck)
@@ -170,7 +170,7 @@ The full FastAPI surface is documented as an OpenAPI 3.1 spec at `backend-fastap
 
 Role hierarchy: `viewer` (read) < `editor` (write) < `admin` (delete + user management).
 
-The `docs/PARITY.md` table inside `backend-fastapi/` is the contract between the Vue dashboard and the FastAPI service — every `apiService.<x>` call has a row.
+The `docs/PARITY.md` table inside `backend/` is the contract between the Vue dashboard and the FastAPI service — every `apiService.<x>` call has a row.
 
 ## Deployment
 

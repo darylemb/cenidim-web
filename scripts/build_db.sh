@@ -16,8 +16,8 @@ echo "Building database from db_fonografia.csv (scripts/build_db.py)..."
 # system python3.
 PYTHON="${PYTHON:-python3}"
 if ! "${PYTHON}" -c "import bcrypt" 2>/dev/null; then
-  if [ -x backend-fastapi/.venv/bin/python ]; then
-    PYTHON=backend-fastapi/.venv/bin/python
+  if [ -x backend/.venv/bin/python ]; then
+    PYTHON=backend/.venv/bin/python
   fi
 fi
 

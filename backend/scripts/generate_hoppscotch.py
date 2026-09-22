@@ -1,6 +1,6 @@
 """Generate the Hoppscotch collection from the FastAPI OpenAPI spec.
 
-Output: backend-fastapi/scripts/hoppscotch-collection.json
+Output: backend/scripts/hoppscotch-collection.json
 
 Hoppscotch collection v2 schema (per hoppscotch-data/src/rest/v/1.ts,
 collection/v/2.ts, rest/v/5.ts). The web UI's import path validates
@@ -29,10 +29,10 @@ Spec reference: https://docs.hoppscotch.io/cli/rest-collection-spec
 Usage:
 
     # from anywhere in the repo
-    uv run --project backend-fastapi python backend-fastapi/scripts/generate_hoppscotch.py
+    uv run --project backend python backend/scripts/generate_hoppscotch.py
 
-    # or from backend-fastapi/
-    cd backend-fastapi
+    # or from backend/
+    cd backend
     uv run python scripts/generate_hoppscotch.py
 """
 from __future__ import annotations
@@ -43,7 +43,7 @@ from pathlib import Path
 from typing import Any
 
 # Make the FastAPI app importable regardless of where the script is
-# invoked from. backend-fastapi/scripts/ -> backend-fastapi/ is one
+# invoked from. backend/scripts/ -> backend/ is one
 # level up.
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _BACKEND_DIR = _SCRIPT_DIR.parent

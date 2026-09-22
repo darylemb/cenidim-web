@@ -169,7 +169,7 @@ Los temas (\codigo{Tema:} en los archivos fuente) son asignados por
 catalogadores humanos; el sistema \emph{no} los infiere. Las variantes
 de escritura (mayúsculas, espacios, errores tipográficos conocidos) se
 pliegan a formas canónicas mediante \codigo{canonical_tema}
-(\codigo{backend-fastapi/app/models/theme_normalization.py}).
+(\codigo{backend/app/models/theme_normalization.py}).
 
 \section{Alcance de este manual}
 Este documento es el manual entregable del proyecto. Cubre la
@@ -319,7 +319,7 @@ reflejan únicamente el texto de la canción.
 \section{Despliegue con Docker (recomendado)}
 \begin{lstlisting}
 docker compose up --build -d
-backend-fastapi/scripts/smoke.sh http://localhost:8000
+backend/scripts/smoke.sh http://localhost:8000
 \end{lstlisting}
 
 Servicios resultantes:
@@ -337,7 +337,7 @@ sigue siendo válido.
 \section{Desarrollo local sin Docker}
 \begin{lstlisting}
 # Backend
-cd backend-fastapi
+cd backend
 uv sync
 PYTHONPATH=. uv run pytest tests/
 uv run uvicorn app.main:app --port 8000 --reload
@@ -444,7 +444,7 @@ roles es \codigo{viewer} (lectura) $<$ \codigo{editor} (escritura) $<$
 % =====================================================================
 
 La especificación completa y normativa es
-\codigo{backend-fastapi/openapi.json} (OpenAPI 3.1, regenerable con
+\codigo{backend/openapi.json} (OpenAPI 3.1, regenerable con
 \codigo{scripts/generate_openapi.py} y vigilada por un guardia de
 deriva en CI). Resumen:
 
@@ -537,7 +537,7 @@ la rama \codigo{sandbox} en la fecha de este documento:
   \item Escaneo de vulnerabilidades con Trivy (imágenes y filesystem)
         en el job de Docker.
   \item Humo post-despliegue:
-        \codigo{backend-fastapi/scripts/smoke.sh} (código de salida no
+        \codigo{backend/scripts/smoke.sh} (código de salida no
         cero al primer fallo) y verificador extremo a extremo
         \codigo{scripts/verify_api.py} que cruza cada endpoint contra
         la base en disco.
@@ -675,7 +675,7 @@ del tablero, era \codigo{docs/GLOSARIO.md} (retirado en
 % =====================================================================
 
 \bibitem{readme} Repositorio del proyecto,
-  \textit{README.md} (raíz) y \textit{backend-fastapi/README.md}.
+  \textit{README.md} (raíz) y \textit{backend/README.md}.
 
 \bibitem{adr} ADR 0001: \textit{FastAPI reemplaza a Go},
   \codigo{docs/adr/0001-fastapi-replaces-go.md} (retirado del árbol en
@@ -693,7 +693,7 @@ del tablero, era \codigo{docs/GLOSARIO.md} (retirado en
   \codigo{docs/RESPUESTAS-CLIENTE-CENIDIM-2026-07-28.md} (ídem).
 
 \bibitem{openapi} Especificación OpenAPI 3.1 de la API,
-  \codigo{backend-fastapi/openapi.json}.
+  \codigo{backend/openapi.json}.
 
 \bibitem{fastapi} Documentación de FastAPI,
   \url{https://fastapi.tiangolo.com/}.

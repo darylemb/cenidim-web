@@ -2,7 +2,7 @@
 // (https://schema.getpostman.com/json/collection/v2.1.0/collection.json).
 //
 // Usage:
-//   cd backend-fastapi/scripts/postman-validator
+//   cd backend/scripts/postman-validator
 //   npm install
 //   node validate.mjs ../postman-collection.json
 //

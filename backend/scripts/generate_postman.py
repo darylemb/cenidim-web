@@ -1,6 +1,6 @@
 """Generate a Postman v2.1 collection from the FastAPI OpenAPI spec.
 
-Output: backend-fastapi/scripts/postman-collection.json
+Output: backend/scripts/postman-collection.json
 
 Postman v2.1 schema (https://schema.getpostman.com/json/collection/v2.1.0/collection.json):
   - info { _postman_id, name, description, schema }
@@ -16,10 +16,10 @@ Variables use ``{{baseUrl}}`` (the Postman / curl convention) — NOT
 Usage:
 
     # from anywhere in the repo
-    uv run --project backend-fastapi python backend-fastapi/scripts/generate_postman.py
+    uv run --project backend python backend/scripts/generate_postman.py
 
-    # or from backend-fastapi/
-    cd backend-fastapi
+    # or from backend/
+    cd backend
     uv run python scripts/generate_postman.py
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 # Make the FastAPI app importable regardless of where the script is
-# invoked from. backend-fastapi/scripts/ -> backend-fastapi/ is one
+# invoked from. backend/scripts/ -> backend/ is one
 # level up.
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _BACKEND_DIR = _SCRIPT_DIR.parent
@@ -140,7 +140,7 @@ def build_collection(base_url: str = "http://localhost:8000") -> dict[str, Any]:
             "_postman_id": str(uuid.uuid4()),
             "name": "CENIDIM FastAPI",
             "description": (
-                "Auto-generated from backend-fastapi/openapi.json. "
+                "Auto-generated from backend/openapi.json. "
                 f"Set the `baseUrl` variable to {base_url!r} (or "
                 "http://localhost if you go through the nginx proxy "
                 "on :80). Auth-protected endpoints expect a Bearer "

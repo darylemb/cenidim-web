@@ -51,7 +51,7 @@ openapi.json           # generated spec (CI guards drift)
 Requires Python 3.12+ and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
-cd backend-fastapi
+cd backend
 uv sync                        # install + lock
 PYTHONPATH=. uv run uvicorn app.main:app --port 8000 --reload
 ```

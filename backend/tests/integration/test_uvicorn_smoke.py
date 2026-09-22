@@ -20,7 +20,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]  # backend-fastapi/
+ROOT = Path(__file__).resolve().parents[2]  # backend/
 APP_DIR = ROOT  # uvicorn's cwd so it can `import app.main`
 
 

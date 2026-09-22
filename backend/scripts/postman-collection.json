@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "23b5a75d-e7f7-47de-8357-d7211096ff26",
     "name": "CENIDIM FastAPI",
-    "description": "Auto-generated from backend-fastapi/openapi.json. Set the `baseUrl` variable to 'http://localhost:8000' (or http://localhost if you go through the nginx proxy on :80). Auth-protected endpoints expect a Bearer token from POST /api/auth/login.",
+    "description": "Auto-generated from backend/openapi.json. Set the `baseUrl` variable to 'http://localhost:8000' (or http://localhost if you go through the nginx proxy on :80). Auth-protected endpoints expect a Bearer token from POST /api/auth/login.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

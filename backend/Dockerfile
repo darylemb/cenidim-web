@@ -18,7 +18,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1
 
-COPY backend-fastapi/pyproject.toml backend-fastapi/uv.lock ./
+COPY backend/pyproject.toml backend/uv.lock ./
 
 # --no-dev keeps the runtime image lean (no pytest, ruff, etc.).
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -38,13 +38,13 @@ ENV PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy
 
 COPY --from=deps /app/.venv ./.venv
-COPY backend-fastapi/app ./app
+COPY backend/app ./app
 # Alembic config + migration scripts. The runtime image runs
 # ``alembic upgrade head`` before uvicorn so the db-init-produced
 # ``letras.db`` (base schema from scripts/build_db.py) gets the
 # FastAPI columns before the API serves requests.
-COPY backend-fastapi/alembic.ini ./alembic.ini
-COPY backend-fastapi/alembic ./alembic
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/alembic ./alembic
 
 EXPOSE 8000
 
@@ -54,6 +54,6 @@ EXPOSE 8000
 # letras.db volume is created by the root-only db-init container)
 # and then drops to the non-root \`app\` user via
 # \`setpriv\` for the uvicorn process.
-COPY backend-fastapi/scripts/entrypoint.sh /entrypoint.sh
+COPY backend/scripts/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD []
