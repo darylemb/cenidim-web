@@ -621,6 +621,12 @@ editoriales del catálogo.
     El comentario de cobertura en \codigo{pyproject.toml} cita un
     objetivo de 95\% de una fase previa, pero la puerta vigente es
     80\% (cobertura actual 83.38\%); conviene alinearlos. \\
+  \pend & Herramientas &
+    Deriva de formato: el árbol fue formateado con el ruff 0.3.x que
+    pinea \codigo{.pre-commit-config.yaml}, pero el ruff resuelto por
+    \codigo{uv.lock} (0.15) reformatearía 51 archivos, por lo que
+    \codigo{ruff format} no es puerta de CI. Conviene alinear
+    versiones o reformatear en un commit puramente mecánico. \\
   \bottomrule
   \caption{Pendientes técnicos restantes tras la rama \codigo{release}.}
   \label{tab:pendientes-tec}

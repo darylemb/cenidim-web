@@ -63,14 +63,18 @@ run on boot (see `scripts/entrypoint.sh`).
 ### Quality gates
 
 ```bash
-PYTHONPATH=. uv run pytest tests/      # 235 tests, ~96% coverage (gate 80%)
+PYTHONPATH=. uv run pytest tests/      # 235 tests, 83% coverage (gate 80%)
 uv run ruff check app/ tests/          # lint
-uv run ruff format --check app/        # format
-uv run mypy app/                       # strict type checking
+uv run mypy app/                       # type checking (clean)
 uv run python scripts/generate_openapi.py   # refresh openapi.json
 uv run alembic upgrade head            # apply migrations
 ./scripts/smoke.sh http://localhost:8000    # post-boot health check
 ```
+
+Note: `ruff format` is **not** an enforced gate. The tree was formatted
+with the ruff version pinned in `.pre-commit-config.yaml` (0.3.x); the
+newer ruff resolved by `uv.lock` would reformat many files, so
+`ruff format --check` is not part of CI.
 
 ## Environment variables
 
