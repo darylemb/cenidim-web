@@ -72,8 +72,13 @@ def init_engine(settings: Settings | None = None) -> AsyncEngine:
     @event.listens_for(_engine.sync_engine, "connect")
     def _set_sqlite_pragma(dbapi_connection: Any, _: Any) -> None:
         cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
+        # busy_timeout MUST come before journal_mode=WAL: switching the
+        # journal mode needs a momentary exclusive lock, and without a
+        # busy timeout already in place two uvicorn workers racing on a
+        # freshly-built DB crash with "database is locked" on first
+        # boot (the container then relies on its restart policy).
         cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA foreign_keys=ON")
         # Register a Python UDF that normalizes the dirty ``anio``
         # column the same way the Python ``normalize_year`` helper
@@ -108,8 +113,8 @@ def init_in_memory_engine() -> AsyncEngine:
     @event.listens_for(_engine.sync_engine, "connect")
     def _set_sqlite_pragma(dbapi_connection: Any, _: Any) -> None:
         cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA foreign_keys=ON")
         dbapi_connection.create_function(
             "normalize_year", 1, _normalize_year_py, deterministic=True

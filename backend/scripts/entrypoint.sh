@@ -16,6 +16,17 @@ set -eu
 chmod 0777 /data 2>/dev/null || true
 chmod 0666 /data/letras.db 2>/dev/null || true
 
+# Pre-switch the DB to WAL while still single-processed: switching the
+# journal mode needs a momentary exclusive lock and journal-mode
+# PRAGMAs can bypass SQLite's busy handler, so two uvicorn workers
+# racing on a freshly-built DB crash with "database is locked" on
+# first boot (recovering only via the container restart policy). WAL
+# mode is persistent in the file, so the workers' own PRAGMA becomes
+# a no-op afterwards.
+if [ -f "${CENIDIM_DB_PATH:-/data/letras.db}" ]; then
+    .venv/bin/python -c "import sqlite3; c = sqlite3.connect('${CENIDIM_DB_PATH:-/data/letras.db}'); c.execute('PRAGMA journal_mode=WAL'); c.close()" || true
+fi
+
 # Idempotent migration: no-op if alembic is already at head.
 .venv/bin/alembic upgrade head || true
 
