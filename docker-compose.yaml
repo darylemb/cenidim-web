@@ -25,11 +25,11 @@ services:
 
   backend:
     image: cenidim-backend:latest
-    # FastAPI / Pydantic v2 implementation. See backend-fastapi/Dockerfile
+    # FastAPI / Pydantic v2 implementation. See backend/Dockerfile
     # for the multi-stage build (uv-managed deps, non-root runtime).
     build:
       context: .
-      dockerfile: backend-fastapi/Dockerfile
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     environment:

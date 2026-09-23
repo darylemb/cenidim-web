@@ -13,7 +13,7 @@
 set -e
 
 echo "=== Backend (FastAPI) lint + tests ==="
-cd backend-fastapi
+cd backend
 uv sync --frozen
 uv run ruff check app/ tests/
 PYTHONPATH=. uv run pytest tests/ -q
@@ -56,7 +56,7 @@ if [ $count -eq $max_wait ]; then
 fi
 
 # Run the full smoke script against the live stack.
-backend-fastapi/scripts/smoke.sh http://localhost:8000
+backend/scripts/smoke.sh http://localhost:8000
 
 docker compose down
 

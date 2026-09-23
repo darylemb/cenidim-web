@@ -17,27 +17,44 @@ unprivileged Nginx container (see `frontend/Dockerfile`).
 - **Auth**: JWT with HttpOnly cookies, password reset via email, and
   role-based access control.
 
+## Requirements
+
+- **Node.js 24** (the version pinned in CI via `actions/setup-node`).
+
 ## Available Scripts
 
 Run from `frontend/`:
 
 | Command | What it does |
 |---------|--------------|
-| `npm install` | Install dependencies |
+| `npm install` / `npm ci` | Install dependencies |
 | `npm run dev` | Vite dev server on `:5173`, proxies `/api` to the backend |
 | `npm run build` | TypeScript check (`vue-tsc --noEmit`) + production build |
-| `npm run typecheck` | `vue-tsc --noEmit` only |
+| `npx vue-tsc --noEmit` | Standalone typecheck (no dedicated npm script) |
 | `npm run lint` / `lint:fix` | ESLint |
 | `npm run test` | Vitest watch mode |
-| `npm run test -- --run` | One-shot test run (CI) |
+| `npm run test -- --run` / `npm run test:run` | One-shot test run (CI) |
 | `npm run test:coverage` | Coverage report |
+| `npm run test:e2e` / `test:e2e:ui` | Playwright end-to-end tests (needs the stack running) |
+| `npm run format` | Prettier over `src/` |
+
+### Test environment note (Node ≥ 22)
+
+Recent Node versions ship a built-in `localStorage` global that shadows
+jsdom's and used to crash ~63 tests with
+`Cannot read properties of undefined (reading 'clear')`.
+`src/test/setup.ts` now installs an in-memory `Storage` polyfill before
+the test environment boots, so the suite runs cleanly with **no**
+`NODE_OPTIONS` workarounds on any Node ≥ 22.
 
 ## Docker
 
 The frontend is built with **Vite** (not react-scripts) and served from
 `frontend/Dockerfile` using `nginx-unprivileged:alpine` (non-root, port
-80). The production bundle is emitted to `frontend/dist/` and committed
-so the committed artifact matches what the Nginx image serves.
+80). The production bundle is emitted to `frontend/dist/`, which is a
+**build artifact**: it is gitignored and never committed — the Docker
+image runs `npm run build` from source, and local builds regenerate it
+with `npm run build`.
 
 For full-stack orchestration, use the root `docker-compose.yaml` (or
 `docker-compose-coolify.yaml` for the Coolify deployment).
