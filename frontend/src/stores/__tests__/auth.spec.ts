@@ -6,7 +6,11 @@ import { apiService } from '@/services/api';
 describe('auth store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    vi.restoreAllMocks();
+    // Vitest 4: restoreAllMocks only restores vi.spyOn mocks; the
+    // apiService methods are plain vi.fn()s from the global setup
+    // mock, so their implementations + call counts need resetAllMocks
+    // to stay isolated between tests.
+    vi.resetAllMocks();
     localStorage.clear();
   });
 

@@ -1,6 +1,8 @@
 """Stats DTOs."""
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -35,7 +37,7 @@ class TimelineData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     years: list[str]
-    timeline: dict[str, list[dict]]
+    timeline: dict[str, list[dict[str, Any]]]
     total: int
     truncated: bool
 
@@ -57,7 +59,7 @@ class PaginatedResponse(BaseModel):
     """Generic pagination envelope for /api/admin/* list endpoints."""
     model_config = ConfigDict(extra="forbid")
 
-    results: list[dict]
+    results: list[dict[str, Any]]
     total: int
     page: int = 1
     limit: int = 20

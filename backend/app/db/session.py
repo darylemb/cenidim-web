@@ -9,9 +9,11 @@ expose a helper that swaps the engine for an in-memory aiosqlite DB
 from __future__ import annotations
 
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
+from types import TracebackType
+from typing import Any
 
-from sqlalchemy import Engine, event
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (  # noqa: F401
     AsyncEngine,
     AsyncSession,
@@ -68,7 +70,7 @@ def init_engine(settings: Settings | None = None) -> AsyncEngine:
     _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
 
     @event.listens_for(_engine.sync_engine, "connect")
-    def _set_sqlite_pragma(dbapi_connection, _):
+    def _set_sqlite_pragma(dbapi_connection: Any, _: Any) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA busy_timeout=5000")
@@ -85,7 +87,7 @@ def init_engine(settings: Settings | None = None) -> AsyncEngine:
     return _engine
 
 
-def init_in_memory_engine() -> Engine:
+def init_in_memory_engine() -> AsyncEngine:
     """Create an in-memory engine (test-only).
 
     Uses ``StaticPool`` so every connection shares the same underlying
@@ -104,7 +106,7 @@ def init_in_memory_engine() -> Engine:
     _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
 
     @event.listens_for(_engine.sync_engine, "connect")
-    def _set_sqlite_pragma(dbapi_connection, _):
+    def _set_sqlite_pragma(dbapi_connection: Any, _: Any) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA busy_timeout=5000")
@@ -138,7 +140,7 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     return _sessionmaker
 
 
-async def session_scope() -> AsyncIterator[AsyncSession]:
+async def session_scope() -> AsyncGenerator[AsyncSession, None]:
     """Yield an AsyncSession inside a transaction; commit on success.
 
     Used by the FastAPI dependency below. The session is bound to the
@@ -173,7 +175,12 @@ class _SessionScopeCM:
         self._session = await self._gen.__anext__()
         return self._session
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
         if exc is None:
             # Drive the generator to completion so the commit fires.
             try:

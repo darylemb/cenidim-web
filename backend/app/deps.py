@@ -8,6 +8,7 @@ JS where XSS is the bigger threat model).
 """
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator, Callable, Coroutine
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
@@ -34,7 +35,7 @@ def settings_dep() -> Settings:
 SettingsDep = Annotated[Settings, Depends(settings_dep)]
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async for session in session_scope():
         yield session
 
@@ -49,11 +50,12 @@ def _now_utc() -> datetime:
 def _decode_jwt(token: str, settings: Settings) -> dict[str, Any]:
     """Verify a JWT and return its claims. Raises 401 on failure."""
     try:
-        return jwt.decode(
+        payload: dict[str, Any] = jwt.decode(
             token,
             settings.jwt_secret.get_secret_value(),
             algorithms=[settings.jwt_algorithm],
         )
+        return payload
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -112,7 +114,7 @@ async def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-def require_role(min_role: str):
+def require_role(min_role: str) -> Callable[[User], Coroutine[Any, Any, User]]:
     """Build a dependency that asserts the current user has at least the
     given role. Roles are ordered: viewer < editor < admin.
     """

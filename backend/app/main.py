@@ -1,6 +1,8 @@
 """Common dependencies + CORS + security middleware."""
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -69,7 +71,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # CSRF seed cookie. The client reads this and echoes it as
     # X-CSRF-Token on every mutating request.
     @app.middleware("http")
-    async def _csrf_seed(request: Request, call_next):
+    async def _csrf_seed(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         # Refresh the seed whenever the page is loaded.
         existing = request.cookies.get("cenidim_csrf")
         if not existing:
@@ -77,7 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request.state.csrf_seed = token
         else:
             request.state.csrf_seed = existing
-        response: object = await call_next(request)
+        response: Response = await call_next(request)
         if isinstance(response, JSONResponse) and not request.cookies.get(
             "cenidim_csrf"
         ):
@@ -172,7 +176,7 @@ def _ip_key(request: Request) -> str:
     return request.headers.get("x-forwarded-for", request.client.host if request.client else "anonymous")
 
 
-async def _rate_limit_handler(_request: Request, exc: RateLimitExceeded) -> JSONResponse:
+async def _rate_limit_handler(_request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(
         status_code=429,
         content={"error": "Too many requests", "detail": str(exc)},

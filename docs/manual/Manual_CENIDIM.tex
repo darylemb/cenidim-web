@@ -96,7 +96,7 @@
       \textbf{Versión del documento:} & 1.0 \\
       \textbf{Versión del sistema:}   & 0.2.0 \\
       \textbf{Fecha:}                 & Septiembre de 2026 \\
-      \textbf{Rama de referencia:}    & \codigo{sandbox} \\
+      \textbf{Rama de referencia:}    & \codigo{release} \\
       \textbf{Despliegue:}            & \codigo{cenidim.darylemb.dev} \\
     \end{tabular}
 
@@ -502,7 +502,7 @@ Requieren JWT y rol suficiente. CRUD completo de \codigo{fonogramas},
 
 \section{Estado verificado}
 Los siguientes resultados fueron \emph{ejecutados y verificados} sobre
-la rama \codigo{sandbox} en la fecha de este documento:
+la rama \codigo{release} en la fecha de este documento:
 
 \begin{table}[h]
   \centering
@@ -510,23 +510,26 @@ la rama \codigo{sandbox} en la fecha de este documento:
     \toprule
     \textbf{Verificación} & \textbf{Comando} & \textbf{Resultado} \\
     \midrule
-    Tests backend   & \codigo{pytest tests/}        & \ok\ 235 pasan, cob. 96.13\% \\
+    Tests backend   & \codigo{pytest tests/}        & \ok\ 235 pasan, cob. 83.38\% \\
     Lint backend    & \codigo{ruff check app/ tests/} & \ok\ limpio \\
     Tipos frontend  & \codigo{vue-tsc --noEmit}      & \ok\ limpio \\
     Lint frontend   & \codigo{npm run lint}          & \ok\ 0 errores, 17 advertencias \\
     Tests frontend  & \codigo{vitest --run}          & \ok\ 265 pasan, 9 omitidos$^{\ast}$ \\
-    Tipos backend   & \codigo{mypy app/}             & \pend\ 41 errores (ver \S\ref{cap:pendientes}) \\
+    Tipos backend   & \codigo{mypy app/}             & \ok\ limpio (33 archivos) \\
     \bottomrule
   \end{tabular}
-  \caption{Panel de calidad. $^{\ast}$Requieren el ajuste de
-    \codigo{localStorage} descrito en el capítulo~\ref{cap:pendientes}.}
+  \caption{Panel de calidad. $^{\ast}$Vitest 4; el ajuste de
+    \codigo{localStorage} de \codigo{src/test/setup.ts} ya forma parte
+    del árbol, sin workarounds de entorno.}
   \label{tab:calidad}
 \end{table}
 
 \section{Puertas de calidad configuradas}
 \begin{itemize}
   \item Cobertura backend $\ge 80\%$ (\codigo{--cov-fail-under},
-        \codigo{pyproject.toml}); cobertura actual 96.13\%.
+        \codigo{pyproject.toml}); cobertura actual 83.38\% en corrida
+        limpia (un comentario del propio archivo menciona un objetivo
+        de 95\% de una fase previa del plan maestro).
   \item Umbrales de cobertura frontend en \codigo{vitest.config.ts}
         (líneas/sentencias 95\%, ramas 83\%, funciones 70\%).
   \item Guardia de deriva OpenAPI: \codigo{openapi.json} se regenera y
@@ -557,11 +560,48 @@ smoke + Trivy + verificador E2E).
 % =====================================================================
 
 \section{Veredicto}
-El sistema es \textbf{funcionalmente completo y está desplegado} en
-producción (\codigo{cenidim.\allowbreak darylemb.dev}). La suite de backend está
-íntegramente en verde y la de frontend también, una vez resuelto el
-conflicto de entorno descrito abajo. No obstante, la entrega formal
-debería ir precedida de la limpieza que se lista a continuación.
+El sistema es \textbf{funcionalmente completo, está desplegado} en
+producción (\codigo{cenidim.\allowbreak darylemb.dev}) y las suites de
+backend y frontend están íntegramente en verde. Los bloqueantes técnicos
+detectados en la revisión fueron resueltos en la rama \codigo{release}
+(\S\ref{sec:resueltos}); lo que queda es trabajo menor y las decisiones
+editoriales del catálogo.
+
+\section{Resueltos en la rama \codigo{release}}
+\label{sec:resueltos}
+\begin{itemize}
+  \item \textbf{Tipado backend.} \codigo{mypy app/} reportaba 41
+        errores en 7 archivos. Fueron corregidos con anotaciones reales
+        (no supresiones): generadores asíncronos tipados
+        (\codigo{session\_scope}, \codigo{get\_db}), helpers SQL de
+        \codigo{public.py} con \codigo{TypeVar} acotado a
+        \codigo{Select}, \codigo{cast} a \codigo{CursorResult} para
+        \codigo{lastrowid}/\codigo{rowcount}, y firma anotada del
+        middleware CSRF. Resultado: \ok\ limpio en 33 archivos, y el
+        hook de pre-commit ya no bloquea.
+  \item \textbf{Tests frontend en Node $\ge$ 24.} El
+        \codigo{localStorage} nativo de Node sombreaba al de jsdom (63
+        fallos). \codigo{src/test/setup.ts} instala ahora un polyfill
+        \codigo{Storage} en memoria; los 265 tests pasan sin
+        \codigo{NODE\_OPTIONS} ni workarounds de entorno.
+  \item \textbf{Dependencias frontend.} \codigo{npm audit} reportaba 15
+        vulnerabilidades (1 crítica). Se eliminó \codigo{vue-wordcloud}
+        (sin uso: la nube es el componente propio
+        \codigo{WordCloud.vue}), se actualizó vitest a la 4.1.11
+        (corrigiendo el mock reset en \codigo{auth.spec.ts} conforme al
+        nuevo comportamiento de \codigo{restoreAllMocks}) y se aplicó
+        \codigo{npm audit fix}. Resultado: \ok\ 0 vulnerabilidades.
+  \item \textbf{Higiene del repositorio.} Los CSV de clasificación
+        manual se conservaron en \codigo{historical/} con un README de
+        procedencia (no son entrada del pipeline).
+        \codigo{frontend/\allowbreak dist/} dejó de trackearse (lo
+        regenera el Dockerfile desde fuente). Las dos
+        \codigo{letras.db} se mantienen trackeadas de forma deliberada,
+        como referencia para nuevos mantenedores. \codigo{.gitignore}
+        corregido.
+  \item \textbf{CI en \codigo{release}.} El workflow de GitHub Actions
+        ahora dispara también en la rama \codigo{release} (push y PR).
+\end{itemize}
 
 \section{Pendientes técnicos}
 \begin{longtable}{p{0.9cm}p{3.4cm}p{9.4cm}}
@@ -569,46 +609,20 @@ debería ir precedida de la limpieza que se lista a continuación.
   & \textbf{Área} & \textbf{Pendiente} \\
   \midrule
   \endhead
-  \pend & Tipado backend &
-    \codigo{mypy app/} reporta \textbf{41 errores} en 7 archivos
-    (p.\,ej. \codigo{public.py}, \codigo{admin.py}, \codigo{main.py}).
-    El hook de pre-commit ejecuta mypy, por lo que bloquea commits;
-    conviene corregirlos o ajustar la configuración de forma
-    deliberada. \\
-  \pend & Tests frontend &
-    Con Node $\ge$ 24, el \codigo{localStorage} nativo sombrea al de
-    jsdom y 63 pruebas fallan
-    (\codigo{Cannot read properties of undefined}). Solución:
-    fijar \codigo{globalThis.localStorage} en
-    \codigo{src/test/setup.ts} o exportar
-    \codigo{NODE\_OPTIONS=\allowbreak --localstorage-file=<tmp>} en CI. Verificado:
-    con el ajuste pasan los 265 tests. \\
-  \pend & Dependencias frontend &
-    \codigo{npm audit}: \textbf{15 vulnerabilidades} (1 crítica,
-    10 altas, incl. \codigo{ws} en \codigo{vue-wordcloud}). Revisar
-    \codigo{npm audit fix} o sustituir el componente de nube. \\
-  \pend & Higiene del repo &
-    La limpieza de \codigo{ff4303b} ya retiró \codigo{test-auth.js},
-    \codigo{untitled41.py}, \codigo{datos.html}, \codigo{index.html} y
-    \codigo{plans/}. Quedan: \codigo{Clasificacion.csv} y
-    \codigo{clasification.csv} (ninguno es referenciado por el pipeline,
-    que usa \codigo{db_fonografia.csv}) y dos \codigo{letras.db}
-    divergentes trackeados (\codigo{/letras.db} y
-    \codigo{/data/letras.db}). \\
-  \pend & Documentación &
-    La misma limpieza eliminó \emph{toda} la documentación
-    (\codigo{docs/}: ADR, CUTOVER, GLOSARIO, respuestas al cliente) más
-    \codigo{AGENTS.md} y \codigo{CHANGELOG.md}; si fue intencional,
-    conviene decidir si se restauran o se acepta su pérdida. Los README
-    fueron corregidos en la rama \codigo{release} para no referenciar
-    archivos inexistentes. Sigue sin existir un archivo
-    \codigo{LICENSE}; \codigo{.gitignore} lista
-    \codigo{docker-compose.yaml} aunque está trackeado. \\
+  \pend & Licencia &
+    Sigue sin existir un archivo \codigo{LICENSE}; para la entrega
+    formal conviene elegir una (o confirmar ``todos los derechos
+    reservados'' con el cliente). \\
   \pend & Observabilidad &
     Deprecación FastAPI: \codigo{on_event} en \codigo{app/main.py}
-    debe migrarse a manejadores \emph{lifespan}. \\
+    debe migrarse a manejadores \emph{lifespan} (348 avisos en la
+    corrida de pytest). \\
+  \pend & Configuración &
+    El comentario de cobertura en \codigo{pyproject.toml} cita un
+    objetivo de 95\% de una fase previa, pero la puerta vigente es
+    80\% (cobertura actual 83.38\%); conviene alinearlos. \\
   \bottomrule
-  \caption{Pendientes técnicos detectados en la revisión.}
+  \caption{Pendientes técnicos restantes tras la rama \codigo{release}.}
   \label{tab:pendientes-tec}
 \end{longtable}
 

@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy import case, delete, func, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import Integer
@@ -269,7 +270,7 @@ async def admin_delete_fonograma(
     # the FK ON DELETE CASCADE that the Go migration creates.
     await db.execute(delete(Song).where(Song.fonograma_id == id))
     result = await db.execute(delete(Fonograma).where(Fonograma.clave_fonograma == id))
-    if result.rowcount == 0:
+    if cast(CursorResult[Any], result).rowcount == 0:
         raise HTTPException(status_code=404, detail="Fonograma not found")
     await _record_audit(
         db,
@@ -378,7 +379,7 @@ async def admin_delete_song(
     actor: User = Depends(require_role("admin")),
 ) -> UserCreatedResponse:
     result = await db.execute(delete(Song).where(Song.id == id))
-    if result.rowcount == 0:
+    if cast(CursorResult[Any], result).rowcount == 0:
         raise HTTPException(status_code=404, detail="Song not found")
     await _record_audit(
         db,

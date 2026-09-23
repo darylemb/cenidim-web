@@ -8,7 +8,9 @@ demo SMTP is "log to stdout".
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
+
+from sqlalchemy.engine import CursorResult
 
 from app.config import Settings
 
@@ -66,7 +68,7 @@ class EmailService:
         if cls._settings is None:
             from app.config import get_settings
             cls._settings = get_settings()
-        return cls._settings  # type: ignore[return-value]
+        return cls._settings
 
     @classmethod
     async def enqueue(
@@ -114,7 +116,7 @@ class EmailService:
                     "uid": related_user_id,
                 },
             )
-            return result.lastrowid
+            return cast(CursorResult[Any], result).lastrowid
 
         row_id: int | None = None
         try:
@@ -159,7 +161,7 @@ class EmailService:
                       api_key: str, from_addr: str) -> None:
         """Send via the official Resend SDK. Network errors are logged."""
         try:
-            import resend  # type: ignore
+            import resend
             resend.api_key = api_key
             resend.Emails.send(
                 {

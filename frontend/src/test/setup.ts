@@ -1,6 +1,39 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+// Node >= 22 ships a built-in `localStorage` global (a getter that
+// returns undefined unless --localstorage-file is passed). It shadows
+// jsdom's implementation — Vitest's jsdom populator never installs the
+// real Storage on globalThis — so every test touching localStorage
+// crashes with "Cannot read properties of undefined". Install an
+// in-memory Storage polyfill that matches the DOM Storage contract.
+class MemoryStorage implements Storage {
+  private store = new Map<string, string>();
+  get length() {
+    return this.store.size;
+  }
+  clear() {
+    this.store.clear();
+  }
+  getItem(key: string) {
+    return this.store.has(key) ? (this.store.get(key) as string) : null;
+  }
+  key(index: number) {
+    return [...this.store.keys()][index] ?? null;
+  }
+  removeItem(key: string) {
+    this.store.delete(key);
+  }
+  setItem(key: string, value: string) {
+    this.store.set(key, String(value));
+  }
+}
+Object.defineProperty(globalThis, 'localStorage', {
+  value: new MemoryStorage(),
+  writable: true,
+  configurable: true,
+});
+
 // Mock the api module for tests that don't need the real service.
 // The factory uses vi.fn()s that return safe defaults so tests that
 // only call a subset of methods (e.g. login + getMe in the auth

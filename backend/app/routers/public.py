@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import Annotated
+from typing import Annotated, Any, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import Integer, case, func, or_, select
+from sqlalchemy import ColumnElement, Integer, Select, case, func, or_, select
 
 from app.deps import DbDep
 from app.models.fonograma import Fonograma
@@ -48,6 +48,10 @@ from app.services.filters import (
 )
 
 router = APIRouter(prefix="/api", tags=["public"])
+
+# Generic SELECT type for the inner helpers that tack .where() clauses
+# onto whatever statement they receive.
+SelectT = TypeVar("SelectT", bound=Select[Any])
 
 
 def _split_csv(value: str | None) -> list[str]:
@@ -90,7 +94,7 @@ def _tema_filter_variants(canonical: str) -> list[str]:
 THEME_NONE_SENTINEL = "__none__"
 
 
-def _tema_filter_clause(temas: list[str]):
+def _tema_filter_clause(temas: list[str]) -> ColumnElement[bool] | None:
     """SQLAlchemy WHERE clause that matches any of the given themes.
 
     The input list may contain raw or canonical spellings; the clause
@@ -103,7 +107,7 @@ def _tema_filter_clause(temas: list[str]):
     named = [t for t in temas if t != THEME_NONE_SENTINEL]
     has_none = THEME_NONE_SENTINEL in temas
 
-    clauses = []
+    clauses: list[ColumnElement[bool]] = []
     if named:
         normalised = [v for ct in _norm_themes(named) for v in _tema_filter_variants(ct)]
         if normalised:
@@ -152,7 +156,7 @@ async def search_songs(
     clasificacion: ClasificacionList = None,
     album: AlbumQ = None,
     has_lyrics: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Search songs with optional filters.
 
     Theme/classification are exact-match after lowercasing so case
@@ -167,7 +171,7 @@ async def search_songs(
     if year_from is not None and year_to is not None and year_from > year_to:
         raise HTTPException(status_code=400, detail="year_from must be <= year_to")
 
-    def _lyrics_clause(stmt):
+    def _lyrics_clause(stmt: SelectT) -> SelectT:
         if has_lyrics:
             stmt = stmt.where(Song.lyrics.is_not(None), Song.lyrics != "")
         return stmt
@@ -345,7 +349,7 @@ def _get_request(request: Request) -> Request:
 
 @router.get("/timeline", response_model=TimelineData)
 async def get_timeline(
-    db: DbDep = ...,
+    db: DbDep,
     request: Request = Depends(_get_request),
     query: str = Query("", max_length=500),
     limit: int = Query(5000, ge=1, le=5000),
@@ -397,7 +401,7 @@ async def get_timeline(
     stmt = stmt.order_by(is_blank_year.asc(), func.cast(Fonograma.anio, Integer).asc()).limit(limit)
     rows = (await db.execute(stmt)).all()
 
-    timeline: dict[str, list[dict]] = {}
+    timeline: dict[str, list[dict[str, Any]]] = {}
     for song, fonograma, year in rows:
         # Normalize the dirty ``anio`` column so "[1982]" / multi-year
         # strings don't leak into the timeline keys. ``s/d`` /
@@ -446,8 +450,8 @@ def _alias_theme_from_request(request: Request) -> str | None:
 
 @router.get("/stats", response_model=StatsResponse)
 async def get_stats(
+    db: DbDep,
     request: Request = Depends(_get_request),
-    db: DbDep = ...,
     query: str = Query("", max_length=500),
     year_from: YearFromQ = None,
     year_to: YearToQ = None,
@@ -474,7 +478,7 @@ async def get_stats(
     # Reusable clause that joins fonograma + applies the year filter.
     # ``anio`` is TEXT; we CAST to Integer so the inequality uses
     # numeric ordering rather than lexicographic ('10' < '2').
-    def _joined_base():
+    def _joined_base() -> Select[tuple[Song]]:
         s = select(Song).join(Fonograma, Song.fonograma_id == Fonograma.clave_fonograma)
         if year_from is not None:
             s = s.where(func.cast(Fonograma.anio, Integer) >= year_from)
@@ -494,7 +498,7 @@ async def get_stats(
     _temas = [t for t in (tema or "").split(",") if t]
     _theme_filter = _tema_filter_clause(_temas)
 
-    def _apply_filters(stmt):
+    def _apply_filters(stmt: SelectT) -> SelectT:
         if year_from is not None:
             stmt = stmt.where(func.cast(Fonograma.anio, Integer) >= year_from)
         if year_to is not None:
@@ -751,7 +755,7 @@ def _extract_words(lyrics: str) -> list[str]:
 
 @router.get("/word-cloud", response_model=WordCloudResponse)
 async def get_word_cloud(
-    db: DbDep = ...,
+    db: DbDep,
     request: Request = Depends(_get_request),
     query: str = Query("", max_length=500),
     limit: int = Query(200, ge=1, le=500),
