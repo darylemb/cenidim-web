@@ -22,7 +22,6 @@
     "vue": "^3.5.13",
     "vue-chartjs": "^5.3.2",
     "vue-router": "^4.5.0",
-    "vue-wordcloud": "^1.1.1",
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
@@ -34,7 +33,7 @@
     "@typescript-eslint/eslint-plugin": "^8.59.3",
     "@typescript-eslint/parser": "^8.59.3",
     "@vitejs/plugin-vue": "^5.2.3",
-    "@vitest/coverage-v8": "^3.0.0",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vue/test-utils": "^2.4.6",
     "eslint": "^9.16.0",
     "eslint-config-prettier": "^10.1.8",
@@ -47,7 +46,7 @@
     "prettier": "^3.8.1",
     "typescript": "^5.7.3",
     "vite": "^6.2.4",
-    "vitest": "^3.0.0",
+    "vitest": "^4.1.11",
     "vue-eslint-parser": "^9.4.3",
     "vue-tsc": "^2.2.10"
   }

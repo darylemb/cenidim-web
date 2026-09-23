@@ -2,9 +2,9 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ "main", "dev", "feat*/*", "sandbox" ]
+    branches: [ "main", "dev", "feat*/*", "sandbox", "release" ]
   pull_request:
-    branches: [ "main", "dev", "sandbox"]
+    branches: [ "main", "dev", "sandbox", "release" ]
 
 jobs:
   lint:
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./backend-fastapi
+        working-directory: ./backend
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -115,8 +115,8 @@ jobs:
         run: sleep 15 && curl -sf http://localhost:8000/healthz
       - name: Smoke script
         run: |
-          chmod +x backend-fastapi/scripts/smoke.sh
-          backend-fastapi/scripts/smoke.sh http://localhost:8000
+          chmod +x backend/scripts/smoke.sh
+          backend/scripts/smoke.sh http://localhost:8000
       - name: Stop services
         if: always()
         run: docker compose down
@@ -136,8 +136,8 @@ jobs:
         run: sleep 45 && curl -sf http://localhost:8000/healthz
       - name: Smoke script
         run: |
-          chmod +x backend-fastapi/scripts/smoke.sh
-          backend-fastapi/scripts/smoke.sh http://localhost:8000
+          chmod +x backend/scripts/smoke.sh
+          backend/scripts/smoke.sh http://localhost:8000
       - name: End-to-end API verifier
         # Cross-checks every endpoint against the on-disk SQLite
         # catalog so API counts and DB counts cannot diverge silently.
@@ -148,7 +148,7 @@ jobs:
           mkdir -p /tmp/verifier-db
           docker compose cp \
             backend:/data/letras.db /tmp/verifier-db/letras.db
-          cd backend-fastapi
+          cd backend
           pip install --quiet httpx
           PYTHONPATH=. python scripts/verify_api.py \
             --base http://localhost:8000 \

@@ -31,7 +31,7 @@ services:
     image: cenidim-backend:latest
     build:
       context: .
-      dockerfile: backend-fastapi/Dockerfile
+      dockerfile: backend/Dockerfile
     expose:
       - '8000'
     environment:

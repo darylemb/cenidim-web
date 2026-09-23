@@ -40,8 +40,8 @@ COPY db_fonografia.csv ./db_fonografia.csv
 # normalize_db.py loads canonical_tema from the FastAPI tree via a bare
 # importlib load (it must not import the SQLAlchemy package); ship just
 # that one file so the same path resolves inside the container.
-COPY backend-fastapi/app/models/theme_normalization.py \
-    ./backend-fastapi/app/models/theme_normalization.py
+COPY backend/app/models/theme_normalization.py \
+    ./backend/app/models/theme_normalization.py
 
 # Entrypoint script: re-runs the build + classify + normalize steps
 # every time the container starts so a `docker compose up` against an

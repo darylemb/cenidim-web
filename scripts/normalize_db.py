@@ -67,7 +67,7 @@ def _load_canonical_tema():
     path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         "..",
-        "backend-fastapi",
+        "backend",
         "app",
         "models",
         "theme_normalization.py",
